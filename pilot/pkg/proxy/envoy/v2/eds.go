@@ -354,6 +354,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
+	inboundUpdates.With(prometheus.Labels{"type": "svc"}).Add(1)
 	pc := s.globalPushContext()
 	// In 1.0 Services and configs are only from the 'primary' K8S cluster.
 	if cluster == string(serviceregistry.KubernetesRegistry) {
@@ -408,6 +409,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
+	inboundUpdates.With(prometheus.Labels{"type": "workload"}).Add(1)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if labels == nil {
@@ -469,6 +471,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ 
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	istioEndpoints []*model.IstioEndpoint) error {
+	inboundUpdates.With(prometheus.Labels{"type": "eds"}).Add(1)
 	s.edsUpdate(shard, serviceName, istioEndpoints, false)
 	return nil
 }
@@ -666,7 +669,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
-func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, edsUpdatedServices map[string]struct{}) error {
+func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, version string, edsUpdatedServices map[string]struct{}) error {
 	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
 	endpoints := 0
 	empty := []string{}
@@ -729,7 +732,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments)
+	response := endpointDiscoveryResponse(loadAssignments, version)
 	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
@@ -862,14 +865,14 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string) {
 	}
 }
 
-func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment) *xdsapi.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment, version string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		TypeUrl: EndpointType,
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
 		// will begin seeing results it deems to be good.
-		VersionInfo: versionInfo(),
+		VersionInfo: version,
 		Nonce:       nonce(),
 	}
 	for _, loadAssignment := range loadAssignments {
@@ -889,7 +892,7 @@ func buildLocalityLbEndpointsFromShards(
 	push *model.PushContext) []endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
-	shards.mutex.RLock()
+	shards.mutex.Lock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
 	for _, endpoints := range shards.Shards {
@@ -916,7 +919,7 @@ func buildLocalityLbEndpointsFromShards(
 
 		}
 	}
-	shards.mutex.RUnlock()
+	shards.mutex.Unlock()
 
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {

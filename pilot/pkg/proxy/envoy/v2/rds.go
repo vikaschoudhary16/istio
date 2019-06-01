@@ -18,13 +18,16 @@ import (
 	"fmt"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/proto"
 )
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext) error {
+func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext, version string) error {
 	rawRoutes, err := s.generateRawRoutes(con, push)
 	if err != nil {
 		return err
@@ -39,7 +42,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext)
 		}
 	}
 
-	response := routeDiscoveryResponse(rawRoutes)
+	response := routeDiscoveryResponse(rawRoutes, version)
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("RDS: Send failure for node:%v: %v", con.modelNode.ID, err)
@@ -67,7 +70,19 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 
 		if r == nil {
 			adsLog.Warnf("RDS: Got nil value for route:%s for node:%v", routeName, con.modelNode)
-			continue
+
+			// Don't send an empty route, instead ignore the request. This may cause Envoy to block
+			// listeners waiting for this route
+			if pilot.DisableEmptyRouteResponse {
+				continue
+			}
+
+			// Explicitly send an empty route configuration
+			r = &xdsapi.RouteConfiguration{
+				Name:             routeName,
+				VirtualHosts:     []route.VirtualHost{},
+				ValidateClusters: proto.BoolFalse,
+			}
 		}
 
 		if err = r.Validate(); err != nil {
@@ -84,10 +99,10 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.Push
 	return rc, nil
 }
 
-func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration) *xdsapi.DiscoveryResponse {
+func routeDiscoveryResponse(rs []*xdsapi.RouteConfiguration, version string) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     RouteType,
-		VersionInfo: versionInfo(),
+		VersionInfo: version,
 		Nonce:       nonce(),
 	}
 	for _, rc := range rs {
