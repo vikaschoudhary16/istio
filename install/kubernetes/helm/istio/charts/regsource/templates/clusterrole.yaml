@@ -1,0 +1,27 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: regsource-{{ .Release.Namespace }}
+  labels:
+    app: regsource
+rules:
+- apiGroups: ["*"]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["*"]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["*"]
+  resources: ["services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["*"]
+  resources: ["endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["*"]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "watch"]
+---
+

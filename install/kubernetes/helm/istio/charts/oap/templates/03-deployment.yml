@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oap-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: oap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oap
+  template:
+    metadata:
+      labels:
+        app: oap
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: {{ .Release.Namespace }}-oap
+      containers:
+      - name: oap
+        image: {{ .Values.global.hub }}/oap:{{ .Values.tag }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 11800
+          name: grpc
+        - containerPort: 12800
+          name: rest
+        resources:
+          requests:
+            memory: 2Gi
+          limits:
+            memory: 4Gi
+        env:
+        - name: JAVA_OPTS
+          value: -Xmx4096M -Dmode=no-init
+        - name: SKYWALKING_COLLECTOR_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        volumeMounts:
+        - name: config
+          mountPath: /skywalking/config
+      - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+        image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+      # - name: envoy
+      #   image: {{ .Values.global.hub }}/envoy-alpine:{{ .Values.envoy.tag }}
+      #   imagePullPolicy: Always
+        command: [ "/usr/local/bin/envoy" ]
+        args:
+        - -c
+        - /etc/envoy/envoy.yaml
+        - --service-cluster
+        - envoy-proxy
+        ports:
+        - containerPort: 50001
+        - containerPort: 9200
+        volumeMounts:
+        - mountPath: /etc/envoy/
+          name: config
+      volumes:
+      - name: config
+        configMap:
+          name: oap-config

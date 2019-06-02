@@ -31,13 +31,21 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   host: "*.local"
-  {{- if .Values.global.defaultConfigVisibilitySettings }}
-  exportTo:
-  - '*'
-  {{- end }}
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
+    outlierDetection:
+      consecutiveErrors: 10
+      maxEjectionPercent: 100
+      minHealthPercent: 0
+    connectionPoolSettings:
+      tcp:
+        maxConnections: 8096
+      http:
+        http1MaxPendingRequests: 8096
+        http2MaxPendingRequests: 8096
+        maxRequestsPerConnection: 0
+        maxRetries: 8096
 ---
 # Destination rule to disable (m)TLS when talking to API server, as API server doesn't have sidecar.
 # Customer should add similar destination rules for other services that don't have sidecar.

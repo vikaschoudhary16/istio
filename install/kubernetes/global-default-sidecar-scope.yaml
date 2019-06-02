@@ -15,6 +15,43 @@ spec:
     # and istio-policy
   - hosts:
     - "./*"
-    - "istio-system/istio-telemetry.istio-system.svc.cluster.local"
-    - "istio-system/istio-policy.istio-system.svc.cluster.local"
+    - "istio-config/*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: default-destination-rule
+  namespace: istio-config
+spec:
+  host: "*.local"
+  exportTo:
+  - '*'
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    outlierDetection:
+      consecutiveErrors: 10
+      maxEjectionPercent: 100
+      minHealthPercent: 0
+    connectionPoolSettings:
+      tcp:
+        maxConnections: 8096
+      http:
+        http1MaxPendingRequests: 8096
+        http2MaxPendingRequests: 8096
+        maxRequestsPerConnection: 0
+        maxRetries: 8096
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: api-server
+  namespace: istio-config
+spec:
+  host: "kubernetes.default.svc.cluster.local"
+  exportTo:
+  - '*'
+  trafficPolicy:
+    tls:
+      mode: DISABLE
 ---

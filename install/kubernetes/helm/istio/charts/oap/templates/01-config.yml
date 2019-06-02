@@ -1,0 +1,423 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oap-config
+  namespace: {{.Release.Namespace}}
+data:
+  envoy.yaml: |
+    admin:
+      address:
+        socket_address: { address: 0.0.0.0, port_value: 50001 }
+    static_resources:
+      listeners:
+      - name: es_listener
+        address:
+          socket_address: { address: 0.0.0.0, port_value: 9200 }
+        filter_chains:
+        - filters:
+          - name: envoy.http_connection_manager
+            config:
+              stat_prefix: elasticsearch
+              codec_type: AUTO
+              route_config:
+                name: local_route
+                request_headers_to_add:
+                - header:
+                    key: tcc_route_target
+                    value: elasticsearch
+                virtual_hosts:
+                - name: local_service
+                  domains: ['*']
+                  routes:
+                  - match: { prefix: '/' }
+                    route: { cluster: elasticsearch }
+              http_filters:
+              - name: envoy.router
+      clusters:
+      - name: elasticsearch
+        connect_timeout: 5s
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        tls_context: {}
+        hosts:
+        - socket_address:
+            address: {{ .Values.elasticsearch.host }}
+            port_value: {{ .Values.elasticsearch.port }}
+  application.yml: |-
+    cluster:
+      kubernetes:
+        watchTimeoutSeconds: 60
+        namespace: {{.Release.Namespace}}
+        labelSelector: app=oap
+        uidEnvName: SKYWALKING_COLLECTOR_UID
+    core:
+      default:
+        role: Mixed
+        restHost: 0.0.0.0
+        restPort: 12800
+        restContextPath: /
+        gRPCHost: 0.0.0.0
+        gRPCPort: 11800
+        downsampling:
+        - Hour
+        - Day
+        - Month
+        recordDataTTL: 0 # Unit is minute
+        minuteMetricsDataTTL: 0 # Unit is minute
+        hourMetricsDataTTL: 0 # Unit is hour
+        dayMetricsDataTTL: 0 # Unit is day
+        monthMetricsDataTTL: 0 # Unit is month
+    storage:
+      elasticsearch:
+        clusterNodes: 127.0.0.1:9200
+        indexShardsNumber: 2
+        indexReplicasNumber: 0
+        bulkActions: 2000 # Execute the bulk every 2000 requests
+        bulkSize: 20 # flush the bulk every 20mb
+        flushInterval: 10 # flush the bulk every 10 seconds whatever the number of requests
+        concurrentRequests: 2 # the number of concurrent requests
+        metadataQueryMaxSize: 5000
+        segmentQueryMaxSize: 200
+    receiver-sharing-server:
+      default:
+    receiver-register:
+      default:
+    receiver-trace:
+      default:
+        bufferPath: ${SW_RECEIVER_BUFFER_PATH:../trace-buffer/}  # Path to trace buffer files, suggest to use absolute path
+        bufferOffsetMaxFileSize: ${SW_RECEIVER_BUFFER_OFFSET_MAX_FILE_SIZE:100} # Unit is MB
+        bufferDataMaxFileSize: ${SW_RECEIVER_BUFFER_DATA_MAX_FILE_SIZE:500} # Unit is MB
+        bufferFileCleanWhenRestart: ${SW_RECEIVER_BUFFER_FILE_CLEAN_WHEN_RESTART:false}
+        sampleRate: ${SW_TRACE_SAMPLE_RATE:10000} # The sample rate precision is 1/10000. 10000 means 100% sample in default.
+        slowDBAccessThreshold: ${SW_SLOW_DB_THRESHOLD:default:200,mongodb:100} # The slow database access thresholds. Unit ms.
+    receiver-jvm:
+      default:
+    receiver-clr:
+      default:
+    service-mesh:
+      default:
+        bufferPath: ${SW_SERVICE_MESH_BUFFER_PATH:../mesh-buffer/}  # Path to trace buffer files, suggest to use absolute path
+        bufferOffsetMaxFileSize: ${SW_SERVICE_MESH_OFFSET_MAX_FILE_SIZE:100} # Unit is MB
+        bufferDataMaxFileSize: ${SW_SERVICE_MESH_BUFFER_DATA_MAX_FILE_SIZE:500} # Unit is MB
+        bufferFileCleanWhenRestart: ${SW_SERVICE_MESH_BUFFER_FILE_CLEAN_WHEN_RESTART:false}
+    istio-telemetry:
+      default:
+    envoy-metric:
+      default:
+        alsHTTPAnalysis: ${SW_ENVOY_METRIC_ALS_HTTP_ANALYSIS:k8s-mesh}
+    query:
+      graphql:
+        path: ${SW_QUERY_GRAPHQL_PATH:/graphql}
+    alarm:
+      default:
+    telemetry:
+      prometheus:
+
+  log4j2.xml: |-
+    <Configuration status="WARN">
+        <Appenders>
+            <Console name="Console" target="SYSTEM_OUT">
+                <PatternLayout charset="UTF-8" pattern="%d - %c -%-4r [%t] %-5p %x - %m%n"/>
+            </Console>
+        </Appenders>
+        <Loggers>
+            <logger name="org.eclipse.jetty" level="INFO"/>
+            <logger name="org.apache.zookeeper" level="INFO"/>
+            <logger name="org.elasticsearch.common.network.IfConfig" level="INFO"/>
+            <logger name="io.grpc.netty" level="INFO"/>
+            <logger name="org.apache.skywalking.oap.server.receiver.istio.telemetry" level="INFO"/>
+            <Root level="WARN">
+                <AppenderRef ref="Console"/>
+            </Root>
+        </Loggers>
+    </Configuration>
+
+  alarm-settings.yml: |-
+    rules:
+      service_resp_time_rule:
+        metrics-name: service_resp_time
+        include-names:
+          - dubbox-provider
+          - dubbox-consumer
+        threshold: 1000
+        op: ">"
+        period: 10
+        count: 1
+    webhooks:
+
+  component-libraries.yml: |-
+    Tomcat:
+      id: 1
+      languages: Java
+    HttpClient:
+      id: 2
+      languages: Java,C#,Node.js
+    Dubbo:
+      id: 3
+      languages: Java
+    H2:
+      id: 4
+      languages: Java
+    Mysql:
+      id: 5
+      languages: Java,C#,Node.js
+    ORACLE:
+      id: 6
+      languages: Java
+    Redis:
+      id: 7
+      languages: Java,C#,Node.js
+    Motan:
+      id: 8
+      languages: Java
+    MongoDB:
+      id: 9
+      languages: Java,C#,Node.js
+    Resin:
+      id: 10
+      languages: Java
+    Feign:
+      id: 11
+      languages: Java
+    OKHttp:
+      id: 12
+      languages: Java
+    SpringRestTemplate:
+      id: 13
+      languages: Java
+    SpringMVC:
+      id: 14
+      languages: Java
+    Struts2:
+      id: 15
+      languages: Java
+    NutzMVC:
+      id: 16
+      languages: Java
+    NutzHttp:
+      id: 17
+      languages: Java
+    JettyClient:
+      id: 18
+      languages: Java
+    JettyServer:
+      id: 19
+      languages: Java
+    Memcached:
+      id: 20
+      languages: Java
+    ShardingJDBC:
+      id: 21
+      languages: Java
+    PostgreSQL:
+      id: 22
+      languages: Java,C#,Node.js
+    GRPC:
+      id: 23
+      languages: Java
+    ElasticJob:
+      id: 24
+      languages: Java
+    RocketMQ:
+      id: 25
+      languages: Java
+    httpasyncclient:
+      id: 26
+      languages: Java
+    Kafka:
+      id: 27
+      languages: Java
+    ServiceComb:
+      id: 28
+      languages: Java
+    Hystrix:
+      id: 29
+      languages: Java
+    Jedis:
+      id: 30
+      languages: Java
+    SQLite:
+      id: 31
+      languages: Java,C#
+    h2-jdbc-driver:
+      id: 32
+      languages: Java
+    mysql-connector-java:
+      id: 33
+      languages: Java
+    ojdbc:
+      id: 34
+      languages: Java
+    Spymemcached:
+      id: 35
+      languages: Java
+    Xmemcached:
+      id: 36
+      languages: Java
+    postgresql-jdbc-driver:
+      id: 37
+      languages: Java
+    rocketMQ-producer:
+      id: 38
+      languages: Java
+    rocketMQ-consumer:
+      id: 39
+      languages: Java
+    kafka-producer:
+      id: 40
+      languages: Java
+    kafka-consumer:
+      id: 41
+      languages: Java
+    mongodb-driver:
+      id: 42
+      languages: Java
+    SOFARPC:
+      id: 43
+      languages: Java
+    ActiveMQ:
+      id: 44
+      languages: Java
+    activemq-producer:
+      id: 45
+      languages: Java
+    activemq-consumer:
+      id: 46
+      languages: Java
+    Elasticsearch:
+      id: 47
+      languages: Java
+    transport-client:
+      id: 48
+      languages: Java
+    http:
+      id: 49
+      languages: Java,C#,Node.js
+    rpc:
+      id: 50
+      languages: Java,C#,Node.js
+    RabbitMQ:
+      id: 51
+      languages: Java
+    rabbitmq-producer:
+      id: 52
+      languages: Java
+    rabbitmq-consumer:
+      id: 53
+      languages: Java
+    Canal:
+      id: 54
+      languages: Java
+    Gson:
+      id: 55
+      languages: Java
+    Redisson:
+      id: 56
+      languages: Java
+    Lettuce:
+      id: 57
+      languages: Java
+    Zookeeper:
+      id: 58
+      languages: Java
+
+    # .NET/.NET Core components
+    # [3000, 4000) for C#/.NET only
+    AspNetCore:
+      id: 3001
+      languages: C#
+    EntityFrameworkCore:
+      id: 3002
+      languages: C#
+    SqlClient:
+      id: 3003
+      languages: C#
+    CAP:
+      id: 3004
+      languages: C#
+    StackExchange.Redis:
+      id: 3005
+      languages: C#
+    SqlServer:
+      id: 3006
+      languages: C#
+    Npgsql:
+      id: 3007
+      languages: C#
+    MySqlConnector:
+      id: 3008
+      languages: C#
+    EntityFrameworkCore.InMemory:
+      id: 3009
+      languages: C#
+    EntityFrameworkCore.SqlServer:
+      id: 3010
+      languages: C#
+    EntityFrameworkCore.Sqlite:
+      id: 3011
+      languages: C#
+    Pomelo.EntityFrameworkCore.MySql:
+      id: 3012
+      languages: C#
+    Npgsql.EntityFrameworkCore.PostgreSQL:
+      id: 3013
+      languages: C#
+    InMemoryDatabase:
+      id: 3014
+      languages: C#
+    AspNet:
+      id: 3015
+      languages: C#
+    SmartSql:
+      id: 3016
+      languages: C#
+
+    # NoeJS components
+    # [4000, 5000) for Node.js agent
+    HttpServer:
+      id: 4001
+      languages: Node.js
+    express:
+      id: 4002
+      languages: Node.js
+    Egg:
+      id: 4003
+      languages: Node.js
+    Koa:
+      id: 4004
+      languages: Node.js
+
+    # Component Server mapping defines the server display names of some components
+    # e.g.
+    # Jedis is a client library in Java for Redis server
+    Component-Server-Mappings:
+      mongodb-driver: MongoDB
+      rocketMQ-producer: RocketMQ
+      rocketMQ-consumer: RocketMQ
+      kafka-producer: Kafka
+      kafka-consumer: Kafka
+      activemq-producer: ActiveMQ
+      activemq-consumer: ActiveMQ
+      rabbitmq-producer: RabbitMQ
+      rabbitmq-consumer: RabbitMQ
+      postgresql-jdbc-driver: PostgreSQL
+      Xmemcached: Memcached
+      Spymemcached: Memcached
+      h2-jdbc-driver: H2
+      mysql-connector-java: Mysql
+      Jedis: Redis
+      StackExchange.Redis: Redis
+      Redisson: Redis
+      Lettuce: Redis
+      Zookeeper: Zookeeper
+      SqlClient: SqlServer
+      Npgsql: PostgreSQL
+      MySqlConnector: Mysql
+      EntityFrameworkCore.InMemory: InMemoryDatabase
+      EntityFrameworkCore.SqlServer: SqlServer
+      EntityFrameworkCore.Sqlite: SQLite
+      Pomelo.EntityFrameworkCore.MySql: Mysql
+      Npgsql.EntityFrameworkCore.PostgreSQL: PostgreSQL
+      transport-client: Elasticsearch
+
+

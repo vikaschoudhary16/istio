@@ -1,0 +1,87 @@
+nodeagent:
+  enabled: true
+  image: node-agent-k8s
+  env:
+    CA_PROVIDER: "Citadel"
+    CA_ADDR: "istio-citadel:8060"
+    VALID_TOKEN: true
+
+pilot:
+  enabled: true
+
+gateways:
+  enabled: false
+
+security:
+  enabled: true
+
+sidecarInjectorWebhook:
+  enabled: true
+
+galley:
+  enabled: true
+
+mixer:
+  policy:
+    enabled: false
+  telemetry:
+    enabled: false
+
+prometheus:
+  enabled: false
+
+oap:
+  enabled: true
+  tag: v1.0.build.1581046
+  elasticsearch:
+    host: ""
+    port: ""
+  #envoy:
+  #  tag: c1fde9909df98373be1fd2cc0733caf1f91917a6
+
+regsource:
+  enabled: true
+  tag: ""
+
+global:
+  tcc:
+    host: ""
+    port: 8443
+    tenant: ""
+    cluster: ""
+    environment: ""
+
+  hub: docker.io/tetrateio
+  tag: latest
+  controlPlaneSecurityEnabled: false
+  disablePolicyChecks: true
+  enableTracing: true
+
+  proxy:
+    envoyMetricsService:
+      enabled: true
+      host: oap.istio-system
+      port: 11800
+    envoyAccesslogService:
+      enabled: true
+      config:
+        targetUri: "oap.istio-system:11800"
+
+  # tracer:
+  #   zipkin:
+  #     address: "oap.istio-system"
+
+  mtls:
+    enabled: false
+
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+
+  sds:
+    enabled: true
+    udsPath: "unix:/var/run/sds/uds_path"
+    useNormalJwt: true
+
+  configRootNamespace: istio-config
+  defaultConfigVisibilitySettings:
+  - '.'

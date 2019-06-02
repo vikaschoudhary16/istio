@@ -1,0 +1,19 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+apiVersion: v1
+kind: Service
+metadata:
+  name: oap
+  namespace: {{.Release.Namespace}}
+  labels:
+    service: oap
+spec:
+  ports:
+  - port: 12800
+    name: rest
+  - port: 11800
+    name: grpc
+  selector:
+    app: oap

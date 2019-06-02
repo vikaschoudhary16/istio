@@ -1,0 +1,16 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: regsource-role-binding-{{ .Release.Namespace }}
+  labels:
+    app: regsource
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: regsource-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: regsource-service-account
+    namespace: {{ .Release.Namespace }}
+---
+

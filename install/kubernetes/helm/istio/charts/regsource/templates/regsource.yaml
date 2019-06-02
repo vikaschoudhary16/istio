@@ -1,0 +1,36 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: regsource
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: regsource
+    provider: tetrate
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: regsource
+        provider: tetrate
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: regsource-service-account
+      containers:
+      - name: regsource
+        image: {{ .Values.global.hub }}/regsource-server:{{ .Values.tag }}
+        imagePullPolicy: Always
+        command:
+        - /usr/local/bin/regsource-server
+        - --tcc-host={{ .Values.global.tcc.host }}:{{ .Values.global.tcc.port }}
+        - --tenant={{ .Values.global.tcc.tenant }}
+        - --cluster={{ .Values.global.tcc.cluster }}
+        - --environment={{ .Values.global.tcc.environment }}
+---
+
