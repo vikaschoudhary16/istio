@@ -20,6 +20,7 @@ sidecarInjectorWebhook:
 
 galley:
   enabled: true
+  cstag: ""
 
 mixer:
   policy:
@@ -56,6 +57,9 @@ global:
   controlPlaneSecurityEnabled: false
   disablePolicyChecks: true
   enableTracing: true
+  # disable validating webhook registration for k8s crds in galley
+  # as we dont register crds
+  configValidation: false
 
   proxy:
     envoyMetricsService:

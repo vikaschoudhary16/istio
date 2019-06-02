@@ -33,7 +33,42 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+      initContainers:
+      - name: set-config-link
+        image: {{ .Values.global.hub }}/busybox:1.30
+        imagePullPolicy: Always
+        command: 
+        - /bin/sh
+        - -c
+        - |
+          cd /etc/tcc
+          echo $PWD
+          ls -l
+          rm -f config.yaml
+          # if config.latest is there, copy it to trigger
+          # if not there, its fine - just create trigger file
+          # trigger file would be galley's starting config and
+          # subsequently moved over to config.latest when configsink-server starts
+          cp config.latest trigger 2>/dev/null
+          touch trigger
+          ln -s trigger config.yaml
+          ls -l
+        volumeMounts:
+        - name: configsink-dir
+          mountPath: /etc/tcc/
       containers:
+        - name: configsink
+          image: {{ .Values.global.hub }}/configsink-server:{{ .Values.cstag }}
+          imagePullPolicy: Always
+          command: 
+          - /usr/local/bin/configsink-server
+          - --tcc-host={{ .Values.global.tcc.host }}:{{ .Values.global.tcc.port }}
+          - --cluster={{ .Values.global.tcc.cluster }}
+          - --tenant={{ .Values.global.tcc.tenant }}
+          - --environment={{ .Values.global.tcc.environment }}
+          volumeMounts:
+          - name: configsink-dir
+            mountPath: /etc/tcc/
         - name: galley
 {{- if contains "/" .Values.image }}
           image: "{{ .Values.image }}"
@@ -68,7 +103,11 @@ spec:
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
+          - --enable-validation=false
+          - --configPath=/etc/tcc/config.yaml
           volumeMounts:
+          - name: configsink-dir
+            mountPath: /etc/tcc/
           - name: certs
             mountPath: /etc/certs
             readOnly: true
@@ -103,6 +142,9 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
       volumes:
+      - name: configsink-dir
+        persistentVolumeClaim:
+          claimName: configsink-data
       - name: certs
         secret:
           secretName: istio.istio-galley-service-account
