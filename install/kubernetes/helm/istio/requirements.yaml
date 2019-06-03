@@ -38,3 +38,9 @@ dependencies:
   - name: certmanager
     version: 1.1.0
     condition: certmanager.enabled
+  - name: oap
+    version: 1.1.0
+    condition: oap.enabled
+  - name: regsource
+    version: 1.1.0
+    condition: regsource.enabled

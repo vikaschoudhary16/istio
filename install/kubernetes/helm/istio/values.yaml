@@ -490,3 +490,12 @@ global:
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
+
+  ## Dummy values to keep helm lint happy
+  tcc:
+    enabled: false
+    host: "tcc.com"
+    port: 8443
+    tenant: "scooby"
+    cluster: "cluster1"
+    environment: "dev"

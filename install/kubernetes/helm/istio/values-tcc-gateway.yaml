@@ -1,0 +1,129 @@
+global:
+  omitSidecarInjectorConfigMap: true
+  istioNamespace: istio-system
+  controlPlaneSecurityEnabled: true
+  hub: docker.io/tetrateio
+  tag: latest
+
+  tcc:
+    enabled: true
+    host: "tcc.com"
+    port: 8443
+    tenant: "scooby"
+    cluster: "cluster1"
+    environment: "dev"
+
+  proxy:
+    envoyMetricsService:
+      enabled: true
+      host: oap.istio-system
+      port: 11800
+    envoyAccesslogService:
+      enabled: true
+      config:
+        targetUri: "oap.istio-system:11800"
+
+gateways:
+  enabled: true
+
+  istio-ingressgateway:
+    enabled: false
+    sds:
+      enabled: true
+    env:
+      ISTIO_META_ROUTER_MODE: ""
+    ports:
+    - port: 80
+      targetPort: 80
+      name: http2
+    - port: 443
+      name: https
+
+  istio-egressgateway:
+    enabled: false
+
+  app-gateway:
+    enabled: false
+    labels:
+      app: appName
+    sds:
+      enabled: true
+      # SDS server that watches kubernetes secrets and provisions credentials to gateway.
+      # This server runs in the same pod as gateway.
+      image: node-agent-k8s
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 2000m
+          memory: 1024Mi
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+    cpu:
+      targetAverageUtilization: 80
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: {}
+    externalIPs: []
+    serviceAnnotations: {}
+    podAnnotations: {}
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      targetPort: 80
+      name: http2
+      # nodePort: 31380
+    - port: 443
+      name: https
+      # nodePort: 31390
+    secretVolumes: {}
+
+# all other components are disabled except the gateways
+security:
+  enabled: false
+
+sidecarInjectorWebhook:
+  enabled: false
+
+galley:
+  enabled: false
+
+mixer:
+  policy:
+    enabled: false
+  telemetry:
+    enabled: false
+
+pilot:
+  enabled: false
+
+grafana:
+  enabled: false
+
+prometheus:
+  enabled: false
+
+tracing:
+  enabled: false
+
+kiali:
+  enabled: false
+
+certmanager:
+  enabled: false
+
+oap:
+  enabled: false
+
+regsource:
+  enabled: false

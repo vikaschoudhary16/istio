@@ -49,9 +49,6 @@ spec:
         image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-      # - name: envoy
-      #   image: {{ .Values.global.hub }}/envoy-alpine:{{ .Values.envoy.tag }}
-      #   imagePullPolicy: Always
         command: [ "/usr/local/bin/envoy" ]
         args:
         - -c

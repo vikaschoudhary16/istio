@@ -20,7 +20,8 @@ sidecarInjectorWebhook:
 
 galley:
   enabled: true
-  cstag: ""
+  configSink:
+    tag: "latest"
 
 mixer:
   policy:
@@ -33,30 +34,29 @@ prometheus:
 
 oap:
   enabled: true
-  tag: v1.0.build.1581046
+  tag: "v1.0.build.1581046"
   elasticsearch:
-    host: ""
-    port: ""
-  #envoy:
-  #  tag: c1fde9909df98373be1fd2cc0733caf1f91917a6
+    host: "tcc.visa.com"
+    port: 8443
 
 regsource:
   enabled: true
-  tag: ""
+  tag: latest
 
 global:
   tcc:
-    host: ""
+    enabled: true
+    host: "tcc.com"
     port: 8443
-    tenant: ""
-    cluster: ""
-    environment: ""
+    tenant: "scooby"
+    cluster: "cluster1"
+    environment: "dev"
 
   hub: docker.io/tetrateio
   tag: latest
-  controlPlaneSecurityEnabled: false
+  controlPlaneSecurityEnabled: true
   disablePolicyChecks: true
-  enableTracing: true
+  enableTracing: false
   # disable validating webhook registration for k8s crds in galley
   # as we dont register crds
   configValidation: false
@@ -71,12 +71,8 @@ global:
       config:
         targetUri: "oap.istio-system:11800"
 
-  # tracer:
-  #   zipkin:
-  #     address: "oap.istio-system"
-
   mtls:
-    enabled: false
+    enabled: true
 
   outboundTrafficPolicy:
     mode: ALLOW_ANY

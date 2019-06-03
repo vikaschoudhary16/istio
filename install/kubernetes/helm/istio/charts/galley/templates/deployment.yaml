@@ -33,6 +33,7 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+{{- if .Values.configSink }}
       initContainers:
       - name: set-config-link
         image: {{ .Values.global.hub }}/busybox:1.30
@@ -56,9 +57,11 @@ spec:
         volumeMounts:
         - name: configsink-dir
           mountPath: /etc/tcc/
+{{- end }}
       containers:
+{{- if .Values.configSink }}
         - name: configsink
-          image: {{ .Values.global.hub }}/configsink-server:{{ .Values.cstag }}
+          image: {{ .Values.global.hub }}/configsink-server:{{ .Values.configSink.tag }}
           imagePullPolicy: Always
           command: 
           - /usr/local/bin/configsink-server
@@ -69,6 +72,7 @@ spec:
           volumeMounts:
           - name: configsink-dir
             mountPath: /etc/tcc/
+{{- end }}
         - name: galley
 {{- if contains "/" .Values.image }}
           image: "{{ .Values.image }}"
@@ -103,11 +107,15 @@ spec:
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
-          - --enable-validation=false
+{{- if .Values.configSink }}
           - --configPath=/etc/tcc/config.yaml
+          - --resyncPeriod=1s
+{{- end }}
           volumeMounts:
+{{- if .Values.configSink }}
           - name: configsink-dir
             mountPath: /etc/tcc/
+{{- end }}
           - name: certs
             mountPath: /etc/certs
             readOnly: true
@@ -142,9 +150,11 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
       volumes:
+{{- if .Values.configSink }}
       - name: configsink-dir
         persistentVolumeClaim:
           claimName: configsink-data
+{{- end }}
       - name: certs
         secret:
           secretName: istio.istio-galley-service-account

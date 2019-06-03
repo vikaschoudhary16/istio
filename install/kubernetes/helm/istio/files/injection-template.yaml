@@ -178,6 +178,18 @@ containers:
       fieldRef:
         fieldPath: status.hostIP
 {{ end }}
+{{- if .Values.global.tcc.enabled }}
+  - name: ISTIO_META_TCC_TENANT
+    value: {{ .Values.global.tcc.tenant }}
+  - name: ISTIO_META_TCC_CLUSTER
+    value: {{ .Values.global.tcc.cluster }}
+  - name: ISTIO_META_TCC_ENVIRONMENT
+    value: {{ .Values.global.tcc.environment }}
+  - name: ISTIO_META_TCC_APPLICATION
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+{{- end }}
   - name: ISTIO_META_POD_NAME
     valueFrom:
       fieldRef:

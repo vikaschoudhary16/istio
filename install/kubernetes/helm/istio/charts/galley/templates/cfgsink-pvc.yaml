@@ -1,3 +1,4 @@
+{{- if .Values.configSink }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -11,3 +12,5 @@ spec:
   resources:
     requests:
       storage: 1Gi
+---
+{{- end }}
