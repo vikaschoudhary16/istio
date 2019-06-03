@@ -42,7 +42,7 @@ gateways:
   istio-egressgateway:
     enabled: false
 
-  app-gateway:
+  tcc-app-gateway:
     enabled: false
     labels:
       app: appName
