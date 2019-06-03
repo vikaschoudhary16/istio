@@ -28,6 +28,10 @@ gateways:
 
   istio-ingressgateway:
     enabled: false
+    labels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+      tcc: clustergateway
     sds:
       enabled: true
     env:
@@ -45,7 +49,7 @@ gateways:
   tcc-app-gateway:
     enabled: false
     labels:
-      app: appName
+      tcc: appgateway
     sds:
       enabled: true
       # SDS server that watches kubernetes secrets and provisions credentials to gateway.
