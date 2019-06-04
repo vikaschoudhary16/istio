@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{.Release.Namespace}}-oap
+  name: oap-service-account
   namespace: {{.Release.Namespace}}
 
 ---
@@ -16,7 +16,7 @@ roleRef:
   name: {{.Release.Namespace}}-oap
 subjects:
 - kind: ServiceAccount
-  name: {{.Release.Namespace}}-oap
+  name: oap-service-account
   namespace: {{.Release.Namespace}}
 
 ---

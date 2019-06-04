@@ -23,7 +23,7 @@ data:
                 name: local_route
                 request_headers_to_add:
                 - header:
-                    key: tcc_route_target
+                    key: tcc-route-target
                     value: elasticsearch
                 virtual_hosts:
                 - name: local_service

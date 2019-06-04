@@ -17,7 +17,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: {{ .Release.Namespace }}-oap
+      serviceAccountName: oap-service-account
       containers:
       - name: oap
         image: {{ .Values.global.hub }}/oap:{{ .Values.tag }}
