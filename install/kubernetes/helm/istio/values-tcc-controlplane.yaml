@@ -68,8 +68,8 @@ global:
       port: 11800
     envoyAccesslogService:
       enabled: true
-      config:
-        targetUri: "oap.istio-system:11800"
+      host: oap.istio-system
+      port: 11800
 
   mtls:
     enabled: true
