@@ -4,6 +4,8 @@ global:
   controlPlaneSecurityEnabled: true
   hub: docker.io/tetrateio
   tag: latest
+  defaultPodDisruptionBudget:
+    enabled: false
 
   tcc:
     enabled: true
@@ -49,6 +51,7 @@ gateways:
   tcc-app-gateway:
     enabled: false
     labels:
+      app: istio-appgateway
       tcc: appgateway
     sds:
       enabled: true

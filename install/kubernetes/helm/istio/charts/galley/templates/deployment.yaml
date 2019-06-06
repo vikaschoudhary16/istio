@@ -37,7 +37,7 @@ spec:
       initContainers:
       - name: set-config-link
         image: {{ .Values.global.hub }}/busybox:1.30
-        imagePullPolicy: Always
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         command: 
         - /bin/sh
         - -c
@@ -62,7 +62,7 @@ spec:
 {{- if .Values.configSink }}
         - name: configsink
           image: {{ .Values.global.hub }}/configsink-server:{{ .Values.configSink.tag }}
-          imagePullPolicy: Always
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           command: 
           - /usr/local/bin/configsink-server
           - --tcc-host={{ .Values.global.tcc.host }}:{{ .Values.global.tcc.port }}

@@ -60,6 +60,8 @@ global:
   # disable validating webhook registration for k8s crds in galley
   # as we dont register crds
   configValidation: false
+  defaultPodDisruptionBudget:
+    enabled: false
 
   proxy:
     envoyMetricsService:
@@ -72,7 +74,7 @@ global:
       port: 11800
 
   mtls:
-    enabled: true
+    enabled: false
 
   outboundTrafficPolicy:
     mode: ALLOW_ANY
