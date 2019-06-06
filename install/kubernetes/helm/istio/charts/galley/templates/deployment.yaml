@@ -101,8 +101,10 @@ spec:
 {{- if not $.Values.global.useMCP }}
           - --enable-server=false
 {{- end }}
+{{- if not .Values.configSink }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
+{{- end }}
           - --monitoringPort={{ .Values.global.monitoringPort }}
 {{- if $.Values.global.logging.level }}
           - --log_output_level={{ $.Values.global.logging.level }}
