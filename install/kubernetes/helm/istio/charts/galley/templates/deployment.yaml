@@ -69,9 +69,16 @@ spec:
           - --cluster={{ .Values.global.tcc.cluster }}
           - --tenant={{ .Values.global.tcc.tenant }}
           - --environment={{ .Values.global.tcc.environment }}
+{{- if .Values.configSink.token }}
+          - --jwt-file=/etc/configsink/token
+{{- end }}
           volumeMounts:
           - name: configsink-dir
             mountPath: /etc/tcc/
+{{- if .Values.configSink.token }}
+          - name: configsink-token
+            mountPath: /etc/configsink
+{{- end }}
 {{- end }}
         - name: galley
 {{- if contains "/" .Values.image }}
@@ -158,6 +165,11 @@ spec:
       - name: configsink-dir
         persistentVolumeClaim:
           claimName: configsink-data
+{{- if .Values.configSink.token }}
+      - name: configsink-token
+        secret:
+          secretName: configsink-token
+{{- end }}
 {{- end }}
       - name: certs
         secret:

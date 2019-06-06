@@ -32,5 +32,24 @@ spec:
         - --tenant={{ .Values.global.tcc.tenant }}
         - --cluster={{ .Values.global.tcc.cluster }}
         - --environment={{ .Values.global.tcc.environment }}
----
+{{- if .Values.token }}
+        - --jwt-file=/etc/regsource/token
+        volumeMounts:
+        - name: regsource-token
+          mountPath: /etc/regsource
+      volumes:
+      - name: regsource-token
+        secret:
+          secretName: regsource-token
 
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: regsource-token
+  namespace: {{ .Release.Namespace }}
+data:
+  token: {{ .Values.token | b64enc }}
+{{- end }}
+
+---

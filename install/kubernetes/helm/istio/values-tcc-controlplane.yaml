@@ -22,6 +22,7 @@ galley:
   enabled: true
   configSink:
     tag: "latest"
+    token: ""
 
 mixer:
   policy:
@@ -42,6 +43,7 @@ oap:
 regsource:
   enabled: true
   tag: latest
+  token: ""
 
 global:
   tcc:
