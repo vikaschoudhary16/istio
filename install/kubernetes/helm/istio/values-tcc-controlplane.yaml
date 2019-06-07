@@ -70,7 +70,7 @@ global:
       enabled: true
       host: oap.istio-system
       port: 11800
-    envoyAccesslogService:
+    envoyAccessLogService:
       enabled: true
       host: oap.istio-system
       port: 11800
