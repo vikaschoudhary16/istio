@@ -44,6 +44,7 @@ gateways:
       name: http2
     - port: 443
       name: https
+    secretVolumes: 
 
   istio-egressgateway:
     enabled: false
