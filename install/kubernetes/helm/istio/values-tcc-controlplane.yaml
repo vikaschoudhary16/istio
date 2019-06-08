@@ -1,11 +1,3 @@
-nodeagent:
-  enabled: true
-  image: node-agent-k8s
-  env:
-    CA_PROVIDER: "Citadel"
-    CA_ADDR: "istio-citadel:8060"
-    VALID_TOKEN: true
-
 pilot:
   enabled: true
 
@@ -80,11 +72,6 @@ global:
 
   outboundTrafficPolicy:
     mode: ALLOW_ANY
-
-  sds:
-    enabled: true
-    udsPath: "unix:/var/run/sds/uds_path"
-    useNormalJwt: true
 
   configRootNamespace: istio-config
   defaultConfigVisibilitySettings:
