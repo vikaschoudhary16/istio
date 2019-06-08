@@ -3,7 +3,7 @@ global:
   istioNamespace: istio-system
   controlPlaneSecurityEnabled: true
   hub: docker.io/tetrateio
-  tag: latest
+  tag: tcc-v0.5.0-istio
   defaultPodDisruptionBudget:
     enabled: false
 

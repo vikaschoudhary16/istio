@@ -21,7 +21,7 @@ sidecarInjectorWebhook:
 galley:
   enabled: true
   configSink:
-    tag: "latest"
+    tag: tcc-v0.5.0
     token: ""
 
 mixer:
@@ -42,7 +42,7 @@ oap:
 
 regsource:
   enabled: true
-  tag: latest
+  tag: tcc-v0.5.0
   token: ""
 
 global:
@@ -55,7 +55,7 @@ global:
     environment: "dev"
 
   hub: docker.io/tetrateio
-  tag: latest
+  tag: tcc-v0.5.0-istio
   controlPlaneSecurityEnabled: true
   disablePolicyChecks: true
   enableTracing: false
