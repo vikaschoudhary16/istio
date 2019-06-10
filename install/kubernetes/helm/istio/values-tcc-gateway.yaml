@@ -2,7 +2,7 @@ global:
   omitSidecarInjectorConfigMap: true
   istioNamespace: istio-system
   controlPlaneSecurityEnabled: true
-  hub: docker.io/tetrateio
+  hub: "__HUB__"
   tag: "__ISTIO__"
   defaultPodDisruptionBudget:
     enabled: false

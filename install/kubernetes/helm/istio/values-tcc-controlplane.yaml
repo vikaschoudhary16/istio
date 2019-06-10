@@ -30,7 +30,7 @@ oap:
   tag: "v1.0.build.1581046"
   token: ""
   elasticsearch:
-    host: "tcc.visa.com"
+    host: "__HOST__"
     port: 8443
 
 regsource:
@@ -47,7 +47,7 @@ global:
     cluster: "__CLUSTER__"
     environment: "__ENV__"
 
-  hub: docker.io/tetrateio
+  hub: "__HUB__"
   tag: "__ISTIO__"
   controlPlaneSecurityEnabled: true
   disablePolicyChecks: true
