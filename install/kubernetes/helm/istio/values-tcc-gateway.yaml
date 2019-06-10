@@ -3,23 +3,19 @@ global:
   istioNamespace: istio-system
   controlPlaneSecurityEnabled: true
   hub: docker.io/tetrateio
-  tag: tcc-v0.5.0-istio
+  tag: "__ISTIO__"
   defaultPodDisruptionBudget:
     enabled: false
 
   tcc:
     enabled: true
-    host: "tcc.com"
+    host: "__HOST__"
     port: 8443
-    tenant: "scooby"
-    cluster: "cluster1"
-    environment: "dev"
+    tenant: "__TENANT__"
+    cluster: "__CLUSTER__"
+    environment: "__ENV__"
 
   proxy:
-    envoyMetricsService:
-      enabled: false
-      host: oap.istio-system
-      port: 11800
     envoyAccessLogService:
       enabled: true
       host: oap.istio-system
@@ -56,8 +52,6 @@ gateways:
       tcc: appgateway
     sds:
       enabled: true
-      # SDS server that watches kubernetes secrets and provisions credentials to gateway.
-      # This server runs in the same pod as gateway.
       image: node-agent-k8s
       resources:
         requests:
@@ -96,7 +90,7 @@ gateways:
       # nodePort: 31390
     secretVolumes: {}
 
-# all other components are disabled except the gateways
+# all other components should be disabled except the gateways
 security:
   enabled: false
 
