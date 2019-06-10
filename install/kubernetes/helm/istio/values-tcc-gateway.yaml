@@ -17,7 +17,7 @@ global:
 
   proxy:
     envoyMetricsService:
-      enabled: true
+      enabled: false
       host: oap.istio-system
       port: 11800
     envoyAccessLogService:
