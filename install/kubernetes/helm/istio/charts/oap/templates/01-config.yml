@@ -26,6 +26,11 @@ data:
                 - header:
                     key: tcc-route-target
                     value: elasticsearch
+                {{- if .Values.token }}
+                - header:
+                    key: Authorization
+                    value: "Bearer {{ .Values.token }}"
+                {{- end }}
                 virtual_hosts:
                 - name: local_service
                   domains: ['*']

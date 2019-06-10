@@ -28,6 +28,7 @@ prometheus:
 oap:
   enabled: true
   tag: "v1.0.build.1581046"
+  token: ""
   elasticsearch:
     host: "tcc.visa.com"
     port: 8443
