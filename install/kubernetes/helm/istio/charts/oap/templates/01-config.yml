@@ -52,7 +52,7 @@ data:
         labelSelector: app=oap
         uidEnvName: SKYWALKING_COLLECTOR_UID
     core:
-      default:
+      spm:
         role: Mixed
         restHost: 0.0.0.0
         restPort: 12800
