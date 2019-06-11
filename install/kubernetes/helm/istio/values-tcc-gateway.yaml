@@ -36,7 +36,6 @@ gateways:
       ISTIO_META_ROUTER_MODE: ""
     ports:
     - port: 80
-      targetPort: 80
       name: http2
     - port: 443
       name: https
@@ -80,14 +79,12 @@ gateways:
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
     ports:
-      ## You can add custom gateway ports
-    - port: 80
-      targetPort: 80
+    - port: 80 # DO NOT CHANGE
+      # hostPort: 8080
       name: http2
-      # nodePort: 31380
-    - port: 443
+    - port: 443 # DO NOT CHANGE
       name: https
-      # nodePort: 31390
+      # hostPort: 8443
     secretVolumes: {}
 
 # all other components should be disabled except the gateways

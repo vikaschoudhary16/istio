@@ -42,7 +42,9 @@ spec:
     {{- range $key, $val := $spec.ports }}
     -
       {{- range $pkey, $pval := $val }}
+      {{- if ne $pkey "hostPort" }}
       {{ $pkey}}: {{ $pval }}
+      {{- end }}
       {{- end }}
     {{- end }}
     {{- if $.Values.global.meshExpansion.enabled }}
