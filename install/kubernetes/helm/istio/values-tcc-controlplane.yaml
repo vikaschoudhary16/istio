@@ -6,6 +6,7 @@ gateways:
 
 security:
   enabled: true
+  createMeshPolicy: false
 
 sidecarInjectorWebhook:
   enabled: true
