@@ -44,11 +44,11 @@ gateways:
   istio-egressgateway:
     enabled: false
 
-  tcc-app-gateway:
+  tcc-gateway:
     enabled: false
     labels:
-      app: istio-appgateway
-      tcc: appgateway
+      app: __UNIQUENAME__
+      tcc: gateway
     sds:
       enabled: true
       image: node-agent-k8s
