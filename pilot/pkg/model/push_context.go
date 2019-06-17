@@ -86,11 +86,11 @@ type PushContext struct {
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment `json:"-"`
 
-	// ServicePort2Name is used to keep track of service name and port mapping.
+	// ServicePortByHostname is used to keep track of service name and port mapping.
 	// This is needed because ADS names use port numbers, while endpoints use
 	// port names. The key is the service name. If a service or port are not found,
 	// the endpoint needs to be re-evaluated later (eventual consistency)
-	ServicePort2Name map[string]PortList `json:"-"`
+	ServicePortByHostname map[Hostname]PortList `json:"-"`
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[Hostname]map[int][]string `json:"-"`
@@ -266,6 +266,12 @@ var (
 		"Number of clusters without instances.",
 	)
 
+	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
+	DuplicatedDomains = newPushMetric(
+		"pilot_vservice_dup_domain",
+		"Virtual services with dup domains.",
+	)
+
 	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
 	DuplicatedSubsets = newPushMetric(
 		"pilot_destrule_subsets",
@@ -299,11 +305,11 @@ func NewPushContext() *PushContext {
 		},
 		sidecarsByNamespace: map[string][]*SidecarScope{},
 
-		ServiceByHostname: map[Hostname]*Service{},
-		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
-		ServicePort2Name:  map[string]PortList{},
-		ServiceAccounts:   map[Hostname]map[int][]string{},
-		Start:             time.Now(),
+		ServiceByHostname:     map[Hostname]*Service{},
+		ProxyStatus:           map[string]map[string]ProxyPushStatus{},
+		ServicePortByHostname: map[Hostname]PortList{},
+		ServiceAccounts:       map[Hostname]map[int][]string{},
+		Start:                 time.Now(),
 	}
 }
 
@@ -617,7 +623,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			}
 		}
 		ps.ServiceByHostname[s.Hostname] = s
-		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
+		ps.ServicePortByHostname[s.Hostname] = s.Ports
 	}
 
 	ps.initServiceAccounts(env, allServices)
@@ -648,9 +654,17 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
-	vservices, err := env.List(VirtualService.Type, NamespaceAll)
+	virtualServices, err := env.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return err
+	}
+
+	// values returned from ConfigStore.List are immutable.
+	// Therefore, we make a copy
+	vservices := make([]Config, len(virtualServices))
+
+	for i := range vservices {
+		vservices[i] = virtualServices[i].DeepCopy()
 	}
 
 	// TODO(rshriram): parse each virtual service and maintain a map of the
@@ -951,13 +965,4 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 		return err
 	}
 	return nil
-}
-
-// AddVirtualServiceForTesting adds a virtual service to the push context.
-// It is to be used for TESTING ONLY.
-func (ps *PushContext) AddVirtualServiceForTesting(config *Config) {
-	// check if the config is a virtual service
-	if config.Type == VirtualService.Type {
-		ps.publicVirtualServices = append(ps.publicVirtualServices, *config)
-	}
 }
