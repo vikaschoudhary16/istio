@@ -1,0 +1,14 @@
+# Licensed to the Tetrate Inc
+apiVersion: v1
+kind: Service
+metadata:
+  name: regsource
+  namespace: {{.Release.Namespace}}
+  labels:
+    service: regsource
+spec:
+  ports:
+  - port: 9080
+    name: grpc
+  selector:
+    app: regsource
