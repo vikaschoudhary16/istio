@@ -26,6 +26,9 @@ spec:
       - name: regsource
         image: {{ .Values.global.hub }}/regsource-server:{{ .Values.tag }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 9080
+          name: grpc
         command:
         - /usr/local/bin/regsource-server
         - --tcc-host={{ .Values.global.tcc.host }}:{{ .Values.global.tcc.port }}
