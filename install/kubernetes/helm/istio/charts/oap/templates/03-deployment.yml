@@ -20,7 +20,7 @@ spec:
       serviceAccountName: oap-service-account
       containers:
       - name: oap
-        image: {{ .Values.global.hub }}/oap:{{ .Values.tag }}
+        image: {{ .Values.global.hub }}/spm-user:{{ .Values.tag }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         ports:
         - containerPort: 11800
