@@ -28,7 +28,7 @@ prometheus:
 
 oap:
   enabled: true
-  tag: "v1.0.build.1581046"
+  tag: "v2.0.e64b50e"
   token: ""
   elasticsearch:
     host: "__HOST__"

@@ -39,6 +39,31 @@ data:
                     route: { cluster: elasticsearch }
               http_filters:
               - name: envoy.router
+      - name: oap_tcc_listener
+        address:
+          socket_address: { address: 0.0.0.0, port_value: 21800 }
+        filter_chains:
+        - filters:
+          - name: envoy.http_connection_manager
+            config:
+              stat_prefix: oap_tcc
+              codec_type: AUTO
+              route_config:
+                name: local_route
+                request_headers_to_add:
+                {{- if .Values.token }}
+                - header:
+                    key: Authorization
+                    value: "Bearer {{ .Values.token }}"
+                {{- end }}
+                virtual_hosts:
+                - name: local_service
+                  domains: ['*']
+                  routes:
+                  - match: { prefix: '/' }
+                    route: { cluster: oap-tcc }
+              http_filters:
+              - name: envoy.router
       clusters:
       - name: elasticsearch
         connect_timeout: 5s
@@ -49,6 +74,16 @@ data:
         - socket_address:
             address: {{ .Values.elasticsearch.host }}
             port_value: {{ .Values.elasticsearch.port }}
+      - name: oap-tcc
+        connect_timeout: 5s
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        tls_context: {}
+        http2_protocol_options: {}
+        hosts:
+        - socket_address:
+            address: {{ .Values.global.tcc.host }}
+            port_value: {{ .Values.global.tcc.port }}
   application.yml: |-
     cluster:
       kubernetes:
@@ -57,33 +92,47 @@ data:
         labelSelector: app=oap
         uidEnvName: SKYWALKING_COLLECTOR_UID
     core:
-      spm:
-        role: Mixed
-        restHost: 0.0.0.0
-        restPort: 12800
-        restContextPath: /
-        gRPCHost: 0.0.0.0
-        gRPCPort: 11800
+      default:
+        # Mixed: Receive agent data, Level 1 aggregate, Level 2 aggregate
+        # Receiver: Receive agent data, Level 1 aggregate
+        # Aggregator: Level 2 aggregate
+        role: ${SW_CORE_ROLE:Mixed} # Mixed/Receiver/Aggregator
+        restHost: ${SW_CORE_REST_HOST:0.0.0.0}
+        restPort: ${SW_CORE_REST_PORT:12800}
+        restContextPath: ${SW_CORE_REST_CONTEXT_PATH:/}
+        gRPCHost: ${SW_CORE_GRPC_HOST:0.0.0.0}
+        gRPCPort: ${SW_CORE_GRPC_PORT:11800}
         downsampling:
-        - Hour
-        - Day
-        - Month
-        recordDataTTL: 0 # Unit is minute
-        minuteMetricsDataTTL: 0 # Unit is minute
-        hourMetricsDataTTL: 0 # Unit is hour
-        dayMetricsDataTTL: 0 # Unit is day
-        monthMetricsDataTTL: 0 # Unit is month
+          - Hour
+          - Day
+          - Month
+        # Set a timeout on metrics data. After the timeout has expired, the metrics data will automatically be deleted.
+        # User zone SPM doesn't do delete, TCC SPM do that centrally.
+        enableDataKeeperExecutor: ${SW_CORE_ENABLE_DATA_KEEPER_EXECUTOR:false} # Turn it off then automatically metrics data delete will be close.
+        recordDataTTL: ${SW_CORE_RECORD_DATA_TTL:90} # Unit is minute
+        minuteMetricsDataTTL: ${SW_CORE_MINUTE_METRIC_DATA_TTL:90} # Unit is minute
+        hourMetricsDataTTL: ${SW_CORE_HOUR_METRIC_DATA_TTL:36} # Unit is hour
+        dayMetricsDataTTL: ${SW_CORE_DAY_METRIC_DATA_TTL:45} # Unit is day
+        monthMetricsDataTTL: ${SW_CORE_MONTH_METRIC_DATA_TTL:18} # Unit is month
     storage:
       elasticsearch:
-        clusterNodes: 127.0.0.1:9200
-        indexShardsNumber: 2
-        indexReplicasNumber: 0
-        bulkActions: 2000 # Execute the bulk every 2000 requests
-        bulkSize: 20 # flush the bulk every 20mb
-        flushInterval: 10 # flush the bulk every 10 seconds whatever the number of requests
-        concurrentRequests: 2 # the number of concurrent requests
-        metadataQueryMaxSize: 5000
-        segmentQueryMaxSize: 200
+        nameSpace: ${SW_NAMESPACE:""}
+        clusterNodes: ${SW_STORAGE_ES_CLUSTER_NODES:localhost:9200}
+        user: ${SW_ES_USER:""}
+        password: ${SW_ES_PASSWORD:""}
+        indexShardsNumber: ${SW_STORAGE_ES_INDEX_SHARDS_NUMBER:2}
+        indexReplicasNumber: ${SW_STORAGE_ES_INDEX_REPLICAS_NUMBER:0}
+        # Those data TTL settings will override the same settings in core module.
+        recordDataTTL: ${SW_STORAGE_ES_RECORD_DATA_TTL:7} # Unit is day
+        otherMetricsDataTTL: ${SW_STORAGE_ES_OTHER_METRIC_DATA_TTL:45} # Unit is day
+        monthMetricsDataTTL: ${SW_STORAGE_ES_MONTH_METRIC_DATA_TTL:18} # Unit is month
+        # Batch process setting, refer to https://www.elastic.co/guide/en/elasticsearch/client/java-api/5.5/java-docs-bulk-processor.html
+        bulkActions: ${SW_STORAGE_ES_BULK_ACTIONS:2000} # Execute the bulk every 2000 requests
+        bulkSize: ${SW_STORAGE_ES_BULK_SIZE:20} # flush the bulk every 20mb
+        flushInterval: ${SW_STORAGE_ES_FLUSH_INTERVAL:10} # flush the bulk every 10 seconds whatever the number of requests
+        concurrentRequests: ${SW_STORAGE_ES_CONCURRENT_REQUESTS:2} # the number of concurrent requests
+        metadataQueryMaxSize: ${SW_STORAGE_ES_QUERY_MAX_SIZE:5000}
+        segmentQueryMaxSize: ${SW_STORAGE_ES_QUERY_SEGMENT_SIZE:200}
     receiver-sharing-server:
       default:
     receiver-register:
@@ -108,9 +157,15 @@ data:
         bufferFileCleanWhenRestart: ${SW_SERVICE_MESH_BUFFER_FILE_CLEAN_WHEN_RESTART:false}
     istio-telemetry:
       default:
-    envoy-metric:
+    spm-envoy-metric:
       default:
-        alsHTTPAnalysis: ${SW_ENVOY_METRIC_ALS_HTTP_ANALYSIS:k8s-mesh}
+        enableMetricsService: ${SW_ENABLE_ENVOY_METRICS_SERIVCE:true}
+        enableALS: ${SW_ENABLE_ENVOY_ALS:true}
+        alsHTTPAnalysis: ${SW_ENVOY_METRIC_ALS_HTTP_ANALYSIS:reg-agent-mesh}
+        cluster: ${SW_SPM_CLUSTER_NAME:visa-test}
+        env: ${SW_SPM_ENV_NAME:dev}
+        regAgentHost: ${SW_ENVOY_METRIC_ALS_REG_AGENT_HOST:regsource}
+        regAgentPort: ${SW_ENVOY_METRIC_ALS_REG_AGENT_PORT:9080}
     query:
       graphql:
         path: ${SW_QUERY_GRAPHQL_PATH:/graphql}
@@ -118,6 +173,18 @@ data:
       default:
     telemetry:
       prometheus:
+        host: ${SW_TELEMETRY_PROMETHEUS_HOST:0.0.0.0}
+        port: ${SW_TELEMETRY_PROMETHEUS_PORT:1234}
+    configuration:
+      none:
+    exporter:
+      user2central:
+        targetHost: ${SW_EXPORTER_GRPC_HOST:localhost}
+        targetPort: ${SW_EXPORTER_GRPC_PORT:21800}
+        bufferPath: ${SW_EXPORTER_BUFFER_PATH:../exporter-buffer/}  # Path to trace buffer files, suggest to use absolute path
+        bufferOffsetMaxFileSize: ${SW_EXPORTER_BUFFER_OFFSET_MAX_FILE_SIZE:100} # Unit is MB
+        bufferDataMaxFileSize: ${SW_EXPORTER_BUFFER_DATA_MAX_FILE_SIZE:500} # Unit is MB
+        bufferFileCleanWhenRestart: ${SW_EXPORTER_BUFFER_FILE_CLEAN_WHEN_RESTART:false}
 
   log4j2.xml: |-
     <Configuration status="WARN">
