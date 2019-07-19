@@ -162,8 +162,8 @@ data:
         enableMetricsService: ${SW_ENABLE_ENVOY_METRICS_SERIVCE:true}
         enableALS: ${SW_ENABLE_ENVOY_ALS:true}
         alsHTTPAnalysis: ${SW_ENVOY_METRIC_ALS_HTTP_ANALYSIS:reg-agent-mesh}
-        cluster: ${SW_SPM_CLUSTER_NAME:visa-test}
-        env: ${SW_SPM_ENV_NAME:dev}
+        cluster: {{ .Values.global.tcc.cluster }}
+        env: {{ .Values.global.tcc.environment }}
         regAgentHost: ${SW_ENVOY_METRIC_ALS_REG_AGENT_HOST:regsource}
         regAgentPort: ${SW_ENVOY_METRIC_ALS_REG_AGENT_PORT:9080}
     query:
