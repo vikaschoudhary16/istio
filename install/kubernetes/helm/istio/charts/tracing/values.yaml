@@ -31,8 +31,17 @@ podAntiAffinityTermLabelSelector: []
 jaeger:
   hub: docker.io/jaegertracing
   tag: 1.9
+  token: ""
+  # this is remote elasticsearch.
+  elasticsearch:
+    host: ""
+    port: ""
   memory:
     max_traces: 50000
+  env:
+    SPAN_STORAGE_TYPE: "elasticsearch"
+    # Jaeger sends to local envoy which forwards to TCC elastic search.
+    ES_SERVER_URLS: "http://127.0.0.1:9200"
 
 zipkin:
   hub: docker.io/openzipkin

@@ -1,4 +1,5 @@
 pilot:
+  traceSampling: 100.0
   enabled: true
 
 gateways:
@@ -21,10 +22,17 @@ mixer:
   policy:
     enabled: false
   telemetry:
-    enabled: false
+    enabled: true
 
 prometheus:
-  enabled: false
+  enabled: true
+
+tracing:
+  enabled: true
+  token: ""
+  elasticsearch:
+    host: "__HOST__"
+    port: 8443
 
 oap:
   enabled: true
@@ -52,7 +60,7 @@ global:
   tag: "__ISTIO__"
   controlPlaneSecurityEnabled: true
   disablePolicyChecks: true
-  enableTracing: false
+  enableTracing: true
   configValidation: false
   defaultPodDisruptionBudget:
     enabled: false
@@ -63,6 +71,8 @@ global:
       host: oap.istio-system
       port: 11800
 
+  # set this to false to disable the post install jobs
+  # this setting does not control mTLS. TCC does.
   mtls:
     enabled: false
 
@@ -71,4 +81,4 @@ global:
 
   configRootNamespace: istio-config
   defaultConfigVisibilitySettings:
-  - '.'
+  - '*'
