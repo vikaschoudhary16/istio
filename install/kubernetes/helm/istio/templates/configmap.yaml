@@ -142,6 +142,10 @@ data:
     {{- end }}
 
     {{- if .Values.global.defaultConfigVisibilitySettings }}
+    defaultServiceExportTo:
+      {{- range .Values.global.defaultConfigVisibilitySettings }}
+      - {{ . | quote }}
+      {{- end }}
     defaultVirtualServiceExportTo:
       {{- range .Values.global.defaultConfigVisibilitySettings }}
       - {{ . | quote }}
