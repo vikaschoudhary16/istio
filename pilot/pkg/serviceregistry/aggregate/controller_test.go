@@ -23,6 +23,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 )
 
 // MockController specifies a mock Controller for testing
@@ -43,13 +45,13 @@ var discovery2 *memory.ServiceDiscovery
 
 func buildMockController() *Controller {
 	discovery1 = memory.NewDiscovery(
-		map[model.Hostname]*model.Service{
+		map[config.Hostname]*model.Service{
 			memory.HelloService.Hostname:   memory.HelloService,
 			memory.ExtHTTPService.Hostname: memory.ExtHTTPService,
 		}, 2)
 
 	discovery2 = memory.NewDiscovery(
-		map[model.Hostname]*model.Service{
+		map[config.Hostname]*model.Service{
 			memory.WorldService.Hostname:    memory.WorldService,
 			memory.ExtHTTPSService.Hostname: memory.ExtHTTPSService,
 		}, 2)
@@ -75,12 +77,12 @@ func buildMockController() *Controller {
 
 func buildMockControllerForMultiCluster() *Controller {
 	discovery1 = memory.NewDiscovery(
-		map[model.Hostname]*model.Service{
+		map[config.Hostname]*model.Service{
 			memory.HelloService.Hostname: memory.MakeService("hello.default.svc.cluster.local", "10.1.1.0"),
 		}, 2)
 
 	discovery2 = memory.NewDiscovery(
-		map[model.Hostname]*model.Service{
+		map[config.Hostname]*model.Service{
 			memory.HelloService.Hostname: memory.MakeService("hello.default.svc.cluster.local", "10.1.2.0"),
 			memory.WorldService.Hostname: memory.WorldService,
 		}, 2)
@@ -126,7 +128,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 
 	// Set up ground truth hostname values
-	serviceMap := map[model.Hostname]bool{
+	serviceMap := map[config.Hostname]bool{
 		memory.HelloService.Hostname: false,
 		memory.WorldService.Hostname: false,
 	}
@@ -145,7 +147,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 
 	//Now verify ClusterVIPs for each service
-	ClusterVIPs := map[model.Hostname]map[string]string{
+	ClusterVIPs := map[config.Hostname]map[string]string{
 		memory.HelloService.Hostname: {
 			"cluster-1": "10.1.1.0",
 			"cluster-2": "10.1.2.0",
@@ -168,7 +170,7 @@ func TestServices(t *testing.T) {
 	services, err := aggregateCtl.Services()
 
 	// Set up ground truth hostname values
-	serviceMap := map[model.Hostname]bool{
+	serviceMap := map[config.Hostname]bool{
 		memory.HelloService.Hostname:    false,
 		memory.ExtHTTPService.Hostname:  false,
 		memory.WorldService.Hostname:    false,
@@ -316,9 +318,9 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.InstancesByPort(memory.HelloService.Hostname,
+	instances, err := aggregateCtl.InstancesByPort(memory.HelloService,
 		80,
-		model.LabelsCollection{})
+		config.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
 	}
@@ -335,9 +337,9 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.InstancesByPort(memory.WorldService.Hostname,
+	instances, err = aggregateCtl.InstancesByPort(memory.WorldService,
 		80,
-		model.LabelsCollection{})
+		config.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() encountered unexpected error: %v", err)
 	}
@@ -360,9 +362,9 @@ func TestInstancesError(t *testing.T) {
 	discovery1.InstancesError = errors.New("mock Instances() error")
 
 	// Get Instances from client with error
-	instances, err := aggregateCtl.InstancesByPort(memory.HelloService.Hostname,
+	instances, err := aggregateCtl.InstancesByPort(memory.HelloService,
 		80,
-		model.LabelsCollection{})
+		config.LabelsCollection{})
 	if err == nil {
 		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
 			"error and no instances are found")
@@ -372,9 +374,9 @@ func TestInstancesError(t *testing.T) {
 	}
 
 	// Get Instances from client without error
-	instances, err = aggregateCtl.InstancesByPort(memory.WorldService.Hostname,
+	instances, err = aggregateCtl.InstancesByPort(memory.WorldService,
 		80,
-		model.LabelsCollection{})
+		config.LabelsCollection{})
 	if err != nil {
 		t.Fatalf("Instances() should not return error is instances are found: %v", err)
 	}
@@ -395,8 +397,8 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get accounts from mockAdapter1
-	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService.Hostname, []int{})
-	expected := []string{}
+	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService, []int{})
+	expected := make([]string, 0)
 
 	if len(accounts) != len(expected) {
 		t.Fatal("Incorrect account result returned")
@@ -409,7 +411,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	}
 
 	// Get accounts from mockAdapter2
-	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService.Hostname, []int{})
+	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService, []int{})
 	expected = []string{
 		"spiffe://cluster.local/ns/default/sa/serviceaccount1",
 		"spiffe://cluster.local/ns/default/sa/serviceaccount2",
@@ -431,11 +433,11 @@ func TestManagementPorts(t *testing.T) {
 	expected := model.PortList{{
 		Name:     "http",
 		Port:     3333,
-		Protocol: model.ProtocolHTTP,
+		Protocol: protocol.HTTP,
 	}, {
 		Name:     "custom",
 		Port:     9999,
-		Protocol: model.ProtocolTCP,
+		Protocol: protocol.TCP,
 	}}
 
 	// Get management ports from mockAdapter1

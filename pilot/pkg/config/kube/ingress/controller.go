@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -89,7 +89,7 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	queue := kube.NewQueue(1 * time.Second)
 
 	if ingressNamespace == "" {
-		ingressNamespace = model.IstioIngressNamespace
+		ingressNamespace = config.IstioIngressNamespace
 	}
 
 	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
@@ -164,9 +164,7 @@ func (c *controller) HasSynced() bool {
 
 func (c *controller) Run(stop <-chan struct{}) {
 	go func() {
-		if pilot.EnableWaitCacheSync {
-			cache.WaitForCacheSync(stop, c.HasSynced)
-		}
+		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
 	go c.informer.Run(stop)

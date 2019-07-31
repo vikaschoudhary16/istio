@@ -288,7 +288,6 @@ type MeshConfig struct {
 	// Refer to [SPIFEE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
 	// Fallback to old identity format(without trust domain) if not set.
 	TrustDomain string `protobuf:"bytes,26,opt,name=trust_domain,json=trustDomain,proto3" json:"trust_domain,omitempty"`
-	// $hide_from_docs
 	// The default value for the ServiceEntry.export_to field and services
 	// imported through container registry integrations, e.g. this applies to
 	// Kubernetes Service resources. The value is a list of namespace names and
@@ -314,21 +313,18 @@ type MeshConfig struct {
 	// For further discussion see the reference documentation for ServiceEntry,
 	// Sidecar, and Gateway.
 	DefaultServiceExportTo []string `protobuf:"bytes,31,rep,name=default_service_export_to,json=defaultServiceExportTo,proto3" json:"default_service_export_to,omitempty"`
-	// $hide_from_docs
 	// The default value for the VirtualService.export_to field. Has the same
 	// syntax as 'default_service_export_to'.
 	//
 	// If not set the system will use "*" as the default value which implies that
 	// virtual services are exported to all namespaces
 	DefaultVirtualServiceExportTo []string `protobuf:"bytes,32,rep,name=default_virtual_service_export_to,json=defaultVirtualServiceExportTo,proto3" json:"default_virtual_service_export_to,omitempty"`
-	// $hide_from_docs
 	// The default value for the DestinationRule.export_to field. Has the same
 	// syntax as 'default_service_export_to'.
 	//
 	// If not set the system will use "*" as the default value which implies that
 	// destination rules are exported to all namespaces
 	DefaultDestinationRuleExportTo []string `protobuf:"bytes,33,rep,name=default_destination_rule_export_to,json=defaultDestinationRuleExportTo,proto3" json:"default_destination_rule_export_to,omitempty"`
-	// $hide_from_docs
 	// The namespace to treat as the administrative root namespace for
 	// Istio configuration. When processing a leaf namespace Istio will search for
 	// declarations in that namespace first and if none are found it will
@@ -337,12 +333,6 @@ type MeshConfig struct {
 	//
 	// The precise semantics of this processing are documented on each resource
 	// type.
-	//
-	// There is no default value for this flag in 1.1 but in later releases it
-	// is expected to default to a new namespace, `istio-config`, which is
-	// maintained separately from the `istio-system` namespace where an instance
-	// of the control plane runtime is deployed. This separates the concerns of
-	// configuring the control-plane runtime from configuration of the mesh.
 	RootNamespace string `protobuf:"bytes,34,opt,name=root_namespace,json=rootNamespace,proto3" json:"root_namespace,omitempty"`
 	// Locality based load balancing distribution or failover settings.
 	LocalityLbSetting *LocalityLoadBalancerSetting `protobuf:"bytes,35,opt,name=locality_lb_setting,json=localityLbSetting,proto3" json:"locality_lb_setting,omitempty"`
@@ -796,7 +786,7 @@ func (m *ConfigSource) GetTlsSettings() *v1alpha3.TLSSettings {
 // traffic originates and where it will terminate. These localities are
 // specified using arbitrary labels that designate a hierarchy of localities in
 // {region}/{zone}/{sub-zone} form. For additional detail refer to
-// [Locality Weight](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
+// [Locality Weight](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight)
 // The following example shows how to setup locality weights mesh-wide.
 //
 // Given a mesh with workloads and their service deployed to "us-west/zone1/*"
@@ -841,7 +831,7 @@ func (m *ConfigSource) GetTlsSettings() *v1alpha3.TLSSettings {
 type LocalityLoadBalancerSetting struct {
 	// Optional: only one of distribute or failover can be set.
 	// Explicitly specify loadbalancing weight across different zones and geographical locations.
-	// Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight)
+	// Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/locality_weight)
 	// If empty, the locality weight is set according to the endpoints number within it.
 	Distribute []*LocalityLoadBalancerSetting_Distribute `protobuf:"bytes,1,rep,name=distribute,proto3" json:"distribute,omitempty"`
 	// Optional: only failover or distribute can be set.
@@ -1208,9 +1198,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n1, err1 := m.ConnectTimeout.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -1240,9 +1230,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x5a
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.RdsRefreshDelay.Size()))
-		n2, err2 := m.RdsRefreshDelay.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.RdsRefreshDelay.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -1266,9 +1256,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x72
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.DefaultConfig.Size()))
-		n3, err3 := m.DefaultConfig.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.DefaultConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -1286,9 +1276,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.OutboundTrafficPolicy.Size()))
-		n4, err4 := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -1318,9 +1308,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.SdsRefreshDelay.Size()))
-		n5, err5 := m.SdsRefreshDelay.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.SdsRefreshDelay.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -1391,9 +1381,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.TcpKeepalive.Size()))
-		n6, err6 := m.TcpKeepalive.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.TcpKeepalive.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -1486,9 +1476,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.LocalityLbSetting.Size()))
-		n7, err7 := m.LocalityLbSetting.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.LocalityLbSetting.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -1498,9 +1488,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.DnsRefreshRate.Size()))
-		n8, err8 := m.DnsRefreshRate.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.DnsRefreshRate.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -1529,9 +1519,9 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.ReportBatchMaxTime.Size()))
-		n9, err9 := m.ReportBatchMaxTime.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.ReportBatchMaxTime.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -1611,9 +1601,9 @@ func (m *ConfigSource) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.TlsSettings.Size()))
-		n10, err10 := m.TlsSettings.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.TlsSettings.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}

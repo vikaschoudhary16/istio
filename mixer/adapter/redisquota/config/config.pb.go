@@ -39,9 +39,9 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type Params_QuotaAlgorithm int32
 
 const (
-	// FIXED_WINDOW The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
+	// `FIXED_WINDOW` The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn't.
 	FIXED_WINDOW Params_QuotaAlgorithm = 0
-	// ROLLING_WINDOW The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
+	// `ROLLING_WINDOW` The rolling window algorithm's additional precision comes at the cost of increased redis resource usage.
 	ROLLING_WINDOW Params_QuotaAlgorithm = 1
 )
 
@@ -68,19 +68,19 @@ func (Params_QuotaAlgorithm) EnumDescriptor() ([]byte, []int) {
 // redisServerUrl: localhost:6379
 // connectionPoolSize: 10
 // quotas:
-//   - name: requestcount.quota.istio-system
-//     maxAmount: 50
-//     validDuration: 60s
-//     bucketDuration: 1s
-//     rateLimitAlgorithm: ROLLING_WINDOW
-//     overrides:
-//       - dimensions:
-//           destination: ratings
-//           source: reviews
-//         maxAmount: 12
-//       - dimensions:
-//           destination: reviews
-//         maxAmount: 5
+// - name: requestcount.quota.istio-system
+//   maxAmount: 50
+//   validDuration: 60s
+//   bucketDuration: 1s
+//   rateLimitAlgorithm: ROLLING_WINDOW
+//   overrides:
+//   - dimensions:
+//       destination: ratings
+//       source: reviews
+//     maxAmount: 12
+//   - dimensions:
+//       destination: reviews
+//     maxAmount: 5
 // ```
 type Params struct {
 	// The set of known quotas. At least one quota configuration is required
@@ -128,7 +128,7 @@ var xxx_messageInfo_Params proto.InternalMessageInfo
 type Params_Override struct {
 	// The specific dimensions for which this override applies.
 	// String representation of instance dimensions is used to check against configured dimensions.
-	// dimensions should not be empty
+	// `dimensions` should not be empty
 	Dimensions map[string]string `protobuf:"bytes,1,rep,name=dimensions,proto3" json:"dimensions" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// The upper limit for this quota override.
 	// This value should be bigger than 0
@@ -188,12 +188,12 @@ type Params_Quota struct {
 	MaxAmount int64 `protobuf:"varint,2,opt,name=max_amount,json=maxAmount,proto3" json:"max_amount,omitempty"`
 	// The amount of time allocated quota remains valid before it is
 	// automatically released. This is only meaningful for rate limit quotas.
-	// value should be 0 < valid_duration
+	// value should be `0 < validDuration`
 	ValidDuration time.Duration `protobuf:"bytes,3,opt,name=valid_duration,json=validDuration,proto3,stdduration" json:"valid_duration"`
-	// bucket_duration will be ignored if rate_limit_algorithm is FIXED_WINDOW
-	// value should be 0 < bucket_duration < valid_duration
+	// The `bucketDuration` will be ignored if `rateLimitAlgorithm` is `FIXED_WINDOW`
+	// value should be `0 < bucketDuration < validDuration`
 	BucketDuration time.Duration `protobuf:"bytes,4,opt,name=bucket_duration,json=bucketDuration,proto3,stdduration" json:"bucket_duration"`
-	// Quota management algorithm. The default value is FIXED_WINDOW
+	// Quota management algorithm. The default value is `FIXED_WINDOW`
 	RateLimitAlgorithm Params_QuotaAlgorithm `protobuf:"varint,5,opt,name=rate_limit_algorithm,json=rateLimitAlgorithm,proto3,enum=adapter.redisquota.config.Params_QuotaAlgorithm" json:"rate_limit_algorithm,omitempty"`
 	// Overrides associated with this quota.
 	// The first matching override is applied.
@@ -444,17 +444,17 @@ func (m *Params_Quota) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0x1a
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.ValidDuration)))
-	n1, err1 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
-	if err1 != nil {
-		return 0, err1
+	n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.ValidDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n1
 	dAtA[i] = 0x22
 	i++
 	i = encodeVarintConfig(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(m.BucketDuration)))
-	n2, err2 := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.BucketDuration, dAtA[i:])
-	if err2 != nil {
-		return 0, err2
+	n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(m.BucketDuration, dAtA[i:])
+	if err != nil {
+		return 0, err
 	}
 	i += n2
 	if m.RateLimitAlgorithm != 0 {
@@ -574,13 +574,8 @@ func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForQuotas := "[]Params_Quota{"
-	for _, f := range this.Quotas {
-		repeatedStringForQuotas += fmt.Sprintf("%v", f) + ","
-	}
-	repeatedStringForQuotas += "}"
 	s := strings.Join([]string{`&Params{`,
-		`Quotas:` + repeatedStringForQuotas + `,`,
+		`Quotas:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Quotas), "Params_Quota", "Params_Quota", 1), `&`, ``, 1) + `,`,
 		`RedisServerUrl:` + fmt.Sprintf("%v", this.RedisServerUrl) + `,`,
 		`ConnectionPoolSize:` + fmt.Sprintf("%v", this.ConnectionPoolSize) + `,`,
 		`}`,
@@ -612,18 +607,13 @@ func (this *Params_Quota) String() string {
 	if this == nil {
 		return "nil"
 	}
-	repeatedStringForOverrides := "[]*Params_Override{"
-	for _, f := range this.Overrides {
-		repeatedStringForOverrides += strings.Replace(fmt.Sprintf("%v", f), "Params_Override", "Params_Override", 1) + ","
-	}
-	repeatedStringForOverrides += "}"
 	s := strings.Join([]string{`&Params_Quota{`,
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`MaxAmount:` + fmt.Sprintf("%v", this.MaxAmount) + `,`,
-		`ValidDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.ValidDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
-		`BucketDuration:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.BucketDuration), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`ValidDuration:` + strings.Replace(strings.Replace(this.ValidDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
+		`BucketDuration:` + strings.Replace(strings.Replace(this.BucketDuration.String(), "Duration", "types.Duration", 1), `&`, ``, 1) + `,`,
 		`RateLimitAlgorithm:` + fmt.Sprintf("%v", this.RateLimitAlgorithm) + `,`,
-		`Overrides:` + repeatedStringForOverrides + `,`,
+		`Overrides:` + strings.Replace(fmt.Sprintf("%v", this.Overrides), "Params_Override", "Params_Override", 1) + `,`,
 		`}`,
 	}, "")
 	return s
