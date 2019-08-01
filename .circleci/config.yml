@@ -141,6 +141,21 @@ jobs:
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
+  # This job is triggered via API. expect env vars
+  # DOCKER_USER, DOCKER_PASS, HUB, TAG
+  dockerpush:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run: make sync
+      - run: make build
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run: make docker.all
+      - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+      - run: make push
+
 workflows:
   version: 2
   # Ran nightly to check against prow tests
