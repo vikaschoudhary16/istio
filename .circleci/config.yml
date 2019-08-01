@@ -149,12 +149,12 @@ jobs:
     steps:
       - checkout
       - run: make sync
-      - run: make build
+      - run: VERSION=${ISTIO_VERSION} make build
       - setup_remote_docker:
           docker_layer_caching: true
-      - run: make docker.all
+      - run: VERSION=${ISTIO_VERSION} make docker.all
       - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-      - run: make push
+      - run: VERSION=${ISTIO_VERSION} make push
 
 workflows:
   version: 2
