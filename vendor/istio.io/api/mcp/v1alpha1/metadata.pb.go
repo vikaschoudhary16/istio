@@ -53,7 +53,7 @@ type Metadata struct {
 	//
 	// Namespace resources fully qualified name is of the form:
 	//
-	//    "/<k8s namespace>/<k8s resource name>"
+	//    "<k8s namespace>/<k8s resource name>"
 	//
 	// Cluster scoped resources are located at the root of the hierarchy and are of the form:
 	//
@@ -250,9 +250,9 @@ func (m *Metadata) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintMetadata(dAtA, i, uint64(m.CreateTime.Size()))
-		n1, err1 := m.CreateTime.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.CreateTime.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}

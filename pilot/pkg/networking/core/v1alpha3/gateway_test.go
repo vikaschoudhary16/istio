@@ -22,14 +22,15 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/proto"
-
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
@@ -50,7 +51,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			enableSds: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: ListenersALPNProtocols,
+					AlpnProtocols: util.ALPNHttp,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -81,12 +82,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			enableSds: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: ListenersALPNProtocols,
+					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: pilot.InitialFetchTimeout,
+								InitialFetchTimeout: features.InitialFetchTimeout,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -123,12 +124,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			enableSds: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: ListenersALPNProtocols,
+					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: pilot.InitialFetchTimeout,
+								InitialFetchTimeout: features.InitialFetchTimeout,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -169,7 +170,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			enableSds: false,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: ListenersALPNProtocols,
+					AlpnProtocols: util.ALPNHttp,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -201,7 +202,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			enableSds: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: ListenersALPNProtocols,
+					AlpnProtocols: util.ALPNHttp,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -236,12 +237,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			enableSds: true,
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: ListenersALPNProtocols,
+					AlpnProtocols: util.ALPNHttp,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: pilot.InitialFetchTimeout,
+								InitialFetchTimeout: features.InitialFetchTimeout,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -268,7 +269,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: pilot.InitialFetchTimeout,
+									InitialFetchTimeout: features.InitialFetchTimeout,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
@@ -488,11 +489,11 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			route, err := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
-			if err != nil {
-				t.Error(err)
+			route := configgen.buildGatewayHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, tt.routeName)
+			if route == nil {
+				t.Error("got an empty route configuration")
 			}
-			vh := []string{}
+			vh := make([]string, 0)
 			for _, h := range route.VirtualHosts {
 				vh = append(vh, h.Name)
 			}
@@ -515,11 +516,11 @@ func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pil
 		}
 		return nil, nil
 	}
-	mesh := pilot_model.DefaultMeshConfig()
+	mesh := config.DefaultMeshConfig()
 	env := pilot_model.Environment{
 		PushContext:      pilot_model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore.Freeze(),
+		IstioConfigStore: configStore,
 		Mesh:             &mesh,
 		MixerSAN:         []string{},
 	}

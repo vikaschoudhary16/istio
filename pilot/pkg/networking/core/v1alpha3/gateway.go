@@ -19,8 +19,6 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/pkg/features/pilot"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -30,20 +28,27 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
+	env *model.Environment,
+	node *model.Proxy,
+	push *model.PushContext,
+	builder *ListenerBuilder) *ListenerBuilder {
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
-	var workloadLabels model.LabelsCollection
+	var workloadLabels config.LabelsCollection
 	for _, w := range workloadInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
@@ -51,7 +56,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	gatewaysForWorkload := env.Gateways(workloadLabels)
 	if len(gatewaysForWorkload) == 0 {
 		log.Debuga("buildGatewayListeners: no gateways for router ", node.ID)
-		return []*xdsapi.Listener{}, nil
+		return builder
 	}
 
 	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
@@ -71,9 +76,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			bindToPort: true,
 		}
 
-		protocol := model.ParseProtocol(servers[0].Port.Protocol)
-		listenerProtocol := plugin.ModelProtocolToListenerProtocol(protocol)
-		if protocol.IsHTTP() {
+		p := protocol.Parse(servers[0].Port.Protocol)
+		listenerProtocol := plugin.ModelProtocolToListenerProtocol(p)
+		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
@@ -88,7 +93,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			filterChainOpts := make([]*filterChainOpts, 0)
 
 			for _, server := range servers {
-				if model.IsTLSServer(server) && model.IsHTTPServer(server) {
+				if config.IsTLSServer(server) && config.IsHTTPServer(server) {
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 					routeName := mergedGateway.RouteNamesByServer[server]
 					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName))
@@ -133,17 +138,16 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		}
 
 		pluginParams := &plugin.InputParams{
-			ListenerProtocol: listenerProtocol,
-			ListenerCategory: networking.EnvoyFilter_ListenerMatch_GATEWAY,
-			Env:              env,
-			Node:             node,
-			ProxyInstances:   workloadInstances,
-			Push:             push,
-			ServiceInstance:  si,
+			ListenerProtocol:           listenerProtocol,
+			DeprecatedListenerCategory: networking.EnvoyFilter_DeprecatedListenerMatch_GATEWAY,
+			Env:                        env,
+			Node:                       node,
+			Push:                       push,
+			ServiceInstance:            si,
 			Port: &model.Port{
 				Name:     servers[0].Port.Name,
 				Port:     int(portNumber),
-				Protocol: protocol,
+				Protocol: p,
 			},
 		}
 		for _, p := range configgen.Plugins {
@@ -178,7 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 
 	if len(listeners) == 0 {
 		log.Error("buildGatewayListeners: Have zero listeners")
-		return []*xdsapi.Listener{}, nil
+		return builder
 	}
 
 	validatedListeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
@@ -190,16 +194,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		validatedListeners = append(validatedListeners, l)
 	}
 
-	return validatedListeners, nil
+	builder.gatewayListeners = validatedListeners
+	return builder
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) (*xdsapi.RouteConfiguration, error) {
+	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
 
 	services := push.Services(node)
 
 	// collect workload labels
-	var workloadLabels model.LabelsCollection
+	var workloadLabels config.LabelsCollection
 	for _, w := range proxyInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
@@ -207,7 +212,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	gateways := env.Gateways(workloadLabels)
 	if len(gateways) == 0 {
 		log.Debuga("buildGatewayRoutes: no gateways for router ", node.ID)
-		return nil, nil
+		return nil
 	}
 
 	merged := model.MergeGateways(gateways...)
@@ -217,32 +222,26 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	if _, ok := merged.ServersByRouteName[routeName]; !ok {
 		log.Warnf("Gateway missing for route %s. This is normal if gateway was recently deleted. Have %v", routeName, merged.ServersByRouteName)
 
-		// If the flag is set, send Envoy an error, blocking all routes from being sent. This flag
-		// is intended only to support legacy behavior and should be removed in the future.
-		if pilot.DisablePartialRouteResponse {
-			return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.ServersByRouteName)
-		}
-
 		// This can happen when a gateway has recently been deleted. Envoy will still request route
 		// information due to the draining of listeners, so we should not return an error.
-		return nil, nil
+		return nil
 	}
 
 	servers := merged.ServersByRouteName[routeName]
 	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
 
-	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
+	nameToServiceMap := make(map[config.Hostname]*model.Service, len(services))
 	for _, svc := range services {
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	vHostDedupMap := make(map[model.Hostname]*route.VirtualHost)
+	vHostDedupMap := make(map[config.Hostname]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		virtualServices := push.VirtualServices(node, map[string]bool{gatewayName: true})
 		for _, virtualService := range virtualServices {
-			virtualServiceHosts := model.StringsToHostnames(virtualService.Spec.(*networking.VirtualService).Hosts)
-			serverHosts := model.HostnamesForNamespace(server.Hosts, virtualService.Namespace)
+			virtualServiceHosts := config.StringsToHostnames(virtualService.Spec.(*networking.VirtualService).Hosts)
+			serverHosts := config.HostnamesForNamespace(server.Hosts, virtualService.Namespace)
 
 			// We have two cases here:
 			// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and server hosts are ns/*.foo.com
@@ -276,15 +275,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		}
 	}
 
-	var virtualHosts []route.VirtualHost
+	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
-		virtualHosts = []route.VirtualHost{{
+		virtualHosts = []*route.VirtualHost{{
 			Name:    fmt.Sprintf("blackhole:%d", port),
 			Domains: []string{"*"},
-			Routes: []route.Route{
+			Routes: []*route.Route{
 				{
-					Match: route.RouteMatch{
+					Match: &route.RouteMatch{
 						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
 					},
 					Action: &route.Route_DirectResponse{
@@ -296,42 +295,46 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			},
 		}}
 	} else {
-		virtualHosts = make([]route.VirtualHost, 0, len(vHostDedupMap))
+		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
-			virtualHosts = append(virtualHosts, *v)
+			virtualHosts = append(virtualHosts, v)
 		}
 	}
 
 	util.SortVirtualHosts(virtualHosts)
 
 	routeCfg := &xdsapi.RouteConfiguration{
+		// Retain the routeName as its used by EnvoyFilter patching logic
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: proto.BoolFalse,
 	}
+
+	in := &plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerCategory: networking.EnvoyFilter_GATEWAY,
+		Env:              env,
+		Node:             node,
+		Push:             push,
+	}
+
 	// call plugins
 	for _, p := range configgen.Plugins {
-		in := &plugin.InputParams{
-			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              env,
-			Node:             node,
-			Push:             push,
-		}
 		p.OnOutboundRouteConfiguration(in, routeCfg)
 	}
 
-	return routeCfg, nil
+	return routeCfg
 }
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, server *networking.Server, routeName string) *filterChainOpts {
 
-	serverProto := model.ParseProtocol(server.Port.Protocol)
+	serverProto := protocol.Parse(server.Port.Protocol)
 
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 
-	if pilot.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
+	if features.HTTP10 || node.Metadata[model.NodeMetadataHTTP10] == "1" {
 		httpProtoOpts.AcceptHttp_10 = true
 	}
 
@@ -401,13 +404,13 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 
 func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
-	if server.Tls == nil || model.IsPassThroughServer(server) {
+	if server.Tls == nil || config.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			AlpnProtocols: ListenersALPNProtocols,
+			AlpnProtocols: util.ALPNHttp,
 		},
 	}
 
@@ -516,7 +519,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				},
 			}
 		}
-	} else if !model.IsPassThroughServer(server) {
+	} else if !config.IsPassThroughServer(server) {
 		// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 		// and forward to backend
 		// Validation ensures that non-passthrough servers will have certs
@@ -548,16 +551,16 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services.
 func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Environment, push *model.PushContext, server *networking.Server,
-	gatewaysForWorkload map[string]bool) []listener.Filter {
+	gatewaysForWorkload map[string]bool) []*listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
-		Protocol: model.ParseProtocol(server.Port.Protocol),
+		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		gatewayServerHosts[model.Hostname(host)] = true
+		gatewayServerHosts[config.Hostname(host)] = true
 	}
 
 	virtualServices := push.VirtualServices(node, gatewaysForWorkload)
@@ -594,12 +597,12 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
-		Protocol: model.ParseProtocol(server.Port.Protocol),
+		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	gatewayServerHosts := make(map[config.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		gatewayServerHosts[model.Hostname(host)] = true
+		gatewayServerHosts[config.Hostname(host)] = true
 	}
 
 	filterChains := make([]*filterChainOpts, 0)
@@ -650,8 +653,8 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
-func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualService model.Config) map[string]model.Hostname {
-	matchingHosts := make(map[string]model.Hostname)
+func pickMatchingGatewayHosts(gatewayServerHosts map[config.Hostname]bool, virtualService model.Config) map[string]config.Hostname {
+	matchingHosts := make(map[string]config.Hostname)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {
 		for gatewayHost := range gatewayServerHosts {
@@ -665,9 +668,9 @@ func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtua
 					continue
 				}
 				//strip the namespace
-				gwHostnameForMatching = model.Hostname(parts[1])
+				gwHostnameForMatching = config.Hostname(parts[1])
 			}
-			if gwHostnameForMatching.Matches(model.Hostname(vsvcHost)) {
+			if gwHostnameForMatching.Matches(config.Hostname(vsvcHost)) {
 				// assign the actual gateway host because calling code uses it as a key
 				// to locate TLS redirect servers
 				matchingHosts[vsvcHost] = gatewayHost

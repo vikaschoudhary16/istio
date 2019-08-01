@@ -220,13 +220,13 @@ type DestinationRule struct {
 	// REQUIRED. The name of a service from the service registry. Service
 	// names are looked up from the platform's service registry (e.g.,
 	// Kubernetes services, Consul services, etc.) and from the hosts
-	// declared by [ServiceEntries](/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Rules defined for
+	// declared by [ServiceEntries](https://istio.io/docs/reference/config/networking/v1alpha3/service-entry/#ServiceEntry). Rules defined for
 	// services that do not exist in the service registry will be ignored.
 	//
 	// *Note for Kubernetes users*: When short names are used (e.g. "reviews"
 	// instead of "reviews.default.svc.cluster.local"), Istio will interpret
 	// the short name based on the namespace of the rule, not the service. A
-	// rule in the "default" namespace containing a host "reviews will be
+	// rule in the "default" namespace containing a host "reviews" will be
 	// interpreted as "reviews.default.svc.cluster.local", irrespective of
 	// the actual namespace associated with the reviews service. _To avoid
 	// potential misconfigurations, it is recommended to always use fully
@@ -416,13 +416,9 @@ func (m *TrafficPolicy) GetPortLevelSettings() []*TrafficPolicy_PortTrafficPolic
 
 // Traffic policies that apply to specific ports of the service
 type TrafficPolicy_PortTrafficPolicy struct {
-	// Specifies the port name or number of a port on the destination service
+	// Specifies the number of a port on the destination service
 	// on which this policy is being applied.
 	//
-	// Names must comply with DNS label syntax (rfc1035) and therefore cannot
-	// collide with numbers. If there are multiple ports on a service with
-	// the same protocol the names should be of the form <protocol-name>-<DNS
-	// label>.
 	Port *PortSelector `protobuf:"bytes,1,opt,name=port,proto3" json:"port,omitempty"`
 	// Settings controlling the load balancer algorithms.
 	LoadBalancer *LoadBalancerSettings `protobuf:"bytes,2,opt,name=load_balancer,json=loadBalancer,proto3" json:"load_balancer,omitempty"`
@@ -507,7 +503,7 @@ func (m *TrafficPolicy_PortTrafficPolicy) GetTls() *TLSSettings {
 
 // A subset of endpoints of a service. Subsets can be used for scenarios
 // like A/B testing, or routing to a specific version of a service. Refer
-// to [VirtualService](/docs/reference/config/networking/v1alpha3/virtual-service/#VirtualService) documentation for examples of using
+// to [VirtualService](https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#VirtualService) documentation for examples of using
 // subsets in these scenarios. In addition, traffic policies defined at the
 // service-level can be overridden at a subset-level. The following rule
 // uses a round robin load balancing policy for all traffic going to a
@@ -614,7 +610,7 @@ func (m *Subset) GetTrafficPolicy() *TrafficPolicy {
 
 // Load balancing policies to apply for a specific destination. See Envoy's
 // load balancing
-// [documentation](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/load_balancing)
+// [documentation](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancing)
 // for more details.
 //
 // For example, the following rule uses a round robin load balancing policy
@@ -1081,7 +1077,7 @@ func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) GetTtl() *time.Durati
 
 // Connection pool settings for an upstream host. The settings apply to
 // each individual host in the upstream service.  See Envoy's [circuit
-// breaker](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/circuit_breaking)
+// breaker](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking)
 // for more details. Connection pool settings can be applied at the TCP
 // level as well as at HTTP level.
 //
@@ -1411,7 +1407,7 @@ func (m *ConnectionPoolSettings_HTTPSettings) GetH2UpgradePolicy() ConnectionPoo
 // of time. For TCP services, connection timeouts or connection
 // failures to a given host counts as an error when measuring the
 // consecutive errors metric. See Envoy's [outlier
-// detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier)
+// detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier)
 // for more details.
 //
 // The following rule sets a connection pool size of 100 connections and
@@ -1462,7 +1458,9 @@ type OutlierDetection struct {
 	// pool has at least min_health_percent hosts in healthy mode. When the
 	// percentage of healthy hosts in the load balancing pool drops below this
 	// threshold, outlier detection will be disabled and the proxy will load balance
-	// across all hosts in the pool (healthy and unhealthy).  The default is 50%.
+	// across all hosts in the pool (healthy and unhealthy). The threshold can be
+	// disabled by setting it to 0%. The default is 0% as it's not typically
+	// applicable in k8s environments with few pods per service.
 	MinHealthPercent     int32    `protobuf:"varint,5,opt,name=min_health_percent,json=minHealthPercent,proto3" json:"min_health_percent,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1839,9 +1837,9 @@ func (m *DestinationRule) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.TrafficPolicy.Size()))
-		n1, err1 := m.TrafficPolicy.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
+		n1, err := m.TrafficPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n1
 	}
@@ -1897,9 +1895,9 @@ func (m *TrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.LoadBalancer.Size()))
-		n2, err2 := m.LoadBalancer.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		n2, err := m.LoadBalancer.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n2
 	}
@@ -1907,9 +1905,9 @@ func (m *TrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.ConnectionPool.Size()))
-		n3, err3 := m.ConnectionPool.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		n3, err := m.ConnectionPool.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n3
 	}
@@ -1917,9 +1915,9 @@ func (m *TrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.OutlierDetection.Size()))
-		n4, err4 := m.OutlierDetection.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
+		n4, err := m.OutlierDetection.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n4
 	}
@@ -1927,9 +1925,9 @@ func (m *TrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Tls.Size()))
-		n5, err5 := m.Tls.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
+		n5, err := m.Tls.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n5
 	}
@@ -1970,9 +1968,9 @@ func (m *TrafficPolicy_PortTrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Port.Size()))
-		n6, err6 := m.Port.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		n6, err := m.Port.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n6
 	}
@@ -1980,9 +1978,9 @@ func (m *TrafficPolicy_PortTrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.LoadBalancer.Size()))
-		n7, err7 := m.LoadBalancer.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
+		n7, err := m.LoadBalancer.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n7
 	}
@@ -1990,9 +1988,9 @@ func (m *TrafficPolicy_PortTrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.ConnectionPool.Size()))
-		n8, err8 := m.ConnectionPool.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		n8, err := m.ConnectionPool.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n8
 	}
@@ -2000,9 +1998,9 @@ func (m *TrafficPolicy_PortTrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.OutlierDetection.Size()))
-		n9, err9 := m.OutlierDetection.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
+		n9, err := m.OutlierDetection.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n9
 	}
@@ -2010,9 +2008,9 @@ func (m *TrafficPolicy_PortTrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Tls.Size()))
-		n10, err10 := m.Tls.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
+		n10, err := m.Tls.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n10
 	}
@@ -2064,9 +2062,9 @@ func (m *Subset) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.TrafficPolicy.Size()))
-		n11, err11 := m.TrafficPolicy.MarshalTo(dAtA[i:])
-		if err11 != nil {
-			return 0, err11
+		n11, err := m.TrafficPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n11
 	}
@@ -2092,9 +2090,9 @@ func (m *LoadBalancerSettings) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.LbPolicy != nil {
-		nn12, err12 := m.LbPolicy.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
+		nn12, err := m.LbPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn12
 	}
@@ -2117,9 +2115,9 @@ func (m *LoadBalancerSettings_ConsistentHash) MarshalTo(dAtA []byte) (int, error
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.ConsistentHash.Size()))
-		n13, err13 := m.ConsistentHash.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
+		n13, err := m.ConsistentHash.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n13
 	}
@@ -2141,9 +2139,9 @@ func (m *LoadBalancerSettings_ConsistentHashLB) MarshalTo(dAtA []byte) (int, err
 	var l int
 	_ = l
 	if m.HashKey != nil {
-		nn14, err14 := m.HashKey.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+		nn14, err := m.HashKey.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += nn14
 	}
@@ -2172,9 +2170,9 @@ func (m *LoadBalancerSettings_ConsistentHashLB_HttpCookie) MarshalTo(dAtA []byte
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.HttpCookie.Size()))
-		n15, err15 := m.HttpCookie.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
+		n15, err := m.HttpCookie.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n15
 	}
@@ -2223,9 +2221,9 @@ func (m *LoadBalancerSettings_ConsistentHashLB_HTTPCookie) MarshalTo(dAtA []byte
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Ttl)))
-		n16, err16 := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Ttl, dAtA[i:])
-		if err16 != nil {
-			return 0, err16
+		n16, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Ttl, dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n16
 	}
@@ -2254,9 +2252,9 @@ func (m *ConnectionPoolSettings) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Tcp.Size()))
-		n17, err17 := m.Tcp.MarshalTo(dAtA[i:])
-		if err17 != nil {
-			return 0, err17
+		n17, err := m.Tcp.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n17
 	}
@@ -2264,9 +2262,9 @@ func (m *ConnectionPoolSettings) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Http.Size()))
-		n18, err18 := m.Http.MarshalTo(dAtA[i:])
-		if err18 != nil {
-			return 0, err18
+		n18, err := m.Http.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n18
 	}
@@ -2300,9 +2298,9 @@ func (m *ConnectionPoolSettings_TCPSettings) MarshalTo(dAtA []byte) (int, error)
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.ConnectTimeout.Size()))
-		n19, err19 := m.ConnectTimeout.MarshalTo(dAtA[i:])
-		if err19 != nil {
-			return 0, err19
+		n19, err := m.ConnectTimeout.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n19
 	}
@@ -2310,9 +2308,9 @@ func (m *ConnectionPoolSettings_TCPSettings) MarshalTo(dAtA []byte) (int, error)
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.TcpKeepalive.Size()))
-		n20, err20 := m.TcpKeepalive.MarshalTo(dAtA[i:])
-		if err20 != nil {
-			return 0, err20
+		n20, err := m.TcpKeepalive.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n20
 	}
@@ -2346,9 +2344,9 @@ func (m *ConnectionPoolSettings_TCPSettings_TcpKeepalive) MarshalTo(dAtA []byte)
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Time.Size()))
-		n21, err21 := m.Time.MarshalTo(dAtA[i:])
-		if err21 != nil {
-			return 0, err21
+		n21, err := m.Time.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n21
 	}
@@ -2356,9 +2354,9 @@ func (m *ConnectionPoolSettings_TCPSettings_TcpKeepalive) MarshalTo(dAtA []byte)
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Interval.Size()))
-		n22, err22 := m.Interval.MarshalTo(dAtA[i:])
-		if err22 != nil {
-			return 0, err22
+		n22, err := m.Interval.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n22
 	}
@@ -2407,9 +2405,9 @@ func (m *ConnectionPoolSettings_HTTPSettings) MarshalTo(dAtA []byte) (int, error
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.IdleTimeout.Size()))
-		n23, err23 := m.IdleTimeout.MarshalTo(dAtA[i:])
-		if err23 != nil {
-			return 0, err23
+		n23, err := m.IdleTimeout.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n23
 	}
@@ -2448,9 +2446,9 @@ func (m *OutlierDetection) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.Interval.Size()))
-		n24, err24 := m.Interval.MarshalTo(dAtA[i:])
-		if err24 != nil {
-			return 0, err24
+		n24, err := m.Interval.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n24
 	}
@@ -2458,9 +2456,9 @@ func (m *OutlierDetection) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintDestinationRule(dAtA, i, uint64(m.BaseEjectionTime.Size()))
-		n25, err25 := m.BaseEjectionTime.MarshalTo(dAtA[i:])
-		if err25 != nil {
-			return 0, err25
+		n25, err := m.BaseEjectionTime.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
 		i += n25
 	}
