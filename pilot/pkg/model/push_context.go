@@ -20,9 +20,13 @@ import (
 	"sync"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/monitoring"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -42,9 +46,9 @@ type PushContext struct {
 	Mutex sync.Mutex `json:"-"`
 
 	// Synthesized from env.Mesh
-	defaultServiceExportTo         map[config.Visibility]bool
-	defaultVirtualServiceExportTo  map[config.Visibility]bool
-	defaultDestinationRuleExportTo map[config.Visibility]bool
+	defaultServiceExportTo         map[visibility.Instance]bool
+	defaultVirtualServiceExportTo  map[visibility.Instance]bool
+	defaultDestinationRuleExportTo map[visibility.Instance]bool
 
 	// privateServices are reachable within the same namespace.
 	privateServicesByNamespace map[string][]*Service
@@ -276,7 +280,6 @@ var (
 		ProxyStatusClusterNoInstances,
 		DuplicatedDomains,
 		DuplicatedSubsets,
-		totalVirtualServices,
 	}
 )
 
@@ -284,6 +287,7 @@ func init() {
 	for _, m := range metrics {
 		monitoring.MustRegisterViews(m)
 	}
+	monitoring.MustRegisterViews(totalVirtualServices)
 }
 
 // NewPushContext creates a new PushContext structure to track push status.
@@ -387,7 +391,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 		rule := cfg.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
-			if gateways[config.IstioMeshGateway] {
+			if gateways[constants.IstioMeshGateway] {
 				out = append(out, cfg)
 			}
 		} else {
@@ -396,7 +400,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 				if gateways[resolveGatewayName(g, cfg.ConfigMeta)] {
 					out = append(out, cfg)
 					break
-				} else if g == config.IstioMeshGateway && gateways[g] {
+				} else if g == constants.IstioMeshGateway && gateways[g] {
 					// "mesh" gateway cannot be expanded into FQDN
 					out = append(out, cfg)
 					break
@@ -419,7 +423,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 //
 // Callers can check if the sidecarScope is from user generated object or not
 // by checking the sidecarScope.Config field, that contains the user provided config
-func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels config.LabelsCollection) *SidecarScope {
+func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Collection) *SidecarScope {
 
 	// Find the most specific matching sidecar config from the proxy's
 	// config namespace If none found, construct a sidecarConfig on the fly
@@ -435,7 +439,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels config.Label
 				// if there is no workload selector, the config applies to all workloads
 				// if there is a workload selector, check for matching workload labels
 				if sidecar.GetWorkloadSelector() != nil {
-					workloadSelector := config.Labels(sidecar.GetWorkloadSelector().GetLabels())
+					workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
 					if !workloadLabels.IsSupersetOf(workloadSelector) {
 						continue
 					}
@@ -526,7 +530,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname config.Hostname) config.LabelsCollection {
+func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname config.Hostname) labels.Collection {
 	// empty subset
 	if subsetName == "" {
 		return nil
@@ -540,7 +544,7 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 	rule := cfg.Spec.(*networking.DestinationRule)
 	for _, subset := range rule.Subsets {
 		if subset.Name == subsetName {
-			return []config.Labels{subset.Labels}
+			return []labels.Instance{subset.Labels}
 		}
 	}
 
@@ -606,13 +610,13 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	for _, s := range allServices {
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
-			if ps.defaultServiceExportTo[config.VisibilityPrivate] {
+			if ps.defaultServiceExportTo[visibility.Private] {
 				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
-			} else if ps.defaultServiceExportTo[config.VisibilityPublic] {
+			} else if ps.defaultServiceExportTo[visibility.Public] {
 				ps.publicServices = append(ps.publicServices, s)
 			}
 		} else {
-			if s.Attributes.ExportTo[config.VisibilityPrivate] {
+			if s.Attributes.ExportTo[visibility.Private] {
 				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
 			} else {
 				ps.publicServices = append(ps.publicServices, s)
@@ -682,7 +686,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		}
 		// resolve gateways to bind to
 		for i, g := range rule.Gateways {
-			if g != config.IstioMeshGateway {
+			if g != constants.IstioMeshGateway {
 				rule.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 			}
 		}
@@ -690,7 +694,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, d := range rule.Http {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					if g != config.IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -706,7 +710,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, d := range rule.Tcp {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
-					if g != config.IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -719,7 +723,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		for _, tls := range rule.Tls {
 			for _, m := range tls.Match {
 				for i, g := range m.Gateways {
-					if g != config.IstioMeshGateway {
+					if g != constants.IstioMeshGateway {
 						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
@@ -736,16 +740,16 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in virtualService. Use the global default
 			// TODO: We currently only honor ., * and ~
-			if ps.defaultVirtualServiceExportTo[config.VisibilityPrivate] {
+			if ps.defaultVirtualServiceExportTo[visibility.Private] {
 				// add to local namespace only
 				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
-			} else if ps.defaultVirtualServiceExportTo[config.VisibilityPublic] {
+			} else if ps.defaultVirtualServiceExportTo[visibility.Public] {
 				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
 			}
 		} else {
 			// TODO: we currently only process the first element in the array
 			// and currently only consider . or * which maps to public/private
-			if config.Visibility(rule.ExportTo[0]) == config.VisibilityPrivate {
+			if visibility.Instance(rule.ExportTo[0]) == visibility.Private {
 				// add to local namespace only
 				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
 			} else {
@@ -760,32 +764,32 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 }
 
 func (ps *PushContext) initDefaultExportMaps() {
-	ps.defaultDestinationRuleExportTo = make(map[config.Visibility]bool)
+	ps.defaultDestinationRuleExportTo = make(map[visibility.Instance]bool)
 	if ps.Env.Mesh.DefaultDestinationRuleExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultDestinationRuleExportTo {
-			ps.defaultDestinationRuleExportTo[config.Visibility(e)] = true
+			ps.defaultDestinationRuleExportTo[visibility.Instance(e)] = true
 		}
 	} else {
 		// default to *
-		ps.defaultDestinationRuleExportTo[config.VisibilityPublic] = true
+		ps.defaultDestinationRuleExportTo[visibility.Public] = true
 	}
 
-	ps.defaultServiceExportTo = make(map[config.Visibility]bool)
+	ps.defaultServiceExportTo = make(map[visibility.Instance]bool)
 	if ps.Env.Mesh.DefaultServiceExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultServiceExportTo {
-			ps.defaultServiceExportTo[config.Visibility(e)] = true
+			ps.defaultServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
-		ps.defaultServiceExportTo[config.VisibilityPublic] = true
+		ps.defaultServiceExportTo[visibility.Public] = true
 	}
 
-	ps.defaultVirtualServiceExportTo = make(map[config.Visibility]bool)
+	ps.defaultVirtualServiceExportTo = make(map[visibility.Instance]bool)
 	if ps.Env.Mesh.DefaultVirtualServiceExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultVirtualServiceExportTo {
-			ps.defaultVirtualServiceExportTo[config.Visibility(e)] = true
+			ps.defaultVirtualServiceExportTo[visibility.Instance(e)] = true
 		}
 	} else {
-		ps.defaultVirtualServiceExportTo[config.VisibilityPublic] = true
+		ps.defaultVirtualServiceExportTo[visibility.Public] = true
 	}
 }
 
@@ -911,13 +915,13 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in destinationRule. Use the global default
 			// TODO: We currently only honor ., * and ~
-			if ps.defaultDestinationRuleExportTo[config.VisibilityPublic] {
+			if ps.defaultDestinationRuleExportTo[visibility.Public] {
 				isPubliclyExported = true
 			}
 		} else {
 			// TODO: we currently only process the first element in the array
 			// and currently only consider . or * which maps to public/private
-			if config.Visibility(rule.ExportTo[0]) != config.VisibilityPrivate {
+			if visibility.Instance(rule.ExportTo[0]) != visibility.Private {
 				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
 				// and we currently only allow . or *. So treat this as public export
 				isPubliclyExported = true

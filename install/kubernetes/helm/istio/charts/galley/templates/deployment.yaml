@@ -88,7 +88,7 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
-          - containerPort: 443
+          - containerPort: {{ .Values.validationPort }}
           - containerPort: {{ .Values.global.monitoringPort }}
           - containerPort: 9901
           command:
@@ -96,8 +96,8 @@ spec:
           - server
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
-          - --livenessProbePath=/healthliveness
-          - --readinessProbePath=/healthready
+          - --livenessProbePath=/tmp/healthliveness
+          - --readinessProbePath=/tmp/healthready
           - --readinessProbeInterval=1s
           - --deployment-namespace={{ .Release.Namespace }}
 {{- if $.Values.global.controlPlaneSecurityEnabled}}
@@ -114,11 +114,14 @@ spec:
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
-          - --log_output_level=default:debug
 {{- if .Values.configSink }}
           - --configPath=/etc/tcc/config.yaml
           - --resyncPeriod=1s
 {{- end }}
+          - --validation-port={{ .Values.validationPort }}
+{{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+{{- end}}
           volumeMounts:
 {{- if .Values.configSink }}
           - name: configsink-dir
@@ -138,7 +141,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/healthliveness
+                - --probe-path=/tmp/healthliveness
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -147,7 +150,7 @@ spec:
               command:
                 - /usr/local/bin/galley
                 - probe
-                - --probe-path=/healthready
+                - --probe-path=/tmp/healthready
                 - --interval=10s
             initialDelaySeconds: 5
             periodSeconds: 5

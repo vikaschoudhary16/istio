@@ -28,7 +28,7 @@ import (
 	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -36,8 +36,12 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 const (
@@ -45,11 +49,6 @@ const (
 	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
 	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
 	wildcardPrefix = `(\*|(\*|\*-)?` + dns1123LabelFmt + `)`
-
-	// Using kubernetes requirement, a valid key must be a non-empty string consist
-	// of alphanumeric characters, '-', '_' or '.', and must start and end with an
-	// alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345'
-	qualifiedNameFmt string = "([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"
 )
 
 // Constants for duration fields
@@ -66,10 +65,7 @@ const (
 const UnixAddressPrefix = "unix://"
 
 var (
-	dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
-	tagRegexp          = regexp.MustCompile("^" + qualifiedNameFmt + "$")
-	// label value can be an empty string
-	labelValueRegexp     = regexp.MustCompile("^" + "(" + qualifiedNameFmt + ")?" + "$")
+	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
 )
 
@@ -220,7 +216,7 @@ func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
 		}
 	}
 
-	if err := Labels(svc.Labels).Validate(); err != nil {
+	if err := labels.Instance(svc.Labels).Validate(); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -451,7 +447,7 @@ func validateExportTo(exportTo []string) (errs error) {
 		if len(exportTo) > 1 {
 			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
 		} else {
-			errs = appendErrors(errs, Visibility(exportTo[0]).Validate())
+			errs = appendErrors(errs, visibility.Instance(exportTo[0]).Validate())
 		}
 	}
 
@@ -516,6 +512,14 @@ func ValidateEnvoyFilter(_, _ string, msg proto.Message) (errs error) {
 		if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
 			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing patch value for non-remove operation"))
 			continue
+		}
+
+		// ensure that the supplied regex for proxy version compiles
+		if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
+			if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
+				errs = appendErrors(errs, fmt.Errorf("envoy filter: invalid regex for proxy version, [%v]", err))
+				continue
+			}
 		}
 		// ensure that applyTo, match and patch all line up
 		switch cp.ApplyTo {
@@ -898,7 +902,7 @@ func validateTLS(settings *networking.TLSSettings) (errs error) {
 
 func validateSubset(subset *networking.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
-		Labels(subset.Labels).Validate(),
+		labels.Instance(subset.Labels).Validate(),
 		validateTrafficPolicy(subset.TrafficPolicy))
 }
 
@@ -1415,20 +1419,20 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	var errs error
 
 	if !clusterScoped {
-		if len(in.Targets) == 0 && name != DefaultAuthenticationPolicyName {
+		if len(in.Targets) == 0 && name != constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
-				DefaultAuthenticationPolicyName, name))
+				constants.DefaultAuthenticationPolicyName, name))
 		}
-		if len(in.Targets) > 0 && name == DefaultAuthenticationPolicyName {
+		if len(in.Targets) > 0 && name == constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
 		}
 		for _, target := range in.Targets {
 			errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 		}
 	} else {
-		if name != DefaultAuthenticationPolicyName {
+		if name != constants.DefaultAuthenticationPolicyName {
 			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
-				DefaultAuthenticationPolicyName, name))
+				constants.DefaultAuthenticationPolicyName, name))
 		}
 		if len(in.Targets) > 0 {
 			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
@@ -1649,8 +1653,8 @@ func checkRbacConfig(name, typ string, msg proto.Message) error {
 		return errors.New("cannot cast to " + typ)
 	}
 
-	if name != DefaultRbacConfigName {
-		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, DefaultRbacConfigName)
+	if name != constants.DefaultRbacConfigName {
+		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, constants.DefaultRbacConfigName)
 	}
 
 	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
@@ -1739,7 +1743,7 @@ func ValidateVirtualService(_, _ string, msg proto.Message) (errs error) {
 
 	errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
 	for _, gateway := range virtualService.Gateways {
-		if gateway == IstioMeshGateway {
+		if gateway == constants.IstioMeshGateway {
 			appliesToMesh = true
 			break
 		}
@@ -1831,7 +1835,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
-	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	return
 }
@@ -1877,7 +1881,7 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
-	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	return
 }
@@ -1945,19 +1949,22 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
 	for _, match := range http.Match {
-		for name, header := range match.Headers {
-			if header == nil {
-				errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+		if match != nil {
+			for name, header := range match.Headers {
+				if header == nil {
+					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+				}
+				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 			}
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
 
-		if match.Port != 0 {
-			errs = appendErrors(errs, ValidatePort(int(match.Port)))
+			if match.Port != 0 {
+				errs = appendErrors(errs, ValidatePort(int(match.Port)))
+			}
+			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
+			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 		}
-		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
-		errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	}
+
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
@@ -2368,7 +2375,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 					}
 				}
 			}
-			errs = appendErrors(errs, Labels(endpoint.Labels).Validate())
+			errs = appendErrors(errs, labels.Instance(endpoint.Labels).Validate())
 
 		}
 		if unixEndpoint && len(serviceEntry.Ports) != 1 {
@@ -2393,7 +2400,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 				}
 			}
 			errs = appendErrors(errs,
-				Labels(endpoint.Labels).Validate())
+				labels.Instance(endpoint.Labels).Validate())
 			for name, port := range endpoint.Ports {
 				if !servicePorts[name] {
 					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))

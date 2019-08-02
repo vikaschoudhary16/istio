@@ -23,6 +23,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -30,9 +32,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
@@ -164,7 +167,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// Collect all proxy labels for source match
-	var proxyLabels config.LabelsCollection
+	var proxyLabels labels.Collection
 	for _, w := range proxyInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -294,7 +297,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 	domains := []string{string(service.Hostname), fmt.Sprintf("%s:%d", service.Hostname, port)}
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
 
-	if len(service.Address) > 0 && service.Address != config.UnspecifiedIP {
+	if len(service.Address) > 0 && service.Address != constants.UnspecifiedIP {
 		svcAddr := service.GetServiceAddressForProxy(node)
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)

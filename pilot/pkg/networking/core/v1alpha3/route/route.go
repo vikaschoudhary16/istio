@@ -30,11 +30,14 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // Headers with special meaning in Envoy
@@ -74,7 +77,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
 	serviceRegistry map[config.Hostname]*model.Service,
-	proxyLabels config.LabelsCollection,
+	proxyLabels labels.Collection,
 	virtualServices []model.Config, listenPort int) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
@@ -154,7 +157,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[config.Hostname]*model.Service,
-	proxyLabels config.LabelsCollection,
+	proxyLabels labels.Collection,
 	listenPort int) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 
@@ -181,7 +184,7 @@ func buildSidecarVirtualHostsForVirtualService(
 		// the current code is written.
 		serviceByPort[80] = nil
 	}
-	meshGateway := map[string]bool{config.IstioMeshGateway: true}
+	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
 		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, proxyLabels, meshGateway)
@@ -239,7 +242,7 @@ func BuildHTTPRoutesForVirtualService(
 	virtualService model.Config,
 	serviceRegistry map[config.Hostname]*model.Service,
 	listenPort int,
-	proxyLabels config.LabelsCollection,
+	proxyLabels labels.Collection,
 	gatewayNames map[string]bool) ([]*route.Route, error) {
 
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
@@ -277,7 +280,7 @@ allroutes:
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
 // labels for the proxy or the gateway name for which we are generating a route
-func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels config.LabelsCollection, gatewayNames map[string]bool) bool {
+func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Collection, gatewayNames map[string]bool) bool {
 	if match == nil {
 		return true
 	}
@@ -301,7 +304,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	match *networking.HTTPMatchRequest, port int,
 	virtualService model.Config,
 	serviceRegistry map[config.Hostname]*model.Service,
-	proxyLabels config.LabelsCollection,
+	proxyLabels labels.Collection,
 	gatewayNames map[string]bool) *route.Route {
 
 	// When building routes, its okay if the target cluster cannot be
@@ -617,7 +620,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 }
 
 // translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.CorsPolicy {
+func translateCORSPolicy(in *networking.CorsPolicy, _ *model.Proxy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
@@ -627,17 +630,13 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 		AllowOrigin: in.AllowOrigin,
 	}
 
-	if util.IsProxyVersionGE11(node) {
-		out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
-			FilterEnabled: &core.RuntimeFractionalPercent{
-				DefaultValue: &xdstype.FractionalPercent{
-					Numerator:   100,
-					Denominator: xdstype.FractionalPercent_HUNDRED,
-				},
+	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
+		FilterEnabled: &core.RuntimeFractionalPercent{
+			DefaultValue: &xdstype.FractionalPercent{
+				Numerator:   100,
+				Denominator: xdstype.FractionalPercent_HUNDRED,
 			},
-		}
-	} else {
-		out.EnabledSpecifier = &route.CorsPolicy_Enabled{Enabled: &types.BoolValue{Value: true}}
+		},
 	}
 
 	out.AllowCredentials = in.AllowCredentials

@@ -19,9 +19,12 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 func convertPort(port *networking.Port) *model.Port {
@@ -53,11 +56,11 @@ func convertServices(cfg model.Config) []*model.Service {
 		svcPorts = append(svcPorts, convertPort(port))
 	}
 
-	var exportTo map[config.Visibility]bool
+	var exportTo map[visibility.Instance]bool
 	if len(serviceEntry.ExportTo) > 0 {
-		exportTo = make(map[config.Visibility]bool)
+		exportTo = make(map[visibility.Instance]bool)
 		for _, e := range serviceEntry.ExportTo {
-			exportTo[config.Visibility(e)] = true
+			exportTo[visibility.Instance(e)] = true
 		}
 	}
 
@@ -105,7 +108,7 @@ func convertServices(cfg model.Config) []*model.Service {
 				CreationTime: creationTime,
 				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 				Hostname:     config.Hostname(host),
-				Address:      config.UnspecifiedIP,
+				Address:      constants.UnspecifiedIP,
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{

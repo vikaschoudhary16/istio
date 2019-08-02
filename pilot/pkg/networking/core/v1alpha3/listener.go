@@ -37,6 +37,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/monitoring"
@@ -45,9 +47,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -229,7 +232,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 	// If the user specifies a Sidecar CRD with an inbound listener, only construct that listener
 	// and not the ones from the proxyInstances
-	var proxyLabels config.LabelsCollection
+	var proxyLabels labels.Collection
 	for _, w := range node.ServiceInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -568,7 +571,7 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
 
-	var proxyLabels config.LabelsCollection
+	var proxyLabels labels.Collection
 	for _, w := range node.ServiceInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
@@ -1026,7 +1029,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 		// The conflict resolution is done later in this code
 	}
 
-	meshGateway := map[string]bool{config.IstioMeshGateway: true}
+	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 
 	return true, buildSidecarOutboundTCPTLSFilterChainOpts(pluginParams.Env, pluginParams.Node,
 		pluginParams.Push, virtualServices,
@@ -1435,7 +1438,7 @@ type buildListenerOpts struct {
 	env             *model.Environment
 	proxy           *model.Proxy
 	proxyInstances  []*model.ServiceInstance
-	proxyLabels     config.LabelsCollection
+	proxyLabels     labels.Collection
 	bind            string
 	port            int
 	filterChainOpts []*filterChainOpts
@@ -1513,9 +1516,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Name: xdsutil.FileAccessLog,
 		}
 
-		if util.IsProxyVersionGE11(node) {
-			buildAccessLog(fl, env)
-		}
+		buildAccessLog(fl, env)
 
 		if util.IsXDSMarshalingToAnyEnabled(node) {
 			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
@@ -1628,7 +1629,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 					continue
 				}
 				cidr := util.ConvertAddressToCidr(d)
-				if cidr != nil && cidr.AddressPrefix != config.UnspecifiedIP {
+				if cidr != nil && cidr.AddressPrefix != constants.UnspecifiedIP {
 					match.PrefixRanges = append(match.PrefixRanges, cidr)
 				}
 			}

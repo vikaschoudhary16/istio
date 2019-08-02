@@ -25,9 +25,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -35,9 +37,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
@@ -48,7 +50,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	// collect workload labels
 	workloadInstances := node.ServiceInstances
 
-	var workloadLabels config.LabelsCollection
+	var workloadLabels labels.Collection
 	for _, w := range workloadInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
@@ -204,7 +206,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	services := push.Services(node)
 
 	// collect workload labels
-	var workloadLabels config.LabelsCollection
+	var workloadLabels labels.Collection
 	for _, w := range proxyInstances {
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
@@ -371,9 +373,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 	// where HTTPS server's TLS mode is not passthrough and not nil
 	enableIngressSdsAgent := false
-	// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
+	// If proxy sends metadata USER_SDS, then create SDS config for
 	// gateway listener.
-	if enableSds, found := node.Metadata["USER_SDS"]; found && util.IsProxyVersionGE11(node) {
+	if enableSds, found := node.Metadata["USER_SDS"]; found {
 		enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
 	}
 	return &filterChainOpts{
@@ -423,9 +425,14 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		// If tls mode is MUTUAL, create SDS config for gateway to fetch certificate validation context
 		// at gateway agent. Otherwise, use the static certificate validation context config.
 		if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
+			defaultValidationContext := &auth.CertificateValidationContext{
+				VerifySubjectAltName:  server.Tls.SubjectAltNames,
+				VerifyCertificateSpki: server.Tls.VerifyCertificateSpki,
+				VerifyCertificateHash: server.Tls.VerifyCertificateHash,
+			}
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: server.Tls.SubjectAltNames},
+					DefaultValidationContext: defaultValidationContext,
 					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfigForGatewayListener(
 						server.Tls.CredentialName+authn_model.IngressGatewaySdsCaSuffix, authn_model.IngressGatewaySdsUdsPath),
 				},
@@ -528,7 +535,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			enableIngressSdsAgent := false
 			// If proxy version is over 1.1, and proxy sends metadata USER_SDS, then create SDS config for
 			// gateway listener.
-			if enableSds, found := node.Metadata["USER_SDS"]; found && util.IsProxyVersionGE11(node) {
+			if enableSds, found := node.Metadata["USER_SDS"]; found {
 				enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
 			}
 			return []*filterChainOpts{
