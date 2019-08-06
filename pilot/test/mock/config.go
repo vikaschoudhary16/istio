@@ -29,10 +29,12 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pkg/config/constants"
 	pkgtest "istio.io/istio/pkg/test"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -346,12 +348,12 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// check for missing element
-	if config := r.Get(model.MockConfig.Type, "missing", ""); config != nil {
+	if cfg := r.Get(model.MockConfig.Type, "missing", ""); cfg != nil {
 		t.Error("unexpected configuration object found")
 	}
 
 	// check for missing element
-	if config := r.Get("missing", "missing", ""); config != nil {
+	if cfg := r.Get("missing", "missing", ""); cfg != nil {
 		t.Error("unexpected configuration object found")
 	}
 
@@ -440,15 +442,15 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
 		{"AuthorizationPolicy", configName, model.AuthorizationPolicy, ExampleAuthorizationPolicy},
-		{"RbacConfig", model.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},
-		{"ClusterRbacConfig", model.DefaultRbacConfigName, model.ClusterRbacConfig, ExampleRbacConfig},
+		{"RbacConfig", constants.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},
+		{"ClusterRbacConfig", constants.DefaultRbacConfigName, model.ClusterRbacConfig, ExampleRbacConfig},
 	}
 
 	for _, c := range cases {
 		configMeta := model.ConfigMeta{
 			Type:    c.schema.Type,
 			Name:    c.configName,
-			Group:   c.schema.Group + model.IstioAPIGroupDomain,
+			Group:   c.schema.Group + constants.IstioAPIGroupDomain,
 			Version: c.schema.Version,
 		}
 		if !c.schema.ClusterScoped {
@@ -546,7 +548,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	go cache.Run(stop)
 
 	// try warm-up with empty Get
-	if config := cache.Get("unknown", "example", namespace); config != nil {
+	if cfg := cache.Get("unknown", "example", namespace); cfg != nil {
 		t.Error("unexpected result for unknown type")
 	}
 

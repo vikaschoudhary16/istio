@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 
+	kubeApiAdmissions "k8s.io/api/admissionregistration/v1beta1"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -178,21 +179,7 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 
 		scopes.CI.Infof("Checking pods ready...")
 
-		fetched, err := fetchFunc()
-		if err != nil {
-			scopes.CI.Infof("Failed retrieving pods: %v", err)
-			return nil, false, err
-		}
-
-		for i, p := range fetched {
-			msg := "Ready"
-			if e := CheckPodReady(&p); e != nil {
-				msg = e.Error()
-				err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
-			}
-			scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
-		}
-
+		fetched, err := a.CheckPodsAreReady(fetchFunc)
 		if err != nil {
 			return nil, false, err
 		}
@@ -201,6 +188,32 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 	}, newRetryOptions(opts...)...)
 
 	return pods, err
+}
+
+// CheckPodsAreReady checks wehther the pods that are selected by the given function is in ready state or not.
+func (a *Accessor) CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
+	scopes.CI.Infof("Checking pods ready...")
+
+	fetched, err := fetchFunc()
+	if err != nil {
+		scopes.CI.Infof("Failed retrieving pods: %v", err)
+		return nil, err
+	}
+
+	for i, p := range fetched {
+		msg := "Ready"
+		if e := CheckPodReady(&p); e != nil {
+			msg = e.Error()
+			err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
+		}
+		scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fetched, nil
 }
 
 // WaitUntilPodsAreDeleted waits until the pod with the name/namespace no longer exist.
@@ -224,11 +237,16 @@ func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry
 	return err
 }
 
+// DeleteDeployment deletes the given deployment.
+func (a *Accessor) DeleteDeployment(ns string, name string) error {
+	return a.set.AppsV1().Deployments(ns).Delete(name, deleteOptionsForeground())
+}
+
 // WaitUntilDeploymentIsReady waits until the deployment with the name/namespace is in ready state.
 func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		deployment, err := a.set.ExtensionsV1beta1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
+		deployment, err := a.set.AppsV1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
@@ -247,7 +265,7 @@ func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...re
 func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...retry.Option) error {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		daemonSet, err := a.set.ExtensionsV1beta1().DaemonSets(ns).Get(name, kubeApiMeta.GetOptions{})
+		daemonSet, err := a.set.AppsV1().DaemonSets(ns).Get(name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
@@ -324,6 +342,15 @@ func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
 	return err == nil
 }
 
+// GetValidatingWebhookConfigurationreturns the specified ValidatingWebhookConfiguration.
+func (a *Accessor) GetValidatingWebhookConfiguration(name string) (*kubeApiAdmissions.ValidatingWebhookConfiguration, error) {
+	whc, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not get validating webhook config: %s", name)
+	}
+	return whc, nil
+}
+
 // GetCustomResourceDefinitions gets the CRDs
 func (a *Accessor) GetCustomResourceDefinitions() ([]kubeApiExt.CustomResourceDefinition, error) {
 	crd, err := a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().List(kubeApiMeta.ListOptions{})
@@ -377,13 +404,18 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) err
 	return err
 }
 
-func (a *Accessor) CreateNamespaceWithInjectionEnabled(ns string, istioTestingAnnotation string, configNamespace string) error {
+// CreateNamespaceWithInjectionEnabled with the given name and have sidecar-injection enabled.
+func (a *Accessor) CreateNamespaceWithInjectionEnabled(ns string, istioTestingAnnotation string,
+	customSidecarInjectorNamespace string) error {
 	scopes.Framework.Debugf("Creating namespace with injection enabled: %s", ns)
 
 	n := a.newNamespace(ns, istioTestingAnnotation)
 
 	n.ObjectMeta.Labels["istio-injection"] = "enabled"
-	n.ObjectMeta.Labels["istio-env"] = configNamespace
+
+	if customSidecarInjectorNamespace != "" {
+		n.ObjectMeta.Labels["istio-env"] = customSidecarInjectorNamespace
+	}
 
 	_, err := a.set.CoreV1().Namespaces().Create(&n)
 	return err
@@ -478,6 +510,11 @@ func (a *Accessor) Logs(namespace string, pod string, container string, previous
 // Exec executes the provided command on the specified pod/container.
 func (a *Accessor) Exec(namespace, pod, container, command string) (string, error) {
 	return a.ctl.exec(namespace, pod, container, command)
+}
+
+// ScaleDeployment scales a deployment to the specified number of replicas.
+func (a *Accessor) ScaleDeployment(namespace, deployment string, replicas int) error {
+	return a.ctl.scale(namespace, deployment, replicas)
 }
 
 // CheckPodReady returns nil if the given pod and all of its containers are ready.

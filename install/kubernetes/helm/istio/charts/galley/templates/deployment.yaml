@@ -16,8 +16,8 @@ spec:
       istio: galley
   strategy:
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: {{ .Values.rollingMaxSurge }}
+      maxUnavailable: {{ .Values.rollingMaxUnavailable }}
   template:
     metadata:
       labels:
@@ -108,18 +108,19 @@ spec:
 {{- if not $.Values.global.useMCP }}
           - --enable-server=false
 {{- end }}
-{{- if .Values.configSink }}
+{{- if not $.Values.global.configValidation }}
           - --enable-validation=false
-{{- else }}
+{{- end }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
-{{- end }}
           - --monitoringPort={{ .Values.global.monitoringPort }}
-          - --log_output_level=default:debug
 {{- if .Values.configSink }}
           - --configPath=/etc/tcc/config.yaml
           - --resyncPeriod=1s
 {{- end }}
+{{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
+{{- end}}
           volumeMounts:
 {{- if .Values.configSink }}
           - name: configsink-dir

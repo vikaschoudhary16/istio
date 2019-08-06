@@ -26,7 +26,9 @@ import (
 	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/test/framework/components/ingress"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/tests/util"
 )
 
@@ -75,9 +77,8 @@ func VisitProductPage(ing ingress.Instance, timeout time.Duration, wantStatus in
 	}
 }
 
-func ValidateMetric(t *testing.T, prometheus prometheus.Instance, query, metricName string) {
+func ValidateMetric(t *testing.T, prometheus prometheus.Instance, query, metricName string, want float64) {
 	got, err := getMetric(t, prometheus, query, metricName)
-	want := float64(1)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -128,7 +129,7 @@ func PromDumpWithAttributes(prometheus prometheus.Instance, metric string, attri
 	return ""
 }
 
-func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url string, calls int64) *fhttp.HTTPRunnerResults {
+func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url, extraHeader string, calls int64) *fhttp.HTTPRunnerResults {
 	t.Log(msg)
 	if url == "" {
 		url = fmt.Sprintf("%s/productpage", ingress.HTTPAddress())
@@ -147,6 +148,9 @@ func SendTraffic(ingress ingress.Instance, t *testing.T, msg, url string, calls 
 			URL: url,
 		},
 	}
+	if extraHeader != "" {
+		opts.HTTPOptions.AddAndValidateExtraHeader(extraHeader)
+	}
 	// productpage should still return 200s when ratings is rate-limited.
 	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {
@@ -163,10 +167,36 @@ func SendTrafficAndWaitForExpectedStatus(ingress ingress.Instance, t *testing.T,
 	}
 
 	retryFn := func(_ context.Context, i int) error {
-		res := SendTraffic(ingress, t, msg, url, calls)
+		res := SendTraffic(ingress, t, msg, url, "", calls)
 		// Verify you get specified http return code.
 		if float64(res.RetCodes[httpStatusCode]) == 0 {
 			return fmt.Errorf("could not get %v status", httpStatusCode)
+		}
+		return nil
+	}
+
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
+		t.Fatalf("Failed with err: %v", err)
+	}
+}
+
+func GetAndValidateAccessLog(ns namespace.Instance, t *testing.T, labelSelector, container string, validate func(string) error) {
+	retry := util.Retrier{
+		BaseDelay: 15 * time.Second,
+		Retries:   3,
+		MaxDelay:  30 * time.Second,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		// Different kubectl versions seem to return different amounts of logs. To ensure we get them all, set tail to a large number
+		content, err := shell.Execute(false, "kubectl logs -n %s -l %s -c %s --tail=10000000",
+			ns.Name(), labelSelector, container)
+		if err != nil {
+			return fmt.Errorf("unable to get access logs from mixer: %v , content %v", err, content)
+		}
+		err = validate(content)
+		if err != nil {
+			return fmt.Errorf("error validating content %v ", err)
 		}
 		return nil
 	}
