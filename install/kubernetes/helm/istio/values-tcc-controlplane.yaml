@@ -1,4 +1,5 @@
 pilot:
+  traceSampling: 100.0
   enabled: true
 
 gateways:
@@ -21,11 +22,24 @@ mixer:
   policy:
     enabled: false
   telemetry:
-    enabled: false
+    enabled: true
 
 prometheus:
-  enabled: false
+  enabled: true
 
+tracing:
+  enabled: true
+  jaeger:
+    token: ""
+    elasticsearch:
+      host: "__HOST__"
+      port: 8443
+    memory:
+      max_traces: 50000
+    env:
+      SPAN_STORAGE_TYPE: "elasticsearch"
+      # Jaeger sends to local envoy which forwards to TCC elastic search.
+      ES_SERVER_URLS: "http://127.0.0.1:9200"
 oap:
   enabled: true
   tag: "v2.0.e64b50e"
@@ -52,7 +66,7 @@ global:
   tag: "__ISTIO__"
   controlPlaneSecurityEnabled: true
   disablePolicyChecks: true
-  enableTracing: false
+  enableTracing: true
   configValidation: false
   defaultPodDisruptionBudget:
     enabled: false
@@ -63,6 +77,8 @@ global:
       host: oap.istio-system
       port: 11800
 
+  # set this to false to disable the post install jobs
+  # this setting does not control mTLS. TCC does.
   mtls:
     enabled: false
 
@@ -71,4 +87,4 @@ global:
 
   configRootNamespace: istio-config
   defaultConfigVisibilitySettings:
-  - '.'
+  - '*'

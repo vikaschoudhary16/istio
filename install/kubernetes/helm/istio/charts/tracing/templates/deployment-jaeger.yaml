@@ -40,6 +40,10 @@ spec:
         - name: {{ . }}
 {{- end }}
 {{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: jaeger-config
       containers:
         - name: jaeger
           image: "{{ .Values.jaeger.hub }}/{{ .Values.jaeger.image }}:{{ .Values.jaeger.tag }}"
@@ -54,6 +58,11 @@ spec:
             - containerPort: 6832
               protocol: UDP
           env:
+          {{- if .Values.env }}
+          {{- range $key, $val := .Values.env }}
+          - name: {{ $key }}
+            value: {{ $val }}
+          {{- end }}
           - name: POD_NAMESPACE
             valueFrom:
               fieldRef:
@@ -94,6 +103,25 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+        - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [ "/usr/local/bin/envoy" ]
+          args:
+          - -c
+          - /etc/envoy/envoy.yaml
+          - --service-cluster
+          - envoy-proxy
+          ports:
+          - containerPort: 50001
+          - containerPort: 9200
+          volumeMounts:
+          - mountPath: /etc/envoy/
+            name: config
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
