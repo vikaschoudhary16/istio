@@ -1,3 +1,4 @@
+{{ if .Values.elasticsearch }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -49,3 +50,4 @@ data:
         - socket_address:
             address: {{ .Values.elasticsearch.host }}
             port_value: {{ .Values.elasticsearch.port }}
+{{ end }}
