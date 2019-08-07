@@ -22,10 +22,10 @@ mixer:
   policy:
     enabled: false
   telemetry:
-    enabled: true
+    enabled: false
 
 prometheus:
-  enabled: true
+  enabled: false
 
 tracing:
   enabled: true
