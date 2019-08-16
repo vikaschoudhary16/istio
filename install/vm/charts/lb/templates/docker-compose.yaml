@@ -1,0 +1,52 @@
+#
+# Copyright (c) Tetrate, Inc 2019 All Rights Reserved.
+#
+# Usage:
+#
+# docker-compose up -d
+#
+version: '3'
+services:
+  lb-istio-proxy:
+    image: {{ .Values.global.hub }}/proxyv2:{{ .Values.global.istio.tag }}
+    command: "proxy router --log_output_level=default:debug --serviceRegistry Mock --discoveryAddress {{ .Values.global.proxy.pilot }}:15010 --envoyAccessLogServiceAddress {{ .Values.global.oap.elasticsearch.host }}:{{ .Values.global.oap.elasticsearch.port }}"
+    networks:
+      lb-network:
+        ipv4_address: 172.20.128.2
+      istio-cp-network:
+        ipv4_address: 172.21.128.22
+    ports:
+    - "80:80"
+    - "443:443"
+    - "15020:15020"
+    volumes:
+    - {{ .Values.global.certs.cert }}:/etc/certs/cert.crt
+    - {{ .Values.global.certs.key }}:/etc/certs/key.pem
+    - {{ .Values.global.certs.certchain }}:/etc/certs/cert-chain.pem
+    environment:
+    - ISTIO_META_CONFIG_NAMESPACE={{ .Values.global.proxy.appNs }}
+    - ISTIO_META_TCC_TENANT={{ .Values.global.tcc.tenant }}
+    - ISTIO_META_TCC_CLUSTER={{ .Values.global.tcc.cluster }}
+    - ISTIO_META_TCC_ENVIRONMENT={{ .Values.global.tcc.env }}
+    - ISTIO_META_TCC_APPLICATION={{ .Values.global.proxy.appId }}
+    extra_hosts:
+    - "{{ .Values.global.proxy.pilot }}:172.21.128.10"
+    - "oap:{{ .Values.global.oap.elasticsearch.host }}"
+    restart: unless-stopped
+
+  httpbin.internal:
+    image: docker.io/kennethreitz/httpbin
+    networks:
+      lb-network:
+        ipv4_address: 172.20.128.3
+    ports:
+    - "8088:80"
+    hostname: httpbin.internal
+    restart: unless-stopped
+
+networks:
+  istio-cp-network:
+  lb-network:
+    ipam:
+      config:
+        - subnet: 172.20.128.0/24

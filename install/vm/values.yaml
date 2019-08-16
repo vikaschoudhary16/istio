@@ -1,0 +1,43 @@
+#
+# Values for generating appropriate docker-compose for VMs
+#
+global:
+  hub: "__HUB__"
+  busybox: "__BUSYBOX__"
+
+  istio:
+    tag: "__ISTIO_DOCKER_TAG__"
+    namespace: istio-system
+
+  galley:
+    configSink:
+      tokenFile: "__CONFIGSINK_JWT__"
+
+  tcc:
+    tag: "__SHA__"
+    host: "__TCCIP__"
+    tenant: "__TENANT__"
+    cluster: "__CLUSTER__"
+    environment: "__ENV__"
+
+  oap:
+    elasticsearch:
+      host: "__OAP__"
+      port: 8443
+
+  proxy:
+    enabled: false
+    pilot: "istio-pilot"
+    appNs: "__APPNS__"
+    appId: "__APPID__"
+    accessLogFile: "/dev/stdout"
+    envoyAccessLogService:
+      enabled: true
+      host: "oap"
+      port: 11800
+
+  certs:
+    cert: "cert.crt"
+    key: "key.pem"
+    certchain: "cert-chain.pem"
+    rootcert: "root-cert.pem"

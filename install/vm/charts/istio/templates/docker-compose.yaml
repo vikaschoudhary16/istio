@@ -1,0 +1,105 @@
+#
+# Copyright (c) Tetrate, Inc 2019 All Rights Reserved.
+#
+# Usage:
+#
+# docker-compose up -d
+#
+version: '3'
+services:
+  istio-proxy:
+    image: {{ .Values.global.hub }}/proxyv2:{{ .Values.global.istio.tag }}
+    command: "proxy --domain cluster.local --serviceCluster istio-pilot --templateFile /etc/istio/proxy/envoy_pilot.yaml.tmpl"
+    networks:
+      istio-cp-network:
+        ipv4_address: 172.21.128.11
+    ports:
+    - "15003:15003"
+    - "15005:15005"
+    - "15007:15007"
+    - "15011:15011"
+    environment:
+    - POD_NAMESPACE={{ .Values.global.istio.namespace }}
+    volumes:
+    - {{ .Values.global.certs.cert }}:/etc/certs/cert.crt
+    - {{ .Values.global.certs.key }}:/etc/certs/key.pem
+    - {{ .Values.global.certs.certchain }}:/etc/certs/cert-chain.pem
+    restart: unless-stopped
+
+  istio-pilot:
+    image: {{ .Values.global.hub }}/pilot:{{ .Values.global.istio.tag }}
+    command: "discovery --registries=MCP --monitoringAddr=:15014 --log_output_level=ads:debug,model:debug,default:debug --domain cluster.local --keepaliveMaxServerConnectionAge '30m'"
+    networks:
+      istio-cp-network:
+        ipv4_address: 172.21.128.10
+    ports:
+    - "8080:8080"
+    - "15010:15010"
+    environment:
+    - POD_NAME=istio-pilot
+    - POD_NAMESPACE={{ .Values.global.istio.namespace }}
+    volumes:
+    - ./istio-config:/etc/istio/config
+    - ./istio-config:/etc/config
+    - {{ .Values.global.certs.cert }}:/etc/certs/cert.crt
+    - {{ .Values.global.certs.key }}:/etc/certs/key.pem
+    - {{ .Values.global.certs.certchain }}:/etc/certs/cert-chain.pem
+    - {{ .Values.global.certs.rootcert }}:/etc/certs/root-cert.pem
+    extra_hosts:
+    - "istio-galley.{{ .Values.global.istio.namespace }}:172.21.128.9"
+    restart: unless-stopped
+
+  istio-galley:
+    image: {{ .Values.global.hub }}/galley:{{ .Values.global.istio.tag }}
+    command: "server --enable-validation=false --configPath /etc/tcc/config.yaml --meshConfigFile=/etc/config/mesh-config.yaml --livenessProbeInterval=1s --livenessProbePath=/healthliveness --readinessProbePath=/healthready --readinessProbeInterval=1s --deployment-namespace=istio-system --insecure=true --resyncPeriod=1s --monitoringPort=15014 --log_output_level=default:debug --validation-webhook-config-file /etc/config/validatingwebhookconfiguration.yaml"
+    networks:
+      istio-cp-network:
+        ipv4_address: 172.21.128.9
+    ports:
+    #- "443:443" # TBD: LB exposed on the same port, so causes port conflict on same VM
+    - "15014:15014"
+    - "9901:9901"
+    volumes:
+    - configsink-dir:/etc/tcc
+    - ./istio-config:/etc/config
+    - {{ .Values.global.certs.cert }}:/etc/certs/cert.crt
+    - {{ .Values.global.certs.key }}:/etc/certs/key.pem
+    - {{ .Values.global.certs.certchain }}:/etc/certs/cert-chain.pem
+    environment:
+    - POD_NAMESPACE={{ .Values.global.istio.namespace }}
+    depends_on:
+    - configsink-init
+    extra_hosts:
+    - "istio-pilot.{{ .Values.global.istio.namespace }}:172.21.128.10"
+    restart: unless-stopped
+
+  configsink-init:
+    image: {{ .Values.global.hub }}/busybox:{{ .Values.global.busybox }}
+    command: /bin/sh -c "rm -f /etc/tcc/config.yaml;
+        cp /etc/tcc-ext/config.latest /etc/tcc >/dev/null 2>&1;
+        touch /etc/tcc/trigger;
+        ln -s /etc/tcc/trigger /etc/tcc/config.yaml"
+    volumes:
+    - configsink-dir:/etc/tcc
+    - ./configsink:/etc/tcc-ext
+
+  configsink-server:
+    container_name: configsink-server
+    image: {{ .Values.global.hub }}/configsink-server:{{ .Values.global.tcc.tag }}
+    command: "--tcc-host={{ .Values.global.tcc.host }}:8443 --cluster={{ .Values.global.tcc.cluster }} --tenant={{ .Values.global.tcc.tenant }} --environment={{ .Values.global.tcc.environment }} --insecure=false --jwt-file /etc/jwt --log-output-level=config-sink-server:debug"
+    depends_on:
+    - configsink-init
+    - istio-galley
+    volumes:
+    - configsink-dir:/etc/tcc
+    - {{ .Values.global.galley.configSink.tokenFile }}:/etc/jwt
+    restart: unless-stopped
+
+volumes:
+  configsink-dir:
+
+networks:
+  istio-cp-network:
+    ipam:
+      config:
+        - subnet: 172.21.128.0/24
