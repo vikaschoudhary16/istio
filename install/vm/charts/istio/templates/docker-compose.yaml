@@ -74,7 +74,7 @@ services:
     restart: unless-stopped
 
   configsink-init:
-    image: {{ .Values.global.hub }}//busybox:{{ .Values.global.busybox }}
+    image: {{ .Values.global.hub }}/busybox:{{ .Values.global.busybox }}
     command: /bin/sh -c "rm -f /etc/tcc/config.yaml;
         cp /etc/tcc-ext/config.latest /etc/tcc >/dev/null 2>&1;
         touch /etc/tcc/trigger;
@@ -85,8 +85,8 @@ services:
 
   configsink-server:
     container_name: configsink-server
-    image: {{ .Values.global.hub }}//configsink-server:{{ .Values.global.tcc.tag }}
-    command: "--tcc-host="{{ .Values.global.tcc.host }}":8443 --cluster="{{ .Values.global.tcc.cluster }} "--tenant="{{ .Values.global.tcc.tenant }} "--environment="{{ .Values.global.tcc.environment }} "--insecure=false --jwt-file /etc/jwt --log-output-level=config-sink-server:debug"
+    image: {{ .Values.global.hub }}/configsink-server:{{ .Values.global.tcc.tag }}
+    command: "--tcc-host={{ .Values.global.tcc.host }}:8443 --cluster={{ .Values.global.tcc.cluster }} --tenant={{ .Values.global.tcc.tenant }} --environment={{ .Values.global.tcc.environment }} --insecure=false --jwt-file /etc/jwt --log-output-level=config-sink-server:debug"
     depends_on:
     - configsink-init
     - istio-galley
