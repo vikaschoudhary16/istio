@@ -3,7 +3,7 @@
 #
 enabled: false
 
-provider: jaeger
+provider: zipkin
 nodeSelector: {}
 tolerations: []
 
@@ -47,6 +47,7 @@ zipkin:
   image: zipkin
   tag: 2.14.2
   probeStartupDelay: 200
+  queryPort: 9411
   resources:
     limits:
       cpu: 300m
@@ -55,7 +56,7 @@ zipkin:
       cpu: 150m
       memory: 900Mi
   env:
-    STORAGE_METHOD: "mem"
+    STORAGE_TYPE: "mem"
   # From: https://github.com/openzipkin/zipkin/blob/master/zipkin-server/src/main/resources/zipkin-server-shared.yml#L51
   # Maximum number of spans to keep in memory.  When exceeded, oldest traces (and their spans) will be purged.
   # A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus
