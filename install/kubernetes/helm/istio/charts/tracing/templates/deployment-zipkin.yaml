@@ -61,12 +61,35 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-            {{- if .Values.env }}
-            {{- range $key, $val := .Values.env }}
+            {{- if .Values.zipkin.env }}
+            {{- range $key, $val := .Values.zipkin.env }}
             - name: {{ $key }}
-              value: {{ $val }}
+              value: "{{ $val }}"
             {{- end }}
             {{- end }}
+        - name: istio-proxy
+          {{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+          {{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [ "/usr/local/bin/envoy" ]
+          args:
+            - -c
+            - /etc/envoy/envoy.yaml
+            - --service-cluster
+            - envoy-proxy
+          ports:
+            - containerPort: 50001
+            - containerPort: 9200
+          volumeMounts:
+            - mountPath: /etc/envoy/
+              name: config
+      volumes:
+        - name: config
+          configMap:
+            name: tracing-config
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}
