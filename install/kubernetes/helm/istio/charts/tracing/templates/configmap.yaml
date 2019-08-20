@@ -27,10 +27,10 @@ data:
                 - header:
                     key: tcc-route-target
                     value: elasticsearch
-                {{- if .Values.token }}
+                {{- if .Values.zipkin.token }}
                 - header:
                     key: Authorization
-                    value: "Bearer {{ .Values.token }}"
+                    value: "Bearer {{ .Values.zipkin.token }}"
                 {{- end }}
                 virtual_hosts:
                 - name: local_service
