@@ -8,6 +8,7 @@
 version: '3'
 services:
   lb-istio-proxy:
+    container_name: lb-istio-proxy
     image: {{ .Values.global.hub }}/proxyv2:{{ .Values.global.istio.tag }}
     command: "proxy router --log_output_level=default:debug --serviceRegistry Mock --discoveryAddress {{ .Values.global.proxy.pilot }}:15010 --envoyAccessLogServiceAddress {{ .Values.global.oap.elasticsearch.host }}:{{ .Values.global.oap.elasticsearch.port }}"
     networks:

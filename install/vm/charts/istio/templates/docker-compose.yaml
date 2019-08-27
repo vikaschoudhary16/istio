@@ -27,6 +27,7 @@ services:
     restart: unless-stopped
 
   istio-pilot:
+    container_name: istio-pilot
     image: {{ .Values.global.hub }}/pilot:{{ .Values.global.istio.tag }}
     command: "discovery --registries=MCP --monitoringAddr=:15014 --log_output_level=ads:debug,model:debug,default:debug --domain cluster.local --keepaliveMaxServerConnectionAge '30m'"
     networks:
@@ -50,6 +51,7 @@ services:
     restart: unless-stopped
 
   istio-galley:
+    container_name: istio-galley
     image: {{ .Values.global.hub }}/galley:{{ .Values.global.istio.tag }}
     command: "server --enable-validation=false --configPath /etc/tcc/config.yaml --meshConfigFile=/etc/config/mesh-config.yaml --livenessProbeInterval=1s --livenessProbePath=/healthliveness --readinessProbePath=/healthready --readinessProbeInterval=1s --deployment-namespace=istio-system --insecure=true --resyncPeriod=1s --monitoringPort=15014 --log_output_level=default:debug --validation-webhook-config-file /etc/config/validatingwebhookconfiguration.yaml"
     networks:
