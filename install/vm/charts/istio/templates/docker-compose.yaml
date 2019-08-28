@@ -28,7 +28,7 @@ services:
 
   istio-pilot:
     image: {{ .Values.global.hub }}/pilot:{{ .Values.global.istio.tag }}
-    command: "discovery --registries=MCP --monitoringAddr=:15014 --log_output_level=ads:debug,model:debug,default:debug --domain cluster.local --keepaliveMaxServerConnectionAge '30m'"
+    command: "discovery --registries=MCP --disable-install-crds --monitoringAddr=:15014 --log_output_level=ads:debug,model:debug,default:debug --domain cluster.local --keepaliveMaxServerConnectionAge '30m'"
     networks:
       istio-cp-network:
         ipv4_address: 172.21.128.10
@@ -38,6 +38,11 @@ services:
     environment:
     - POD_NAME=istio-pilot
     - POD_NAMESPACE={{ .Values.global.istio.namespace }}
+    - PILOT_PUSH_THROTTLE=100
+    - GODEBUG="gctrace=1"
+    - HTTP10="true"
+    - PILOT_SCOPE_GATEWAY_TO_NAMESPACE="true"
+    - PILOT_TRACE_SAMPLING=100.0
     volumes:
     - ./istio-config:/etc/istio/config
     - ./istio-config:/etc/config

@@ -289,7 +289,7 @@ global:
   policyCheckFailOpen: false
 
   # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
-  enableTracing: false
+  enableTracing: true
 
   # Configuration for each of the supported tracers
   tracer:

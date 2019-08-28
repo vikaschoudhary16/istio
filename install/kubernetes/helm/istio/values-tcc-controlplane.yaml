@@ -4,9 +4,9 @@ pilot:
   env:
     PILOT_PUSH_THROTTLE: 100
     HTTP10: "true"
-    PILOT_ENABLE_MYSQL_FILTER: "true"
+    PILOT_ENABLE_MYSQL_FILTER: "false"
     PILOT_SCOPE_GATEWAY_TO_NAMESPACE: "true"
-  
+
 gateways:
   enabled: false
 
