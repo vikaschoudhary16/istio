@@ -6,23 +6,23 @@ global:
   busybox: "__BUSYBOX__"
 
   istio:
-    tag: "__ISTIO_DOCKER_TAG__"
+    tag: "__ISTIO__"
     namespace: istio-system
 
   galley:
     configSink:
-      tokenFile: "__CONFIGSINK_JWT__"
+      tokenFile: "tcc-configsink-jwt-token.txt"
 
   tcc:
-    tag: "__SHA__"
-    host: "__TCCIP__"
+    tag: "__TCC__"
+    host: "_HOST__"
     tenant: "__TENANT__"
     cluster: "__CLUSTER__"
     environment: "__ENV__"
 
   oap:
     elasticsearch:
-      host: "__OAP__"
+      host: "_HOST__"
       port: 8443
 
   proxy:
