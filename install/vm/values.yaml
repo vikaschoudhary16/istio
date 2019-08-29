@@ -15,14 +15,14 @@ global:
 
   tcc:
     tag: "__TCC__"
-    host: "_HOST__"
+    host: "__HOST__"
     tenant: "__TENANT__"
     cluster: "__CLUSTER__"
     environment: "__ENV__"
 
   oap:
     elasticsearch:
-      host: "_HOST__"
+      host: "__HOST__"
       port: 8443
 
   proxy:
