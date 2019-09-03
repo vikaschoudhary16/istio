@@ -28,10 +28,7 @@ spec:
         - containerPort: 12800
           name: rest
         resources:
-          requests:
-            memory: 2Gi
-          limits:
-            memory: 4Gi
+{{ toYaml .Values.resources | indent 10 }}
         env:
         - name: JAVA_OPTS
           value: -Xmx4096M -Dmode=no-init
@@ -40,8 +37,15 @@ spec:
             fieldRef:
               fieldPath: metadata.uid
         volumeMounts:
-        - name: config
-          mountPath: /skywalking/config
+        - mountPath: /skywalking/config/application.yml
+          name: config
+          subPath: application.yml
+        - mountPath: /skywalking/config/log4j2.xml
+          name: config
+          subPath: log4j2.xml
+        - mountPath: /skywalking/config/official_analysis.oal
+          name: config
+          subPath: official_analysis.oal
       - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
         image: "{{ .Values.global.proxy.image }}"
@@ -65,3 +69,12 @@ spec:
       - name: config
         configMap:
           name: oap-config
+          items:
+          - key: application.yml
+            path: application.yml
+          - key: envoy.yaml
+            path: envoy.yaml
+          - key: log4j2.xml
+            path: log4j2.xml
+          - key: official_analysis.oal
+            path: official_analysis.oal

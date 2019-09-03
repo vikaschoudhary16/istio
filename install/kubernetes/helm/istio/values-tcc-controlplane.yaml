@@ -45,8 +45,14 @@ tracing:
       ES_HOSTS: "http://127.0.0.1:9200"
 oap:
   enabled: true
-  tag: "v2.0.e64b50e"
+  # Set by bash scripts in deploy folder of tetrate repo 
+  tag: "__OAP__"
   token: ""
+  resources:
+    requests:
+      memory: 2Gi
+    limits:
+      memory: 4Gi
   elasticsearch:
     host: "__HOST__"
     port: 8443
