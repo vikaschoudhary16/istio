@@ -106,6 +106,7 @@ data:
           - Hour
           - Day
           - Month
+        persistentPeriod: 10
         # Set a timeout on metrics data. After the timeout has expired, the metrics data will automatically be deleted.
         # User zone SPM doesn't do delete, TCC SPM do that centrally.
         enableDataKeeperExecutor: ${SW_CORE_ENABLE_DATA_KEEPER_EXECUTOR:false} # Turn it off then automatically metrics data delete will be close.
