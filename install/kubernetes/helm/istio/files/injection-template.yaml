@@ -193,7 +193,8 @@ containers:
   - name: {{ $key }}
     value: "{{ $value }}"
 {{- end }}
-{{ end }}
+{{- end }}
+{{- end }}
 {{- if .Values.global.tcc.enabled }}
   - name: ISTIO_META_TCC_TENANT
     value: {{ .Values.global.tcc.tenant }}
@@ -201,11 +202,6 @@ containers:
     value: {{ .Values.global.tcc.cluster }}
   - name: ISTIO_META_TCC_ENVIRONMENT
     value: {{ .Values.global.tcc.environment }}
-  - name: ISTIO_META_TCC_APPLICATION
-    valueFrom:
-      fieldRef:
-        fieldPath: metadata.namespace
-{{- end }}
 {{- end }}
   - name: ISTIO_META_POD_NAME
     valueFrom:

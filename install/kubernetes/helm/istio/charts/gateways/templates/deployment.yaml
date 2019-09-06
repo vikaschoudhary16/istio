@@ -246,10 +246,6 @@ spec:
             value: {{ $.Values.global.tcc.cluster }}
           - name: ISTIO_META_TCC_ENVIRONMENT
             value: {{ $.Values.global.tcc.environment }}
-          - name: ISTIO_META_TCC_APPLICATION
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
           {{- end }}
           - name: SDS_ENABLED
             value: "{{ $.Values.global.sds.enabled }}"
