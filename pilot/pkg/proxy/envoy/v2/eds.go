@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -396,9 +395,9 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
-func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]struct{}, req *model.UpdateRequest) {
+func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, req *model.PushRequest) {
 	adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
-		version, edsUpdates, adsClientCount())
+		version, req.EdsUpdates, adsClientCount())
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
@@ -408,7 +407,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	cMap := make(map[string]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
 		_, _, hostname, _ := model.ParseSubsetKey(k)
-		if _, ok := edsUpdates[string(hostname)]; !ok {
+		if _, ok := req.EdsUpdates[string(hostname)]; !ok {
 			// Cluster was not updated, skip recomputing.
 			continue
 		}
@@ -426,64 +425,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	}
 	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
 
-	s.startPush(push, req, edsUpdates)
-}
-
-// WorkloadUpdate is called when workload labels/annotations are updated.
-func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]string, _ map[string]string) {
-	inboundWorkloadUpdates.Increment()
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if workloadLabels == nil {
-		// No push needed - the Endpoints object will also be triggered.
-		delete(s.WorkloadsByID, id)
-		return
-	}
-	w, f := s.WorkloadsByID[id]
-	if !f {
-		s.WorkloadsByID[id] = &Workload{
-			Labels: workloadLabels,
-		}
-
-		fullPush := false
-		adsClientsMutex.RLock()
-		for _, connection := range adsClients {
-			// if the workload has envoy proxy and connected to server,
-			// then do a full xDS push for this proxy;
-			// otherwise:
-			//   case 1: the workload has no sidecar proxy, no need xDS push at all.
-			//   case 2: the workload xDS connection has not been established,
-			//           also no need to trigger a full push here.
-			if connection.modelNode.IPAddresses[0] == id {
-				fullPush = true
-			}
-		}
-		adsClientsMutex.RUnlock()
-
-		if fullPush {
-			// First time this workload has been seen. Maybe after the first connect,
-			// do a full push for this proxy in the next push epoch.
-			s.proxyUpdatesMutex.Lock()
-			if s.proxyUpdates == nil {
-				s.proxyUpdates = make(map[string]struct{})
-			}
-			s.proxyUpdates[id] = struct{}{}
-			s.proxyUpdatesMutex.Unlock()
-		}
-		return
-	}
-	if reflect.DeepEqual(w.Labels, workloadLabels) {
-		// No label change.
-		return
-	}
-
-	w.Labels = workloadLabels
-	// Label changes require recomputing the config.
-	// TODO: we can do a push for the affected workload only, but we need to confirm
-	// no other workload can be affected. Safer option is to fallback to full push.
-
-	adsLog.Infof("Label change, full push %s ", id)
-	s.ConfigUpdate(model.UpdateRequest{Full: true})
+	s.startPush(req)
 }
 
 // EDSUpdate computes destination address membership across all clusters and networks.
@@ -491,15 +433,15 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, workloadLabels map[string]st
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(shard, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
+func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string, istioEndpoints []*model.IstioEndpoint) error {
 	inboundEDSUpdates.Increment()
-	s.edsUpdate(shard, serviceName, namespace, istioEndpoints, false)
+	s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints, false)
 	return nil
 }
 
-// edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
+// edsUpdate updates edsUpdates by clusterID, serviceName, IstioEndpoints,
 // and requests a full/eds push.
-func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
+func (s *DiscoveryServer) edsUpdate(clusterID, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
@@ -514,7 +456,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName][namespace] != nil {
 			s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-			delete(s.EndpointShardsByService[serviceName][namespace].Shards, shard)
+			delete(s.EndpointShardsByService[serviceName][namespace].Shards, clusterID)
 			svcShards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
 			s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
 			if svcShards == 0 {
@@ -566,15 +508,22 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string, namespace string,
 		}
 	}
 	ep.mutex.Lock()
-	ep.Shards[shard] = istioEndpoints
+	ep.Shards[clusterID] = istioEndpoints
 	ep.mutex.Unlock()
-	s.edsUpdates[serviceName] = struct{}{}
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
 	// no need to trigger push here.
 	// It is done in DiscoveryServer.Push --> AdsPushAll
 	if !internal {
-		s.ConfigUpdate(model.UpdateRequest{Full: requireFull, TargetNamespaces: map[string]struct{}{namespace: {}}})
+		var edsUpdates map[string]struct{}
+		if !requireFull {
+			edsUpdates = map[string]struct{}{serviceName: {}}
+		}
+		s.ConfigUpdate(&model.PushRequest{
+			Full:             requireFull,
+			TargetNamespaces: map[string]struct{}{namespace: {}},
+			EdsUpdates:       edsUpdates,
+		})
 	}
 }
 

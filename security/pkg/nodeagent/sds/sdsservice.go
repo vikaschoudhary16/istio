@@ -160,9 +160,13 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 func (s *sdsservice) DebugInfo() (string, error) {
 	sdsClientsMutex.RLock()
 	defer sdsClientsMutex.RUnlock()
-
 	clientDebug := make([]sdsclientdebug, 0)
 	for connKey, conn := range sdsClients {
+		// it's possible for the connection to be established without an instantiated secret
+		if conn.secret == nil {
+			continue
+		}
+
 		conn.mutex.RLock()
 		c := sdsclientdebug{
 			ConnectionID:     connKey.ConnectionID,

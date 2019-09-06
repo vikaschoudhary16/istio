@@ -19,8 +19,14 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-# Current version, updated after a release.
-VERSION ?= 1.3-dev
+VERSION ?= 1.4-dev
+
+# Base version of Istio image to use
+BASE_VERSION ?= 1.4
+
+export GO111MODULE ?= on
+export GOPROXY ?= https://proxy.golang.org
+export GOSUMDB ?= sum.golang.org
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
@@ -189,11 +195,11 @@ ifeq ($(USE_LOCAL_PROXY),1)
   export ISTIO_ENVOY_LOCAL ?= $(realpath ${ISTIO_GO}/../proxy/bazel-bin/src/envoy/envoy)
   # Point the native paths to the local envoy build.
   ifeq ($(GOOS_LOCAL), Darwin)
-    export ISTIO_ENVOY_MACOS_RELEASE_DIR = $(dirname ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_MACOS_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
     export ISTIO_ENVOY_MACOS_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
   else
-    export ISTIO_ENVOY_LINUX_DEBUG_DIR = $(dirname ${ISTIO_ENVOY_LOCAL})
-    export ISTIO_ENVOY_LINUX_RELEASE_DIR = $(dirname ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_LINUX_DEBUG_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
+    export ISTIO_ENVOY_LINUX_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
     export ISTIO_ENVOY_LINUX_DEBUG_PATH = ${ISTIO_ENVOY_LOCAL}
     export ISTIO_ENVOY_LINUX_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
   endif
@@ -324,9 +330,11 @@ precommit: format lint
 
 format:
 	scripts/run_gofmt.sh
+	go mod tidy
 
 fmt:
 	scripts/run_gofmt.sh
+	go mod tidy
 
 # Build with -i to store the build caches into $GOPATH/pkg
 buildcache:
@@ -395,8 +403,12 @@ ${ISTIO_OUT}/_istioctl: istioctl
 	mv _istioctl ${ISTIO_OUT}/_istioctl
 
 # Build targets for apps under ./pilot/cmd
-PILOT_BINS:=pilot-discovery pilot-agent sidecar-injector
+PILOT_BINS:=pilot-discovery pilot-agent
 $(foreach ITEM,$(PILOT_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./pilot/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
+
+# Build targets for apps under ./sidecar-injector/cmd
+INJECTOR_BINS:=sidecar-injector
+$(foreach ITEM,$(INJECTOR_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./sidecar-injector/cmd/$(ITEM),$(RELEASE_LDFLAGS))))
 
 # Build targets for apps under ./mixer/cmd
 MIXER_BINS:=mixs mixc
@@ -422,7 +434,7 @@ $(foreach ITEM,$(SECURITY_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker
 ISTIO_TOOLS_BINS:=hyperistio istio-iptables
 $(foreach ITEM,$(ISTIO_TOOLS_BINS),$(eval $(call genTargetsForNativeAndDocker,$(ITEM),./tools/$(ITEM),$(DEBUG_LDFLAGS))))
 
-BUILD_BINS:=$(PILOT_BINS) mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
+BUILD_BINS:=$(PILOT_BINS) sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 LINUX_BUILD_BINS:=$(foreach buildBin,$(BUILD_BINS),$(ISTIO_OUT_LINUX)/$(buildBin))
 
 .PHONY: build
@@ -501,14 +513,11 @@ else
 endif
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
-	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/.circleci/config}" \
+	KUBECONFIG="$${KUBECONFIG:-$${GO_TOP}/src/istio.io/istio/tests/util/kubeconfig}" \
 	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
-# This is passed to mixer and other tests to limit how many builds are used.
-# In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
-GOTEST_P ?=
 
 TEST_APP_BINS:=server client
 $(foreach ITEM,$(TEST_APP_BINS),$(eval $(call genTargetsForNativeAndDocker,pkg-test-echo-cmd-$(ITEM),./pkg/test/echo/cmd/$(ITEM),$(DEBUG_LDFLAGS))))
@@ -533,17 +542,17 @@ localTestEnvCleanup: test-bins
 # https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
 pilot-test: pilot-agent
-	go test -p 1 ${T} ./pilot/...
+	go test ${T} ./pilot/...
 
 .PHONY: istioctl-test
 istioctl-test: istioctl
-	go test -p 1 ${T} ./istioctl/...
+	go test ${T} ./istioctl/...
 
 .PHONY: mixer-test
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test -p 1 ${MIXER_TEST_T} ./...)
+	(cd mixer; go test ${MIXER_TEST_T} ./...)
 
 .PHONY: galley-test
 galley-test: depend
@@ -617,16 +626,16 @@ racetest: $(JUNIT_REPORT)
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
-	RACE_TEST=true go test -p 1 ${T} -race ./pilot/...
+	RACE_TEST=true go test ${T} -race ./pilot/...
 
 .PHONY: istioctl-racetest
 istioctl-racetest: istioctl
-	RACE_TEST=true go test -p 1 ${T} -race ./istioctl/...
+	RACE_TEST=true go test ${T} -race ./istioctl/...
 
 .PHONY: mixer-racetest
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; RACE_TEST=true go test -p 1 ${T} -race ./...)
+	(cd mixer; RACE_TEST=true go test ${T} -race ./...)
 
 .PHONY: galley-racetest
 galley-racetest: depend
@@ -794,8 +803,6 @@ ${ISTIO_OUT}/dist/Gopkg.lock:
 dist-bin: ${ISTIO_OUT}/dist/Gopkg.lock
 
 dist: dist-bin
-
-include .circleci/Makefile
 
 # deb, rpm, etc packages
 include tools/packaging/packaging.mk

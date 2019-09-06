@@ -12,14 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file describes the abstract model of services (and their instances) as
-// represented in Istio. This model is independent of the underlying platform
-// (Kubernetes, Mesos, etc.). Platform specific adapters found populate the
-// model object with various fields, from the metadata found in the platform.
-// The platform independent proxy code uses the representation in the model to
-// generate the configuration files for the Layer 7 proxy sidecar. The proxy
-// code is specific to individual proxy implementations
-
 package mesh
 
 import (
@@ -30,8 +22,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -82,6 +74,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DefaultDestinationRuleExportTo:    []string{"*"},
 		OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
+		ProtocolDetectionTimeout:          types.DurationProto(10 * time.Millisecond),
 	}
 }
 
@@ -111,7 +104,7 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 		}
 	}
 
-	if err := config.ValidateMeshConfig(&out); err != nil {
+	if err := validation.ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}
 

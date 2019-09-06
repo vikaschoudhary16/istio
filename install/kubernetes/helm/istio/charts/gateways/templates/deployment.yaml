@@ -149,8 +149,10 @@ spec:
           - {{ $.Values.global.proxy.envoyMetricsService.host }}:{{ $.Values.global.proxy.envoyMetricsService.port }}
         {{- end }}
         {{- if $.Values.global.proxy.envoyAccessLogService.enabled }}
-          - --envoyAccessLogServiceAddress
-          - {{ $.Values.global.proxy.envoyAccessLogService.host }}:{{ $.Values.global.proxy.envoyAccessLogService.port }}
+          - --envoyAccessLogService
+          {{- with  $.Values.global.proxy.envoyAccessLogService }}
+          - '{"address":"{{ .host }}:{{.port }}"{{ if .tlsSettings }},"tlsSettings":{{ .tlsSettings | toJson }}{{- end }}{{ if .tcpKeepalive }},"tcpKeepalive":{{ .tcpKeepalive | toJson }}{{- end }}}'
+          {{- end }}
         {{- end }}
           - --proxyAdminPort
           - "15000"
@@ -224,6 +226,10 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.hostIP
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -245,6 +251,12 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           {{- end }}
+          - name: SDS_ENABLED
+            value: "{{ $.Values.global.sds.enabled }}"
+          - name: ISTIO_META_WORKLOAD_NAME
+            value: {{ $key }}
+          - name: ISTIO_META_OWNER
+            value: kubernetes://api/apps/v1/namespaces/{{ $spec.namespace | default $.Release.Namespace }}/deployments/{{ $key }}
           {{- if $spec.sds }}
           {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS
@@ -299,7 +311,7 @@ spec:
           - serviceAccountToken:
               path: istio-token
               expirationSeconds: 43200
-              audience: {{ $.Values.global.trustDomain }}
+              audience: {{ $.Values.global.sds.token.aud }}
       {{- end }}
       - name: istio-certs
         secret:

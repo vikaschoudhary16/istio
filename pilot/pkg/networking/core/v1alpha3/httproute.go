@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 )
@@ -41,18 +40,16 @@ import (
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	routeName string) *xdsapi.RouteConfiguration {
-	// TODO: Move all this out
-	proxyInstances := node.ServiceInstances
 	var rc *xdsapi.RouteConfiguration
 	switch node.Type {
 	case model.SidecarProxy:
-		rc = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		rc = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, routeName)
 		if rc != nil {
 			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, push, rc)
 		}
 		return rc
 	case model.Router:
-		rc = configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		rc = configgen.buildGatewayHTTPRouteConfig(env, node, push, routeName)
 		if rc != nil {
 			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
 		}
@@ -64,15 +61,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *model.Environment,
-	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
-
-	// In case of unix domain sockets, the service port will be 0. So use the port name to distinguish the
-	// inbound listeners that a user specifies in Sidecar. Otherwise, all inbound clusters will be the same.
-	// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
-	// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
-	// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Name,
-		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
+	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *xdsapi.RouteConfiguration {
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
 
@@ -110,7 +99,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
+	routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
 	var err error
@@ -166,14 +155,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		}
 	}
 
-	// Collect all proxy labels for source match
-	var proxyLabels labels.Collection
-	for _, w := range proxyInstances {
-		proxyLabels = append(proxyLabels, w.Labels)
-	}
-
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels, virtualServices, listenerPort)
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap,
+		virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
 	uniques := make(map[string]struct{})
 	for _, virtualHostWrapper := range virtualHostWrappers {
