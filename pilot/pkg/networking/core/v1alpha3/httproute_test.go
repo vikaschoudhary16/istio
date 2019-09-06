@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -300,8 +301,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService1 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Version:   model.VirtualService.Version,
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
 			Name:      "acme2-v1",
 			Namespace: "not-default",
 		},
@@ -309,8 +310,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService2 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Version:   model.VirtualService.Version,
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
 			Name:      "acme-v2",
 			Namespace: "not-default",
 		},
@@ -318,8 +319,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 	virtualService3 := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:      model.VirtualService.Type,
-			Version:   model.VirtualService.Version,
+			Type:      schemas.VirtualService.Type,
+			Version:   schemas.VirtualService.Version,
 			Name:      "acme-v3",
 			Namespace: "not-default",
 		},
@@ -577,7 +578,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 		_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "1")
 	}
 
-	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, routeName)
+	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, routeName)
 	if route == nil {
 		t.Fatalf("got nil route for %s", routeName)
 	}
