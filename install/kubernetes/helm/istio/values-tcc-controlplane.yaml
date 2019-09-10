@@ -43,6 +43,10 @@ tracing:
       STORAGE_TYPE: "elasticsearch"
       # Zipkin sends to local envoy which forwards to TCC elastic search.
       ES_HOSTS: "http://127.0.0.1:9200"
+
+zipkin:
+  hub: "__HUB__"
+
 oap:
   enabled: true
   # Set by bash scripts in deploy folder of tetrate repo 
