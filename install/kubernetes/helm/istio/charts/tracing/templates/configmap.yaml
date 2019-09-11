@@ -48,12 +48,12 @@ data:
         tls_context: {}
         hosts:
         - socket_address:
-            {{- if .Values.elasticsearch.host }}
+            {{- if (.Values.elasticsearch) and (.Values.elasticsearch.host) }}
             address: {{ .Values.elasticsearch.host }}
             {{- else }}
             address: elasticsearch
             {{- end}}
-            {{- if .Values.elasticsearch.port }}
+            {{- if (.Values.elasticsearch) and (.Values.elasticsearch.port) }}
             port_value: {{ .Values.elasticsearch.port }}
             {{- else }}
             port_value: 9200
