@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -699,19 +700,6 @@ func (c outboundListenerConflict) addMetric(node *model.Proxy, push *model.PushC
 
 // buildSidecarOutboundListeners generates http and tcp listeners for
 // outbound connections from the proxy based on the sidecar scope associated with the proxy.
-// TODO(github.com/istio/pilot/issues/237)
-//
-// Sharing tcp_proxy and http_connection_manager filters on the same port for
-// different destination services doesn't work with Envoy (yet). When the
-// tcp_proxy filter's route matching fails for the http service the connection
-// is closed without falling back to the http_connection_manager.
-//
-// Temporary workaround is to add a listener for each service IP that requires
-// TCP routing
-//
-// Connections to the ports of non-load balanced services are directed to
-// the connection's original destination. This avoids costly queries of instance
-// IPs and ports, but requires that ports of non-load balanced service be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext) []*xdsapi.Listener {
 
@@ -876,8 +864,29 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Service:                    service,
 					}
 
-					configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
-						virtualServices, actualWildcard)
+					// Support Kubernetes statefulsets/headless services with TCP ports only.
+					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
+					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
+					// wildcard route match to get to the appropriate pod through original dst clusters.
+					if features.EnableHeadlessService.Get() && bind == "" && service.Resolution == model.Passthrough &&
+						service.Attributes.ServiceRegistry == string(serviceregistry.KubernetesRegistry) && servicePort.Protocol.IsTCP() {
+						if instances, err := env.InstancesByPort(service, servicePort.Port, nil); err == nil {
+							for _, instance := range instances {
+								listenerOpts.bind = instance.Endpoint.Address
+								configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+									virtualServices, actualWildcard)
+							}
+						} else {
+							// we can't do anything. Fallback to the usual way of constructing listeners
+							// for headless services that use 0.0.0.0:Port listener
+							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+								virtualServices, actualWildcard)
+						}
+					} else {
+						// Standard logic for headless and non headless services
+						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+							virtualServices, actualWildcard)
+					}
 				}
 			}
 		}
@@ -1041,7 +1050,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	if pluginParams.Port.Port == 0 {
 		rdsName = listenerOpts.bind // use the UDS as a rds name
 	} else {
-		rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
+		if pluginParams.ListenerProtocol == plugin.ListenerProtocolAuto &&
+			util.IsProtocolSniffingEnabledForNode(node) && listenerOpts.bind != actualWildcard && pluginParams.Service != nil {
+			rdsName = fmt.Sprintf("%s:%d", pluginParams.Service.Hostname, pluginParams.Port.Port)
+		} else {
+			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
+		}
 	}
 	httpOpts := &httpListenerOpts{
 		// Set useRemoteAddress to true for side car outbound listeners so that it picks up the localhost address of the sender,
@@ -1368,16 +1382,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		// Merge HTTP filter chain to TCP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(mutable.Listener.FilterChains, currentListenerEntry.listener.FilterChains)
 		currentListenerEntry.protocol = protocol.Unsupported
-		currentListenerEntry.listener.ListenerFilters =
-			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 
 	case TCPOverHTTP:
 		// Merge TCP filter chain to HTTP filter chain
 		currentListenerEntry.listener.FilterChains = mergeFilterChains(currentListenerEntry.listener.FilterChains, mutable.Listener.FilterChains)
 		currentListenerEntry.protocol = protocol.Unsupported
-		currentListenerEntry.listener.ListenerFilters =
-			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 	case TCPOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
 		// HTTP filter chain is different from TCP filter chain's.
@@ -1397,8 +1409,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 			listener:    mutable.Listener,
 			protocol:    protocol.Unsupported,
 		}
-		currentListenerEntry.listener.ListenerFilters =
-			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
 	case AutoOverTCP:
 		// Merge two TCP filter chains. HTTP filter chain will not conflict with TCP filter chain because HTTP filter chain match for
@@ -1406,8 +1417,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		currentListenerEntry.listener.FilterChains = mergeTCPFilterChains(mutable.Listener.FilterChains,
 			pluginParams, listenerMapKey, listenerMap, node)
 		currentListenerEntry.protocol = protocol.Unsupported
-		currentListenerEntry.listener.ListenerFilters =
-			append(currentListenerEntry.listener.ListenerFilters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+		currentListenerEntry.listener.ListenerFilters = appendListenerFilters(currentListenerEntry.listener.ListenerFilters)
 
 	case AutoOverAuto:
 		currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
@@ -1796,7 +1806,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			break
 		}
 	}
-	if needTLSInspector {
+	if needTLSInspector || opts.needHTTPInspector {
 		listenerFiltersMap[xdsutil.TlsInspector] = true
 		listenerFilters = append(listenerFilters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
 	}
@@ -2193,4 +2203,26 @@ func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict 
 	}
 
 	return true
+}
+
+func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.ListenerFilter {
+	hasTLSInspector := false
+	hasHTTPInspector := false
+
+	for _, f := range filters {
+		hasTLSInspector = hasTLSInspector || f.Name == xdsutil.TlsInspector
+		hasHTTPInspector = hasHTTPInspector || f.Name == envoyListenerHTTPInspector
+	}
+
+	if !hasTLSInspector {
+		filters =
+			append(filters, &listener.ListenerFilter{Name: xdsutil.TlsInspector})
+	}
+
+	if !hasHTTPInspector {
+		filters =
+			append(filters, &listener.ListenerFilter{Name: envoyListenerHTTPInspector})
+	}
+
+	return filters
 }

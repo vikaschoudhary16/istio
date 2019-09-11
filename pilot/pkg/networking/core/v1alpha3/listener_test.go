@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -229,6 +230,16 @@ func TestOutboundListenerConflict_UnknownWithCurrentHTTPV13(t *testing.T) {
 		buildService("test3.com", wildcardIP, "unknown", tnow.Add(2*time.Second)))
 }
 
+func TestOutboundListenerRouteV13(t *testing.T) {
+	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
+	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
+
+	testOutboundListenerRouteV13(t,
+		buildService("test1.com", "1.2.3.4", "unknown", tnow.Add(1*time.Second)),
+		buildService("test2.com", "2.3.4.5", protocol.HTTP, tnow),
+		buildService("test3.com", "3.4.5.6", "unknown", tnow.Add(2*time.Second)))
+}
+
 func TestOutboundListenerConfig_WithSidecarV13(t *testing.T) {
 	_ = os.Setenv(features.EnableProtocolSniffing.Name, "true")
 	defer func() { _ = os.Unsetenv(features.EnableProtocolSniffing.Name) }()
@@ -357,6 +368,64 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 	}
 }
 
+func TestOutboundListenerForHeadlessServices(t *testing.T) {
+	_ = os.Setenv("PILOT_ENABLE_FALLTHROUGH_ROUTE", "false")
+
+	defer func() { _ = os.Unsetenv("PILOT_ENABLE_FALLTHROUGH_ROUTE") }()
+
+	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
+	svc.Attributes.ServiceRegistry = string(serviceregistry.KubernetesRegistry)
+	svc.Resolution = model.Passthrough
+	services := []*model.Service{svc}
+
+	p := &fakePlugin{}
+	tests := []struct {
+		name                      string
+		instances                 []*model.ServiceInstance
+		numListenersOnServicePort int
+	}{
+		{
+			name: "gen a listener per instance",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(services[0], "10.10.10.10"),
+				buildServiceInstance(services[0], "11.11.11.11"),
+				buildServiceInstance(services[0], "12.11.11.11"),
+			},
+			numListenersOnServicePort: 3,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+			env := buildListenerEnv(services)
+			serviceDiscovery := new(fakes.ServiceDiscovery)
+			serviceDiscovery.ServicesReturns(services, nil)
+			serviceDiscovery.InstancesByPortReturns(tt.instances, nil)
+			env.ServiceDiscovery = serviceDiscovery
+			if err := env.PushContext.InitContext(&env); err != nil {
+				t.Errorf("Failed to initialize push context: %v", err)
+			}
+
+			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata["ISTIO_VERSION"])
+			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+			proxy.ServiceInstances = proxyInstances
+
+			listeners := configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext)
+			listenersToCheck := make([]*xdsapi.Listener, 0)
+			for _, l := range listeners {
+				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
+					listenersToCheck = append(listenersToCheck, l)
+				}
+			}
+
+			if len(listenersToCheck) != tt.numListenersOnServicePort {
+				t.Errorf("Expected %d listeners on service port 9999, got %d", tt.numListenersOnServicePort, len(listenersToCheck))
+			}
+		})
+	}
+}
+
 func TestInboundListenerConfig_HTTP(t *testing.T) {
 	for _, p := range []*model.Proxy{&proxy, &proxyHTTP10} {
 		// Add a service and verify it's config
@@ -443,6 +512,49 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	}
 }
 
+func testOutboundListenerRouteV13(t *testing.T, services ...*model.Service) {
+	t.Helper()
+	p := &fakePlugin{}
+	listeners := buildOutboundListeners(p, &proxy13, nil, nil, services...)
+	if len(listeners) != 3 {
+		t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
+	}
+
+	l := findListenerByAddress(listeners, wildcardIP)
+	if l == nil {
+		t.Fatalf("expect listener %s", "0.0.0.0_8080")
+	}
+
+	f := l.FilterChains[1].Filters[0]
+	cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+	if rds != "8080" {
+		t.Fatalf("expect routes %s, found %s", "8080", rds)
+	}
+
+	l = findListenerByAddress(listeners, "1.2.3.4")
+	if l == nil {
+		t.Fatalf("expect listener %s", "1.2.3.4_8080")
+	}
+	f = l.FilterChains[1].Filters[0]
+	cfg, _ = xdsutil.MessageToStruct(f.GetTypedConfig())
+	rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+	if rds != "test1.com:8080" {
+		t.Fatalf("expect routes %s, found %s", "test1.com:8080", rds)
+	}
+
+	l = findListenerByAddress(listeners, "3.4.5.6")
+	if l == nil {
+		t.Fatalf("expect listener %s", "3.4.5.6_8080")
+	}
+	f = l.FilterChains[1].Filters[0]
+	cfg, _ = xdsutil.MessageToStruct(f.GetTypedConfig())
+	rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+	if rds != "test3.com:8080" {
+		t.Fatalf("expect routes %s, found %s", "test3.com:8080", rds)
+	}
+}
+
 func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 	t.Helper()
 	oldestService := getOldestService(services...)
@@ -473,9 +585,18 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 		}
 
 		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
-		if len(listeners[0].ListenerFilters) != 1 ||
-			listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-			t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
+		if len(listeners[0].ListenerFilters) != 2 ||
+			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
+		}
+
+		f := listeners[0].FilterChains[2].Filters[0]
+		cfg, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+		rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+		expect := fmt.Sprintf("%d", oldestService.Ports[0].Port)
+		if rds != expect {
+			t.Fatalf("expect routes %s, found %s", expect, rds)
 		}
 	} else {
 		if len(listeners[0].FilterChains) != 3 {
@@ -491,9 +612,10 @@ func testOutboundListenerConflictV13(t *testing.T, services ...*model.Service) {
 		}
 
 		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[2])
-		if len(listeners[0].ListenerFilters) != 1 ||
-			listeners[0].ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-			t.Fatalf("expected %d listener filter, found %d", 1, len(listeners[0].ListenerFilters))
+		if len(listeners[0].ListenerFilters) != 2 ||
+			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
 		}
 	}
 }
@@ -690,9 +812,10 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[3])
 
-		if len(l.ListenerFilters) != 1 ||
-			l.ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-			t.Fatalf("expected %d listener filter, found %d", 1, len(l.ListenerFilters))
+		if len(l.ListenerFilters) != 2 ||
+			l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+			l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+			t.Fatalf("expected %d listener filter, found %d", 2, len(l.ListenerFilters))
 		}
 	}
 
@@ -718,9 +841,10 @@ func testOutboundListenerConfigWithSidecarV13(t *testing.T, services ...*model.S
 	}
 
 	verifyHTTPFilterChainMatch(t, l.FilterChains[1])
-	if len(l.ListenerFilters) != 1 ||
-		l.ListenerFilters[0].Name != "envoy.listener.http_inspector" {
-		t.Fatalf("expected %d listener filter, found %d", 1, len(l.ListenerFilters))
+	if len(l.ListenerFilters) != 2 ||
+		l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
+		l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
+		t.Fatalf("expected %d listener filter, found %d", 2, len(l.ListenerFilters))
 	}
 }
 
@@ -1319,6 +1443,16 @@ func findListenerByPort(listeners []*xdsapi.Listener, port uint32) *xdsapi.Liste
 	return nil
 }
 
+func findListenerByAddress(listeners []*xdsapi.Listener, address string) *xdsapi.Listener {
+	for _, l := range listeners {
+		if address == l.Address.GetSocketAddress().Address {
+			return l
+		}
+	}
+
+	return nil
+}
+
 func buildService(hostname string, ip string, protocol protocol.Instance, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime: creationTime,
@@ -1363,6 +1497,15 @@ func buildEndpoint(service *model.Service) model.NetworkEndpoint {
 	return model.NetworkEndpoint{
 		ServicePort: service.Ports[0],
 		Port:        8080,
+	}
+}
+
+func buildServiceInstance(service *model.Service, instanceIP string) *model.ServiceInstance {
+	return &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address: instanceIP,
+		},
+		Service: service,
 	}
 }
 

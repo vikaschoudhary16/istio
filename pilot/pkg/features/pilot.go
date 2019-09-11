@@ -157,6 +157,13 @@ var (
 		false,
 		"Use the Istio JWT filter for JWT token verification.")
 
+	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
+	// mTLS is enabled in authentication policy.
+	SkipValidateTrustDomain = env.RegisterBoolVar(
+		"PILOT_SKIP_VALIDATE_TRUST_DOMAIN",
+		false,
+		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy")
+
 	RestrictPodIPTrafficLoops = env.RegisterBoolVar(
 		"PILOT_RESTRICT_POD_UP_TRAFFIC_LOOP",
 		true,
@@ -169,6 +176,12 @@ var (
 		"PILOT_ENABLE_PROTOCOL_SNIFFING",
 		true,
 		"If enabled, protocol sniffing will be used on ports whose port protocol is not specified or unsupported",
+	)
+
+	EnableProtocolSniffingForInbound = env.RegisterBoolVar(
+		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND",
+		true,
+		"If enabled, protocol sniffing will be used for inbound listeners",
 	)
 
 	ScopePushes = env.RegisterBoolVar(
@@ -190,6 +203,20 @@ var (
 		true,
 		"If enabled, DNS based clusters will respect the TTL of the DNS, rather than polling at a fixed rate. "+
 			"This option is only provided for backward compatibility purposes and will be removed in the near future.",
+	)
+
+	InboundProtocolDetectionTimeout = env.RegisterDurationVar(
+		"PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT",
+		1*time.Second,
+		"Protocol detection timeout for inbound listener",
+	).Get()
+
+	EnableHeadlessService = env.RegisterBoolVar(
+		"PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS",
+		true,
+		"If enabled, for a headless service/stateful set in Kubernetes, pilot will generate an "+
+			"outbound listener for each pod in a headless service. This feature should be disabled "+
+			"if headless services have a large number of pods. ",
 	)
 )
 
