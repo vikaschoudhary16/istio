@@ -105,7 +105,6 @@ data:
         downsampling:
           - Hour
           - Day
-          - Month
         persistentPeriod: 10
         # Set a timeout on metrics data. After the timeout has expired, the metrics data will automatically be deleted.
         # User zone SPM doesn't do delete, TCC SPM do that centrally.
