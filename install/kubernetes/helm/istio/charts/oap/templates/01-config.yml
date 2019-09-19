@@ -128,7 +128,6 @@ data:
         monthMetricsDataTTL: ${SW_STORAGE_ES_MONTH_METRIC_DATA_TTL:18} # Unit is month
         # Batch process setting, refer to https://www.elastic.co/guide/en/elasticsearch/client/java-api/5.5/java-docs-bulk-processor.html
         bulkActions: ${SW_STORAGE_ES_BULK_ACTIONS:2000} # Execute the bulk every 2000 requests
-        bulkSize: ${SW_STORAGE_ES_BULK_SIZE:20} # flush the bulk every 20mb
         flushInterval: ${SW_STORAGE_ES_FLUSH_INTERVAL:10} # flush the bulk every 10 seconds whatever the number of requests
         concurrentRequests: ${SW_STORAGE_ES_CONCURRENT_REQUESTS:2} # the number of concurrent requests
         metadataQueryMaxSize: ${SW_STORAGE_ES_QUERY_MAX_SIZE:5000}
@@ -137,26 +136,12 @@ data:
       default:
     receiver-register:
       default:
-    receiver-trace:
-      default:
-        bufferPath: ${SW_RECEIVER_BUFFER_PATH:../trace-buffer/}  # Path to trace buffer files, suggest to use absolute path
-        bufferOffsetMaxFileSize: ${SW_RECEIVER_BUFFER_OFFSET_MAX_FILE_SIZE:100} # Unit is MB
-        bufferDataMaxFileSize: ${SW_RECEIVER_BUFFER_DATA_MAX_FILE_SIZE:500} # Unit is MB
-        bufferFileCleanWhenRestart: ${SW_RECEIVER_BUFFER_FILE_CLEAN_WHEN_RESTART:false}
-        sampleRate: ${SW_TRACE_SAMPLE_RATE:10000} # The sample rate precision is 1/10000. 10000 means 100% sample in default.
-        slowDBAccessThreshold: ${SW_SLOW_DB_THRESHOLD:default:200,mongodb:100} # The slow database access thresholds. Unit ms.
-    receiver-jvm:
-      default:
-    receiver-clr:
-      default:
     service-mesh:
       default:
         bufferPath: ${SW_SERVICE_MESH_BUFFER_PATH:../mesh-buffer/}  # Path to trace buffer files, suggest to use absolute path
         bufferOffsetMaxFileSize: ${SW_SERVICE_MESH_OFFSET_MAX_FILE_SIZE:100} # Unit is MB
         bufferDataMaxFileSize: ${SW_SERVICE_MESH_BUFFER_DATA_MAX_FILE_SIZE:500} # Unit is MB
         bufferFileCleanWhenRestart: ${SW_SERVICE_MESH_BUFFER_FILE_CLEAN_WHEN_RESTART:false}
-    istio-telemetry:
-      default:
     spm-envoy-metric:
       default:
         enableMetricsService: ${SW_ENABLE_ENVOY_METRICS_SERIVCE:true}
@@ -272,5 +257,5 @@ data:
     disable(segment);
     disable(endpoint_relation_server_side);
     disable(top_n_database_statement);
-    disable(ZipkinSpan);
+    disable(zipkin_span);
     disable(jaeger_span);
