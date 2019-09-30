@@ -1,10 +1,11 @@
+
 version: 2
 
 # Docker environment.
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: gcr.io/istio-testing/circleci:2019-04-22
+    - image: gcr.io/istio-testing/istio-builder:v20190909-ca3fb8ed
   environment:
     GOPATH: /go
     SKIP_CLEANUP: true
