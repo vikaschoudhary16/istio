@@ -50,7 +50,7 @@ spec:
           readinessProbe:
             initialDelaySeconds: {{ .Values.zipkin.probeStartupDelay }}
             httpGet:
-              path: /health
+              path: /api/v2/autocompleteKeys
               port: {{ .Values.zipkin.queryPort }}
           resources:
 {{- if .Values.zipkin.resources }}
