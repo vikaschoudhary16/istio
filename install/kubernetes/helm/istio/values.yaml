@@ -182,11 +182,11 @@ global:
       port: # example: 15000
       tlsSettings:
         mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
-        clientCertificate: # example: /etc/istio/als/cert-chain.pem
-        privateKey:        # example: /etc/istio/als/key.pem
-        caCertificates:    # example: /etc/istio/als/root-cert.pem
+        client_certificate: # example: /etc/istio/als/cert-chain.pem
+        private_key:        # example: /etc/istio/als/key.pem
+        ca_certificates:    # example: /etc/istio/als/root-cert.pem
         sni:               # example: als.somedomain
-        subjectAltNames: []
+        subject_alt_names: []
         # - als.somedomain
       tcpKeepalive:
         probes: 3
