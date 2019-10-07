@@ -28,7 +28,8 @@ func All() []analysis.Analyzer {
 	return []analysis.Analyzer{
 		&gateway.IngressGatewayPortAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},
-		&virtualservice.DestinationAnalyzer{},
+		&virtualservice.DestinationHostAnalyzer{},
+		&virtualservice.DestinationRuleAnalyzer{},
 		&auth.ServiceRoleBindingAnalyzer{},
 		&injection.Analyzer{},
 		&deprecation.FieldAnalyzer{},
@@ -36,6 +37,6 @@ func All() []analysis.Analyzer {
 }
 
 // AllCombined returns all analyzers combined as one
-func AllCombined() analysis.Analyzer {
+func AllCombined() *analysis.CombinedAnalyzer {
 	return analysis.Combine("all", All()...)
 }

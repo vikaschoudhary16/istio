@@ -94,12 +94,7 @@ If your analyzer requires any new message types (meaning a unique template and e
             type: string
     ```
 
-1. Run `go generate`:
-
-    ```sh
-    cd galley/pkg/config/analysis/msg
-    go generate
-    ```
+1. Run `BUILD_WITH_CONTAINER=1 make gen`:
 
 1. Use the new type in your analyzer
 
@@ -181,6 +176,14 @@ You can use `istioctl experimental analyze` to run all analyzers, including your
 ```sh
 make istioctl && $GOPATH/out/linux_amd64/release/istioctl experimental analyze
 ```
+
+### 6. Write a user-facing documentation page
+
+Each analysis message needs to be documented for customers. This is done by introducing a markdown file for
+each message in the istio.io repo in the content/en/docs/reference/config/analysis directory. You create
+a subdirectory with the code of the error message, and add a `index.md` file that contains the
+full description of the problem with potential remediation steps, examples, etc. See the existing
+files in that directory for examples of how this is done.
 
 ## FAQ
 
