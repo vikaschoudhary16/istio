@@ -132,11 +132,11 @@ containers:
 {{- end }}
 {{- if .Values.global.proxy.envoyMetricsService.enabled }}
   - --envoyMetricsService
-  - '{{ structToJSON .ProxyConfig.EnvoyMetricsService }}'
+  - '{{ toJSON .ProxyConfig.EnvoyMetricsService }}'
 {{- end }}
 {{- if .Values.global.proxy.envoyAccessLogService.enabled }}
   - --envoyAccessLogService
-  - '{{ structToJSON .ProxyConfig.EnvoyAccessLogService }}'
+  - '{{ toJSON .ProxyConfig.EnvoyAccessLogService }}'
 {{- end }}
   - --proxyAdminPort
   - "{{ .ProxyConfig.ProxyAdminPort }}"
