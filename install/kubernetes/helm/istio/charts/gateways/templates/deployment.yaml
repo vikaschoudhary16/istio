@@ -234,11 +234,11 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           {{- if $.Values.global.tcc.enabled }}
-          - name: ISTIO_META_TCC_TENANT
+          - name: ISTIO_META_TSB_TENANT
             value: {{ $.Values.global.tcc.tenant }}
-          - name: ISTIO_META_TCC_CLUSTER
+          - name: ISTIO_META_TSB_CLUSTER
             value: {{ $.Values.global.tcc.cluster }}
-          - name: ISTIO_META_TCC_ENVIRONMENT
+          - name: ISTIO_META_TSB_ENVIRONMENT
             value: {{ $.Values.global.tcc.environment }}
           {{- end }}
           - name: ISTIO_METAJSON_LABELS
