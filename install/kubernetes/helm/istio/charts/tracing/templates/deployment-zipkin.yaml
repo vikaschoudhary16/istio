@@ -37,6 +37,19 @@ spec:
         - name: {{ . }}
 {{- end }}
 {{- end }}
+      initContainers:
+      - name: override-config
+        image: {{ .Values.global.hub }}/envsubst:v1.0
+        command: ['/bin/sh']
+        args: ['-c', 'for file in $(ls -A /tmpl); do envsubst < /tmpl/$file > /config/$file; done']
+        volumeMounts:
+          - name: tmpl
+            mountPath: /tmpl
+          - name: config
+            mountPath: /config
+        envFrom:
+        - secretRef:
+            name: tracing-token
       containers:
         - name: zipkin
           image: "{{ .Values.zipkin.hub }}/{{ .Values.zipkin.image }}:{{ .Values.zipkin.tag }}"
@@ -90,9 +103,11 @@ spec:
             - mountPath: /etc/envoy/
               name: config
       volumes:
-        - name: config
+        - name: tmpl
           configMap:
             name: tracing-config
+        - name: config
+          emptyDir: {}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       {{- include "podAntiAffinity" . | indent 6 }}

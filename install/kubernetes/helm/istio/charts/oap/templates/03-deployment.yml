@@ -18,6 +18,26 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: oap-service-account
+      initContainers:
+      - name: copy-raw-config
+        image: {{ .Values.global.hub }}/spm-user:{{ .Values.tag }}
+        command: ['/bin/sh']
+        args: ['-c', 'cp /skywalking/config/* /config']
+        volumeMounts:
+          - name: config
+            mountPath: /config
+      - name: override-config
+        image: {{ .Values.global.hub }}/envsubst:v1.0
+        command: ['/bin/sh']
+        args: ['-c', 'for file in $(ls -A /tmpl); do envsubst < /tmpl/$file > /config/$file; done']
+        volumeMounts:
+          - name: tmpl
+            mountPath: /tmpl
+          - name: config
+            mountPath: /config
+        envFrom:
+        - secretRef:
+            name: oap-token
       containers:
       - name: oap
         image: {{ .Values.global.hub }}/spm-user:{{ .Values.tag }}
@@ -37,15 +57,8 @@ spec:
             fieldRef:
               fieldPath: metadata.uid
         volumeMounts:
-        - mountPath: /skywalking/config/application.yml
+        - mountPath: /skywalking/config
           name: config
-          subPath: application.yml
-        - mountPath: /skywalking/config/log4j2.xml
-          name: config
-          subPath: log4j2.xml
-        - mountPath: /skywalking/config/official_analysis.oal
-          name: config
-          subPath: official_analysis.oal
       - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
         image: "{{ .Values.global.proxy.image }}"
@@ -66,15 +79,8 @@ spec:
         - mountPath: /etc/envoy/
           name: config
       volumes:
-      - name: config
+      - name: tmpl
         configMap:
           name: oap-config
-          items:
-          - key: application.yml
-            path: application.yml
-          - key: envoy.yaml
-            path: envoy.yaml
-          - key: log4j2.xml
-            path: log4j2.xml
-          - key: official_analysis.oal
-            path: official_analysis.oal
+      - name: config
+        emptyDir: {}
