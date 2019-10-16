@@ -30,7 +30,7 @@ data:
                 {{- if .Values.zipkin.token }}
                 - header:
                     key: Authorization
-                    value: "Bearer {{ .Values.zipkin.token }}"
+                    value: "Bearer $token"
                 {{- end }}
                 virtual_hosts:
                 - name: local_service
