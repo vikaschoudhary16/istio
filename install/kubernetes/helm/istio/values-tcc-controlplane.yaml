@@ -38,7 +38,7 @@ tracing:
     host: "__HOST__"
     port: 8443
   zipkin:
-    token: ""
+    #token: ""
     env:
       STORAGE_TYPE: "elasticsearch"
       # Zipkin sends to local envoy which forwards to TCC elastic search.
