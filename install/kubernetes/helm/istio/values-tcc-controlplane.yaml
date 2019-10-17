@@ -94,6 +94,7 @@ global:
   # this setting does not control mTLS. TCC does.
   mtls:
     enabled: false
+    auto: true
 
   outboundTrafficPolicy:
     mode: ALLOW_ANY
