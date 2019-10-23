@@ -23,5 +23,8 @@ rules:
 - apiGroups: ["*"]
   resources: ["namespaces"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
 ---
 
