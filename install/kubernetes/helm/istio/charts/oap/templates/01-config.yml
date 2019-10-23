@@ -184,6 +184,9 @@ data:
             <logger name="org.elasticsearch.common.network.IfConfig" level="INFO"/>
             <logger name="io.grpc.netty" level="INFO"/>
             <logger name="org.apache.skywalking.oap.server.receiver.istio.telemetry" level="INFO"/>
+            <!-- uncomment following line when need to debug ALS raw data
+            <logger name="io.tetrate.spm.user.receiver.envoy" level="DEBUG"/>
+            -->
             <Root level="WARN">
                 <AppenderRef ref="Console"/>
             </Root>
