@@ -46,11 +46,15 @@ type source struct {
 	root string
 	done chan struct{}
 }
+type InMemoryKubeSrc interface {
+	event.Source
+	ApplyContents(string, []byte)
+}
 
 var _ event.Source = &source{}
 
 // New returns a new filesystem based processor.Source.
-func New(root string, resources schema.KubeResources) (event.Source, error) {
+func New(root string, resources schema.KubeResources) (InMemoryKubeSrc, error) {
 	src := inmemory.NewKubeSource(resources)
 	name := fmt.Sprintf("fs-%d", nameDiscriminator)
 	nameDiscriminator++
@@ -117,6 +121,13 @@ func (s *source) Stop() {
 // Dispatch implements event.Source
 func (s *source) Dispatch(h event.Handler) {
 	s.s.Dispatch(h)
+}
+
+// ApplyContents will be invoked from within the binary
+func (s *source) ApplyContents(srcName string, data []byte) {
+	if err := s.s.ApplyContent(srcName, string(data)); err != nil {
+		scope.Source.Errorf("[%s] Error applying contents(%q): %v", s.name, srcName, err)
+	}
 }
 
 func (s *source) reload() {

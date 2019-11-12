@@ -29,7 +29,7 @@ type Server struct {
 	host process.Host
 
 	p  *components.Processing
-	p2 *components.Processing2
+	P2 *components.Processing2
 }
 
 // New returns a new instance of a Server.
@@ -56,9 +56,9 @@ func New(a *settings.Args) *Server {
 			t := s.p.ConfigZTopic()
 			topics = append(topics, t)
 		} else {
-			s.p2 = components.NewProcessing2(a)
-			s.host.Add(s.p2)
-			t := s.p2.ConfigZTopic()
+			s.P2 = components.NewProcessing2(a)
+			s.host.Add(s.P2)
+			t := s.P2.ConfigZTopic()
 			topics = append(topics, t)
 		}
 	}
@@ -82,7 +82,7 @@ func (s *Server) Address() net.Addr {
 	if s.p != nil {
 		return s.p.Address()
 	}
-	return s.p2.Address()
+	return s.P2.Address()
 
 }
 
