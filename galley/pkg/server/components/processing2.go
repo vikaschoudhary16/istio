@@ -58,6 +58,11 @@ import (
 
 const versionMetadataKey = "config.source.version"
 
+type InMemoryKubeSrc interface {
+	event.Source
+	ApplyContents(string, []byte)
+}
+
 // Processing2 component is the main config processing component that will listen to a config source and publish
 // resources through an MCP server, or a dialout connection.
 type Processing2 struct {
@@ -66,8 +71,8 @@ type Processing2 struct {
 	mcpCache     *snapshot.Cache
 	configzTopic fw.Topic
 
-	k kube.Interfaces
-
+	k             kube.Interfaces
+	KubeSource    InMemoryKubeSrc
 	serveWG       sync.WaitGroup
 	grpcServer    *grpc.Server
 	runtime       *processing.Runtime
@@ -94,7 +99,7 @@ func NewProcessing2(a *settings.Args) *Processing2 {
 // Start implements process.Component
 func (p *Processing2) Start() (err error) {
 	var mesh event.Source
-	var src event.Source
+	var src InMemoryKubeSrc
 	var updater snapshotter.StatusUpdater
 
 	if mesh, err = meshcfgNewFS(p.args.MeshConfigFile); err != nil {
@@ -108,7 +113,7 @@ func (p *Processing2) Start() (err error) {
 	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
 		return
 	}
-
+	p.KubeSource = src
 	transformProviders := transforms.Providers(m)
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
@@ -276,7 +281,7 @@ func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
 }
 
 func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResources) (
-	src event.Source, updater snapshotter.StatusUpdater, err error) {
+	src InMemoryKubeSrc, updater snapshotter.StatusUpdater, err error) {
 
 	if p.args.ConfigPath != "" {
 		if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {

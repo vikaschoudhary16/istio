@@ -91,6 +91,9 @@ func New(o Options) *Source {
 	return s
 }
 
+func (s *Source) ApplyContents(name string, data []byte) {
+}
+
 // Dispatch implements processor.Source
 func (s *Source) Dispatch(h event.Handler) {
 	s.mu.Lock()
