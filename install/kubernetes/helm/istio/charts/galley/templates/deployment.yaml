@@ -68,6 +68,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           command: 
           - /usr/local/bin/configsink-server
+          - server
           - --tcc-host={{ .Values.global.tcc.host }}:{{ .Values.global.tcc.port }}
           - --cluster={{ .Values.global.tcc.cluster }}
           - --tenant={{ .Values.global.tcc.tenant }}
@@ -75,28 +76,6 @@ spec:
 {{- if .Values.configSink.token }}
           - --jwt-file=/etc/configsink/token
 {{- end }}
-          volumeMounts:
-          - name: configsink-dir
-            mountPath: /etc/tcc/
-{{- if .Values.configSink.token }}
-          - name: configsink-token
-            mountPath: /etc/configsink
-{{- end }}
-{{- end }}
-        - name: galley
-{{- if contains "/" .Values.image }}
-          image: "{{ .Values.image }}"
-{{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
-{{- end }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-          ports:
-          - containerPort: 9443
-          - containerPort: {{ .Values.global.monitoringPort }}
-          - containerPort: 9901
-          command:
-          - /usr/local/bin/galley
-          - server
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
           - --livenessProbePath=/tmp/healthliveness
@@ -141,9 +120,11 @@ spec:
           - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
 {{- end }}
           volumeMounts:
-{{- if .Values.configSink }}
           - name: configsink-dir
             mountPath: /etc/tcc/
+{{- if .Values.configSink.token }}
+          - name: configsink-token
+            mountPath: /etc/configsink
 {{- end }}
           - name: certs
             mountPath: /etc/certs
@@ -159,10 +140,14 @@ spec:
           - name: mesh-config
             mountPath: /etc/mesh-config
             readOnly: true
+          ports:
+          - containerPort: 9443
+          - containerPort: {{ .Values.global.monitoringPort }}
+          - containerPort: 9901
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/galley
+                - /usr/local/bin/configsink-server
                 - probe
                 - --probe-path=/tmp/healthliveness
                 - --interval=10s
@@ -171,7 +156,7 @@ spec:
           readinessProbe:
             exec:
               command:
-                - /usr/local/bin/galley
+                - /usr/local/bin/configsink-server
                 - probe
                 - --probe-path=/tmp/healthready
                 - --interval=10s
@@ -183,8 +168,8 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+{{- end }}
       volumes:
-{{- if .Values.configSink }}
       - name: configsink-dir
         persistentVolumeClaim:
           claimName: configsink-data
@@ -192,7 +177,6 @@ spec:
       - name: configsink-token
         secret:
           secretName: configsink-token
-{{- end }}
 {{- end }}
       - name: certs
         secret:
