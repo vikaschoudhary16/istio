@@ -123,7 +123,7 @@ spec:
           - --connectTimeout
           - '10s' #connectTimeout
           - --serviceCluster
-          - {{ $key }}
+          - {{ $key }}-{{ $spec.namespace | default $.Release.Namespace }}
           - --zipkinAddress
         {{- if $.Values.global.tracer.zipkin.address }}
           - {{ $.Values.global.tracer.zipkin.address }}
