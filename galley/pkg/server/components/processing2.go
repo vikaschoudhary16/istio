@@ -284,7 +284,7 @@ func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResource
 	//if p.args.ConfigPath != "" {
 	//if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
 
-	//NOTE(vikas): Passing blank filepath because we dont want ga;ley to read sources from file. Instead configsink will invoke
+	//NOTE(vikas): Passing blank filepath because we dont want galley to read sources from file. Instead configsink will invoke
 	// ApplyContents() directly to pass configs
 	if src, err = fsNew2("", resources); err != nil {
 		return
