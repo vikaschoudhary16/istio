@@ -42,8 +42,6 @@ import (
 	"istio.io/istio/galley/pkg/config/processor/groups"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/source/kube"
-	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
-	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/galley/pkg/server/process"
 	"istio.io/istio/galley/pkg/server/settings"
@@ -283,32 +281,36 @@ func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
 func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResources) (
 	src InMemoryKubeSrc, updater snapshotter.StatusUpdater, err error) {
 
-	if p.args.ConfigPath != "" {
-		if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
-			return
-		}
-		updater = &snapshotter.InMemoryStatusUpdater{}
-	} else {
-		var k kube.Interfaces
-		if k, err = p.getKubeInterfaces(); err != nil {
-			return
-		}
+	//if p.args.ConfigPath != "" {
+	//if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
 
-		var statusCtl status.Controller
-		if p.args.EnableConfigAnalysis {
-			statusCtl = status.NewController("validationMessages")
-		}
-
-		o := apiserver.Options{
-			Client:           k,
-			ResyncPeriod:     p.args.ResyncPeriod,
-			Resources:        resources,
-			StatusController: statusCtl,
-		}
-		s := apiserver.New(o)
-		src = s
-		updater = s
+	//NOTE(vikas): Passing blank filepath because we dont want galley to read sources from file. Instead configsink will invoke
+	// ApplyContents() directly to pass configs
+	if src, err = fsNew2("", resources); err != nil {
+		return
 	}
+	updater = &snapshotter.InMemoryStatusUpdater{}
+	//	} else {
+	//		var k kube.Interfaces
+	//		if k, err = p.getKubeInterfaces(); err != nil {
+	//			return
+	//		}
+	//
+	//		var statusCtl status.Controller
+	//		if p.args.EnableConfigAnalysis {
+	//			statusCtl = status.NewController("validationMessages")
+	//		}
+	//
+	//		o := apiserver.Options{
+	//			Client:           k,
+	//			ResyncPeriod:     p.args.ResyncPeriod,
+	//			Resources:        resources,
+	//			StatusController: statusCtl,
+	//		}
+	//		s := apiserver.New(o)
+	//		src = s
+	//		updater = s
+	//	}
 	return
 }
 
