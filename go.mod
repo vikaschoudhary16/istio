@@ -1,4 +1,4 @@
-module istio.io/istio
+module github.com/tetrateio/istio
 
 go 1.12
 
