@@ -36,31 +36,6 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
-{{- if .Values.configSink }}
-      initContainers:
-      - name: set-config-link
-        image: {{ .Values.global.hub }}/busybox:1.30
-        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-        command: 
-        - /bin/sh
-        - -c
-        - |
-          cd /etc/tcc
-          echo $PWD
-          ls -l
-          rm -f config.yaml
-          # if config.latest is there, copy it to trigger
-          # if not there, its fine - just create trigger file
-          # trigger file would be galley's starting config and
-          # subsequently moved over to config.latest when configsink-server starts
-          cp config.latest trigger 2>/dev/null
-          touch trigger
-          ln -s trigger config.yaml
-          ls -l
-        volumeMounts:
-        - name: configsink-dir
-          mountPath: /etc/tcc/
-{{- end }}
       containers:
 {{- if .Values.configSink }}
         - name: configsink
