@@ -84,7 +84,7 @@ spec:
           - --resyncPeriod=1s
 {{- end }}
 {{- if $.Values.global.logging.level }}
-          - --log_output_level={{ $.Values.global.logging.level }}
+          - --log-output-level={{ $.Values.global.logging.level }}
 {{- end}}
 {{- if .Values.enableAnalysis }}
           - --enableAnalysis=true
