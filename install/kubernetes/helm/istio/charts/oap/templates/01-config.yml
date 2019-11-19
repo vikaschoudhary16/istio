@@ -149,7 +149,7 @@ data:
         alsHTTPAnalysis: ${SW_ENVOY_METRIC_ALS_HTTP_ANALYSIS:reg-agent-mesh}
         cluster: {{ .Values.global.tcc.cluster }}
         env: {{ .Values.global.tcc.environment }}
-        regAgentHost: ${SW_ENVOY_METRIC_ALS_REG_AGENT_HOST:regsource}
+        regAgentHost: ${SW_ENVOY_METRIC_ALS_REG_AGENT_HOST:istio-galley}
         regAgentPort: ${SW_ENVOY_METRIC_ALS_REG_AGENT_PORT:9080}
     query:
       graphql:
