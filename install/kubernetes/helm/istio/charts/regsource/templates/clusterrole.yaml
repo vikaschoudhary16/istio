@@ -26,5 +26,8 @@ rules:
 - apiGroups: ["networking.istio.io"]
   resources: ["*"]
   verbs: ["*"]
+- apiGroups: ["registry.tetrate.io"]
+  resources: ["*"]
+  verbs: ["*"]
 ---
 
