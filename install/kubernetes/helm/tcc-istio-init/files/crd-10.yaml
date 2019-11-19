@@ -1,10 +1,10 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: servicedefinitions.core.tetrate.io
+  name: servicedefinitions.registry.tetrate.io
 spec:
-  group: core.tetrate.io
-  version: v1
+  group: registry.tetrate.io
+  version: v1alpha1
   names:
     kind: ServiceDefinition
     listKind: ServiceDefinitionList
