@@ -5,6 +5,7 @@ metadata:
 spec:
   group: registry.tetrate.io
   version: v1alpha1
+  scope: Namespaced
   names:
     kind: ServiceDefinition
     listKind: ServiceDefinitionList
@@ -12,4 +13,3 @@ spec:
     singular: servicedefinition
     shortNames:
     - sd
-  scope: Namespaced
