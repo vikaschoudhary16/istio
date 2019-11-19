@@ -119,6 +119,7 @@ spec:
           - containerPort: 9443
           - containerPort: {{ .Values.global.monitoringPort }}
           - containerPort: 9901
+          - containerPort: 9080
           livenessProbe:
             exec:
               command:
