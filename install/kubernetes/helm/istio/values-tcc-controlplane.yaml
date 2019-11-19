@@ -61,11 +61,6 @@ oap:
     host: "__HOST__"
     port: 8443
 
-regsource:
-  enabled: true
-  tag: "__TCC__"
-  token: ""
-
 global:
   tcc:
     enabled: true

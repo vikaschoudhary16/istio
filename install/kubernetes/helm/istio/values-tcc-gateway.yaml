@@ -123,6 +123,3 @@ certmanager:
 
 oap:
   enabled: false
-
-regsource:
-  enabled: false
