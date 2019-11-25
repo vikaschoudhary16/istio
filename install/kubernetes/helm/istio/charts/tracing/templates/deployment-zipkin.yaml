@@ -79,6 +79,14 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
+            {{- if .Values.global.elasticsearch.user }}
+            - name: ES_USERNAME
+              value: "{{ .Values.global.elasticsearch.user }}"
+            {{- end }}
+            {{- if .Values.global.elasticsearch.password }}
+            - name: ES_PASSWORD
+              value: "{{ .Values.global.elasticsearch.password }}"
+            {{- end }}
             {{- if .Values.zipkin.env }}
             {{- range $key, $val := .Values.zipkin.env }}
             - name: {{ $key }}

@@ -97,3 +97,8 @@ global:
   configRootNamespace: istio-config
   defaultConfigVisibilitySettings:
   - '*'
+  elasticsearch:
+    user: ""
+    password: ""
+    ssl:
+      enabled: true

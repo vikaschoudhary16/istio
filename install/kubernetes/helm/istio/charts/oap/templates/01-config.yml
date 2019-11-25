@@ -69,7 +69,9 @@ data:
         connect_timeout: 5s
         type: STRICT_DNS
         lb_policy: ROUND_ROBIN
+        {{- if .Values.global.elasticsearch.ssl.enabled }}
         tls_context: {}
+        {{- end }}
         hosts:
         - socket_address:
             address: {{ .Values.elasticsearch.host }}
@@ -118,8 +120,8 @@ data:
       elasticsearch:
         nameSpace: ${SW_NAMESPACE:""}
         clusterNodes: ${SW_STORAGE_ES_CLUSTER_NODES:localhost:9200}
-        user: ${SW_ES_USER:""}
-        password: ${SW_ES_PASSWORD:""}
+        user: ${SW_ES_USER:"{{ .Values.global.elasticsearch.user }}"}
+        password: ${SW_ES_PASSWORD:"{{ .Values.global.elasticsearch.password }}"}
         indexShardsNumber: ${SW_STORAGE_ES_INDEX_SHARDS_NUMBER:2}
         indexReplicasNumber: ${SW_STORAGE_ES_INDEX_REPLICAS_NUMBER:0}
         # Those data TTL settings will override the same settings in core module.

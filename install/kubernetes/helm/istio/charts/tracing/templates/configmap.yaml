@@ -45,7 +45,9 @@ data:
         connect_timeout: 5s
         type: STRICT_DNS
         lb_policy: ROUND_ROBIN
+        {{- if .Values.global.elasticsearch.ssl.enabled }}
         tls_context: {}
+        {{- end }}
         hosts:
         - socket_address:
             {{- if (.Values.elasticsearch) and (.Values.elasticsearch.host) }}
