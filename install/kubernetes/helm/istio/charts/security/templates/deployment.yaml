@@ -50,6 +50,7 @@ spec:
             - --sds-enabled=true
           {{- end }}
             - --append-dns-names=true
+            - --custom-dns-names=tsbd-service-account.istio-system:tsbd.istio-system.svc
             - --grpc-port=8060
             - --citadel-storage-namespace={{ .Release.Namespace }}
             - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }}
