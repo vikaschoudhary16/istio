@@ -53,7 +53,7 @@ spec:
             - --custom-dns-names=tsbd-service-account.istio-system:tsbd.istio-system.svc
             - --grpc-port=8060
             - --citadel-storage-namespace={{ .Release.Namespace }}
-            - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }}
+            - --custom-dns-names=istio-pilot-service-account.{{ .Release.Namespace }}:istio-pilot.{{ .Release.Namespace }},tsbd-service-account.{{ .Release.Namespace }}:tsbd.{{ .Release.Namespace }}.svc
             - --monitoring-port={{ .Values.global.monitoringPort }}
           {{- if .Values.selfSigned }}
             - --self-signed-ca=true
