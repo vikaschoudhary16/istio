@@ -13,17 +13,9 @@ var (
 	// Description: There was an internal error in the toolchain. This is almost always a bug in the implementation.
 	InternalError = diag.NewMessageType(diag.Error, "IST0001", "Internal error: %v")
 
-	// NotYetImplemented defines a diag.MessageType for message "NotYetImplemented".
-	// Description: A feature that the configuration is depending on is not implemented yet.
-	NotYetImplemented = diag.NewMessageType(diag.Error, "IST0002", "Not yet implemented: %s")
-
-	// ParseError defines a diag.MessageType for message "ParseError".
-	// Description: There was a parse error during the parsing of the configuration text
-	ParseError = diag.NewMessageType(diag.Warning, "IST0003", "Parse error: %s")
-
 	// Deprecated defines a diag.MessageType for message "Deprecated".
 	// Description: A feature that the configuration is depending on is now deprecated.
-	Deprecated = diag.NewMessageType(diag.Warning, "IST0004", "Deprecated: %s")
+	Deprecated = diag.NewMessageType(diag.Warning, "IST0002", "Deprecated: %s")
 
 	// ReferencedResourceNotFound defines a diag.MessageType for message "ReferencedResourceNotFound".
 	// Description: A resource being referenced does not exist.
@@ -46,8 +38,8 @@ var (
 	IstioProxyVersionMismatch = diag.NewMessageType(diag.Warning, "IST0105", "The version of the Istio proxy running on the pod does not match the version used by the istio injector (pod version: %s; injector version: %s). This often happens after upgrading the Istio control-plane and can be fixed by redeploying the pod.")
 
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
-	// Description: The resource has one or more schema validation errors.
-	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "The resource has one or more schema validation errors: %v")
+	// Description: The resource has a schema validation error.
+	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "Schema validation error: %v")
 
 	// MisplacedAnnotation defines a diag.MessageType for message "MisplacedAnnotation".
 	// Description: An Istio annotation is applied to the wrong kind of resource.
@@ -56,30 +48,36 @@ var (
 	// UnknownAnnotation defines a diag.MessageType for message "UnknownAnnotation".
 	// Description: An Istio annotation is not recognized for any kind of resource
 	UnknownAnnotation = diag.NewMessageType(diag.Warning, "IST0108", "Unknown annotation: %s")
+
+	// ConflictingMeshGatewayVirtualServiceHosts defines a diag.MessageType for message "ConflictingMeshGatewayVirtualServiceHosts".
+	// Description: Conflicting hosts on VirtualServices associated with mesh gateway
+	ConflictingMeshGatewayVirtualServiceHosts = diag.NewMessageType(diag.Error, "IST0109", "The VirtualServices %s associated with mesh gateway define the same host %s which can lead to undefined behavior. This can be fixed by merging the conflicting VirtualServices into a single resource.")
+
+	// ConflictingSidecarWorkloadSelectors defines a diag.MessageType for message "ConflictingSidecarWorkloadSelectors".
+	// Description: A Sidecar resource selects the same workloads as another Sidecar resource
+	ConflictingSidecarWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0110", "The Sidecars %v in namespace %q select the same workload pod %q, which can lead to undefined behavior.")
+
+	// MultipleSidecarsWithoutWorkloadSelectors defines a diag.MessageType for message "MultipleSidecarsWithoutWorkloadSelectors".
+	// Description: More than one sidecar resource in a namespace has no workload selector
+	MultipleSidecarsWithoutWorkloadSelectors = diag.NewMessageType(diag.Error, "IST0111", "The Sidecars %v in namespace %q have no workload selector, which can lead to undefined behavior.")
+
+	// VirtualServiceDestinationPortSelectorRequired defines a diag.MessageType for message "VirtualServiceDestinationPortSelectorRequired".
+	// Description: A VirtualService routes to a service with more than one port exposed, but does not specify which to use.
+	VirtualServiceDestinationPortSelectorRequired = diag.NewMessageType(diag.Error, "IST0112", "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate.")
+
+	// MTLSPolicyConflict defines a diag.MessageType for message "MTLSPolicyConflict".
+	// Description: A DestinationRule and Policy are in conflict with regards to mTLS.
+	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s in namespace %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s.")
+
+	// PolicySpecifiesPortNameThatDoesntExist defines a diag.MessageType for message "PolicySpecifiesPortNameThatDoesntExist".
+	// Description: A Policy targets a port name that cannot be found.
+	PolicySpecifiesPortNameThatDoesntExist = diag.NewMessageType(diag.Warning, "IST0114", "Port name %s could not be found for host %s, which means the Policy won't be enforced.")
 )
 
 // NewInternalError returns a new diag.Message based on InternalError.
 func NewInternalError(entry *resource.Entry, detail string) diag.Message {
 	return diag.NewMessage(
 		InternalError,
-		originOrNil(entry),
-		detail,
-	)
-}
-
-// NewNotYetImplemented returns a new diag.Message based on NotYetImplemented.
-func NewNotYetImplemented(entry *resource.Entry, detail string) diag.Message {
-	return diag.NewMessage(
-		NotYetImplemented,
-		originOrNil(entry),
-		detail,
-	)
-}
-
-// NewParseError returns a new diag.Message based on ParseError.
-func NewParseError(entry *resource.Entry, detail string) diag.Message {
-	return diag.NewMessage(
-		ParseError,
 		originOrNil(entry),
 		detail,
 	)
@@ -145,11 +143,11 @@ func NewIstioProxyVersionMismatch(entry *resource.Entry, proxyVersion string, in
 }
 
 // NewSchemaValidationError returns a new diag.Message based on SchemaValidationError.
-func NewSchemaValidationError(entry *resource.Entry, combinedErr error) diag.Message {
+func NewSchemaValidationError(entry *resource.Entry, err error) diag.Message {
 	return diag.NewMessage(
 		SchemaValidationError,
 		originOrNil(entry),
-		combinedErr,
+		err,
 	)
 }
 
@@ -169,6 +167,71 @@ func NewUnknownAnnotation(entry *resource.Entry, annotation string) diag.Message
 		UnknownAnnotation,
 		originOrNil(entry),
 		annotation,
+	)
+}
+
+// NewConflictingMeshGatewayVirtualServiceHosts returns a new diag.Message based on ConflictingMeshGatewayVirtualServiceHosts.
+func NewConflictingMeshGatewayVirtualServiceHosts(entry *resource.Entry, virtualServices string, host string) diag.Message {
+	return diag.NewMessage(
+		ConflictingMeshGatewayVirtualServiceHosts,
+		originOrNil(entry),
+		virtualServices,
+		host,
+	)
+}
+
+// NewConflictingSidecarWorkloadSelectors returns a new diag.Message based on ConflictingSidecarWorkloadSelectors.
+func NewConflictingSidecarWorkloadSelectors(entry *resource.Entry, conflictingSidecars []string, namespace string, workloadPod string) diag.Message {
+	return diag.NewMessage(
+		ConflictingSidecarWorkloadSelectors,
+		originOrNil(entry),
+		conflictingSidecars,
+		namespace,
+		workloadPod,
+	)
+}
+
+// NewMultipleSidecarsWithoutWorkloadSelectors returns a new diag.Message based on MultipleSidecarsWithoutWorkloadSelectors.
+func NewMultipleSidecarsWithoutWorkloadSelectors(entry *resource.Entry, conflictingSidecars []string, namespace string) diag.Message {
+	return diag.NewMessage(
+		MultipleSidecarsWithoutWorkloadSelectors,
+		originOrNil(entry),
+		conflictingSidecars,
+		namespace,
+	)
+}
+
+// NewVirtualServiceDestinationPortSelectorRequired returns a new diag.Message based on VirtualServiceDestinationPortSelectorRequired.
+func NewVirtualServiceDestinationPortSelectorRequired(entry *resource.Entry, destHost string, destPorts []int) diag.Message {
+	return diag.NewMessage(
+		VirtualServiceDestinationPortSelectorRequired,
+		originOrNil(entry),
+		destHost,
+		destPorts,
+	)
+}
+
+// NewMTLSPolicyConflict returns a new diag.Message based on MTLSPolicyConflict.
+func NewMTLSPolicyConflict(entry *resource.Entry, host string, namespace string, destinationRuleName string, destinationRuleMTLSMode bool, policyName string, policyMTLSMode string) diag.Message {
+	return diag.NewMessage(
+		MTLSPolicyConflict,
+		originOrNil(entry),
+		host,
+		namespace,
+		destinationRuleName,
+		destinationRuleMTLSMode,
+		policyName,
+		policyMTLSMode,
+	)
+}
+
+// NewPolicySpecifiesPortNameThatDoesntExist returns a new diag.Message based on PolicySpecifiesPortNameThatDoesntExist.
+func NewPolicySpecifiesPortNameThatDoesntExist(entry *resource.Entry, portName string, host string) diag.Message {
+	return diag.NewMessage(
+		PolicySpecifiesPortNameThatDoesntExist,
+		originOrNil(entry),
+		portName,
+		host,
 	)
 }
 

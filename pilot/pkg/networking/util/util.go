@@ -16,9 +16,7 @@ package util
 
 import (
 	"fmt"
-	"math"
 	"net"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,10 +37,12 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 )
 
 const (
@@ -69,8 +69,6 @@ const (
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
-	// The range of LoadBalancingWeight is [1, 128]
-	maxLoadBalancingWeight = 128
 
 	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
 	// which determines the endpoint level transport socket configuration.
@@ -100,9 +98,20 @@ var ALPNInMesh = []string{"istio"}
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
 
-var EndpointMetadataMtlsReady = &pstruct.Struct{
-	Fields: map[string]*pstruct.Value{
-		model.MTLSReadyLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: "true"}},
+// FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
+// filter chain
+var FallThroughFilterChainBlackHoleService = &model.Service{
+	Hostname: host.Name(BlackHoleCluster),
+	Attributes: model.ServiceAttributes{
+		Name: BlackHoleCluster,
+	},
+}
+
+// FallThroughFilterChainPassthroughService is the passthrough service used for fall though
+var FallThroughFilterChainPassthroughService = &model.Service{
+	Hostname: host.Name(PassthroughCluster),
+	Attributes: model.ServiceAttributes{
+		Name: PassthroughCluster,
 	},
 }
 
@@ -172,61 +181,6 @@ func GetNetworkEndpointAddress(n *model.NetworkEndpoint) *core.Address {
 	default:
 		panic(fmt.Sprintf("unhandled Family %v", n.Family))
 	}
-}
-
-// lbWeightNormalize set LbEndpoints within a locality with a valid LoadBalancingWeight.
-func lbWeightNormalize(endpoints []*endpoint.LbEndpoint) []*endpoint.LbEndpoint {
-	var totalLbEndpointsNum uint32
-	var needNormalize bool
-
-	for _, ep := range endpoints {
-		if ep.GetLoadBalancingWeight().GetValue() > maxLoadBalancingWeight {
-			needNormalize = true
-		}
-		totalLbEndpointsNum += ep.GetLoadBalancingWeight().GetValue()
-	}
-	if !needNormalize {
-		return endpoints
-	}
-
-	out := make([]*endpoint.LbEndpoint, len(endpoints))
-	for i, ep := range endpoints {
-		weight := float64(ep.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		ep.LoadBalancingWeight = &wrappers.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = ep
-	}
-
-	return out
-}
-
-// LocalityLbWeightNormalize set LocalityLbEndpoints within a cluster with a valid LoadBalancingWeight.
-func LocalityLbWeightNormalize(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
-	var totalLbEndpointsNum uint32
-	var needNormalize bool
-
-	for i, localityLbEndpoint := range endpoints {
-		if localityLbEndpoint.GetLoadBalancingWeight().GetValue() > maxLoadBalancingWeight {
-			needNormalize = true
-		}
-		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
-		endpoints[i].LbEndpoints = lbWeightNormalize(localityLbEndpoint.LbEndpoints)
-	}
-	if !needNormalize {
-		return endpoints
-	}
-
-	out := make([]*endpoint.LocalityLbEndpoints, len(endpoints))
-	for i, localityLbEndpoint := range endpoints {
-		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		localityLbEndpoint.LoadBalancingWeight = &wrappers.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = localityLbEndpoint
-	}
-
-	return out
 }
 
 // GetByAddress returns a listener by its address
@@ -309,6 +263,12 @@ func IsIstioVersionGE13(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 3, Patch: -1}) >= 0
 }
 
+// IsIstioVersionGE14 checks whether the given Istio version is greater than or equals 1.4.
+func IsIstioVersionGE14(node *model.Proxy) bool {
+	return node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 4, Patch: -1}) >= 0
+}
+
 // IsXDSMarshalingToAnyEnabled controls whether "marshaling to Any" feature is enabled.
 func IsXDSMarshalingToAnyEnabled(node *model.Proxy) bool {
 	return !features.DisableXDSMarshalingToAny
@@ -320,7 +280,7 @@ func IsProtocolSniffingEnabledForOutbound(node *model.Proxy) bool {
 }
 
 func IsProtocolSniffingEnabledForInbound(node *model.Proxy) bool {
-	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE13(node)
+	return features.EnableProtocolSniffingForInbound.Get() && IsIstioVersionGE14(node)
 }
 
 func IsProtocolSniffingEnabledForPort(node *model.Proxy, port *model.Port) bool {
@@ -566,29 +526,9 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	return retVal, nil
 }
 
-// logPanic logs the caller tree when a panic occurs.
-func logPanic(r interface{}) {
-	// Same as stdlib http server code. Manually allocate stack trace buffer size
-	// to prevent excessively large logs
-	const size = 64 << 10
-	stacktrace := make([]byte, size)
-	stacktrace = stacktrace[:runtime.Stack(stacktrace, false)]
-	log.Errorf("Observed a panic: %#v (%v)\n%s", r, r, stacktrace)
-}
-
-// HandleCrash catches the crash and calls additional handlers.
-func HandleCrash(handlers ...func()) {
-	if r := recover(); r != nil {
-		logPanic(r)
-		for _, handler := range handlers {
-			handler()
-		}
-	}
-}
-
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(uid string, network string, mtlsReady bool) *core.Metadata {
-	if uid == "" && network == "" && !mtlsReady {
+func BuildLbEndpointMetadata(uid string, network string, tlsMode string) *core.Metadata {
+	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
 		return nil
 	}
 
@@ -610,9 +550,20 @@ func BuildLbEndpointMetadata(uid string, network string, mtlsReady bool) *core.M
 		}
 	}
 
-	if mtlsReady {
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = EndpointMetadataMtlsReady
+	if tlsMode != "" {
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
+			},
+		}
 	}
 
 	return metadata
+}
+
+// IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
+func IsAllowAnyOutbound(node *model.Proxy) bool {
+	return node.SidecarScope != nil &&
+		node.SidecarScope.OutboundTrafficPolicy != nil &&
+		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY
 }

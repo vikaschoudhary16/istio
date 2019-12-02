@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/galley/pkg/config/event"
 	"istio.io/istio/galley/pkg/config/meta/metadata"
 	"istio.io/istio/galley/pkg/config/meta/schema"
+	"istio.io/istio/galley/pkg/config/meta/schema/collection"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"
@@ -106,7 +107,15 @@ func (p *Processing2) Start() (err error) {
 
 	m := metadata.MustGet()
 
-	kubeResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
+	transformProviders := transforms.Providers(m)
+
+	// Disable any unnecessary resources, including resources not in configured snapshots
+	var colsInSnapshots collection.Names
+	for _, c := range m.AllCollectionsInSnapshots(p.args.Snapshots) {
+		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
+	}
+	kubeResources := kuberesource.DisableExcludedKubeResources(m.KubeSource().Resources(), transformProviders,
+		colsInSnapshots, p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
 
 	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
 		return
@@ -115,14 +124,19 @@ func (p *Processing2) Start() (err error) {
 	transformProviders := transforms.Providers(m)
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
+
 	if p.args.EnableConfigAnalysis {
+		combinedAnalyzer := analyzers.AllCombined()
+		combinedAnalyzer.RemoveSkipped(colsInSnapshots, kubeResources.DisabledCollections(), transformProviders)
+
 		settings := snapshotter.AnalyzingDistributorSettings{
 			StatusUpdater:     updater,
-			Analyzer:          analyzers.AllCombined().WithDisabled(kubeResources.DisabledCollections(), transformProviders),
+			Analyzer:          combinedAnalyzer,
 			Distributor:       distributor,
-			AnalysisSnapshots: []string{metadata.Default, metadata.SyntheticServiceEntry},
-			TriggerSnapshot:   metadata.Default,
+			AnalysisSnapshots: p.args.Snapshots,
+			TriggerSnapshot:   p.args.TriggerSnapshot,
 		}
+
 		distributor = snapshotter.NewAnalyzingDistributor(settings)
 	}
 
@@ -132,7 +146,7 @@ func (p *Processing2) Start() (err error) {
 		Source:             event.CombineSources(mesh, src),
 		TransformProviders: transformProviders,
 		Distributor:        distributor,
-		EnabledSnapshots:   []string{metadata.Default, metadata.SyntheticServiceEntry},
+		EnabledSnapshots:   p.args.Snapshots,
 	}
 	if p.runtime, err = processorInitialize(processorSettings); err != nil {
 		return
@@ -163,7 +177,7 @@ func (p *Processing2) Start() (err error) {
 	options := &source.Options{
 		Watcher:            p.mcpCache,
 		Reporter:           p.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots()),
+		CollectionsOptions: source.CollectionOptionsFromSlice(m.AllCollectionsInSnapshots(metadata.SnapshotNames())),
 		ConnRateLimiter:    mcprate.NewRateLimiter(time.Second, 100), // TODO(Nino-K): https://github.com/istio/istio/issues/12074
 	}
 
@@ -271,6 +285,9 @@ func (p *Processing2) getServerGrpcOptions() []grpc.ServerOption {
 }
 
 func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
+	if p.args.KubeRestConfig != nil {
+		return kube.NewInterfaces(p.args.KubeRestConfig), nil
+	}
 	if p.k == nil {
 		p.k, err = newInterfaces(p.args.KubeConfig)
 	}
@@ -281,16 +298,19 @@ func (p *Processing2) getKubeInterfaces() (k kube.Interfaces, err error) {
 func (p *Processing2) createSourceAndStatusUpdater(resources schema.KubeResources) (
 	src InMemoryKubeSrc, updater snapshotter.StatusUpdater, err error) {
 
-	//if p.args.ConfigPath != "" {
-	//if src, err = fsNew2(p.args.ConfigPath, resources); err != nil {
-
 	//NOTE(vikas): Passing blank filepath because we dont want galley to read sources from file. Instead configsink will invoke
 	// ApplyContents() directly to pass configs
-	if src, err = fsNew2("", resources); err != nil {
+	if src, err = fsNew2("", resources, p.args.WatchConfigFiles); err != nil {
 		return
 	}
 	updater = &snapshotter.InMemoryStatusUpdater{}
-	//	} else {
+
+	// if p.args.ConfigPath != "" {
+	// 	if src, err = fsNew2(p.args.ConfigPath, resources, p.args.WatchConfigFiles); err != nil {
+	// 		return
+	// 	}
+	// 	updater = &snapshotter.InMemoryStatusUpdater{}
+	// } else {
 	//		var k kube.Interfaces
 	//		if k, err = p.getKubeInterfaces(); err != nil {
 	//			return

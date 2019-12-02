@@ -16,11 +16,13 @@ package model
 
 import (
 	"encoding/json"
+	"net"
 	"sort"
 	"sync"
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -105,6 +107,18 @@ type PushContext struct {
 	initDone bool
 
 	Version string
+
+	// cache gateways addresses for each network
+	// this is mainly used for kubernetes multi-cluster scenario
+	networkGateways map[string][]*Gateway
+}
+
+// Gateway is the gateway of a network
+type Gateway struct {
+	// gateway ip address
+	Addr string
+	// gateway port
+	Port uint32
 }
 
 type processedDestRules struct {
@@ -149,11 +163,8 @@ type XDSUpdater interface {
 	// name.
 	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
 
-	// SvcUpdate is called when a service port mapping definition is updated.
-	// This interface is WIP - labels, annotations and other changes to service may be
-	// updated to force a EDS and CDS recomputation and incremental push, as it doesn't affect
-	// LDS/RDS.
-	SvcUpdate(shard, hostname string, ports map[string]uint32, rports map[uint32]string)
+	// SvcUpdate is called when a service definition is updated/deleted.
+	SvcUpdate(shard, hostname string, namespace string, event Event)
 
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
@@ -447,13 +458,13 @@ func NewPushContext() *PushContext {
 }
 
 // JSON implements json.Marshaller, with a lock.
-func (ps *PushContext) JSON() ([]byte, error) {
+func (ps *PushContext) StatusJSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
 	}
 	ps.proxyStatusMutex.RLock()
 	defer ps.proxyStatusMutex.RUnlock()
-	return json.MarshalIndent(ps, "", "    ")
+	return json.MarshalIndent(ps.ProxyStatus, "", "    ")
 }
 
 // OnConfigChange is called when a config change is detected.
@@ -598,7 +609,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 // GetAllSidecarScopes returns a map of namespace and the set of SidecarScope
 // object associated with the namespace. This will be used by the CDS code to
 // precompute CDS output for each sidecar scope. Since we have a default sidecarscope
-// for namespaces that dont explicitly have one, we are guaranteed to
+// for namespaces that do not explicitly have one, we are guaranteed to
 // have the CDS output cached for every namespace/sidecar scope combo.
 func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 	return ps.sidecarsByNamespace
@@ -625,7 +636,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// If the proxy config namespace is same as the root config namespace
 	// look for dest rules in the service's namespace first. This hack is needed
 	// because sometimes, istio-system tends to become the root config namespace.
-	// Destination rules are defined here for global purposes. We dont want these
+	// Destination rules are defined here for global purposes. We do not want these
 	// catch all destination rules to be the only dest rule, when processing CDS for
 	// proxies like the istio-ingressgateway or istio-egressgateway.
 	// If there are no service specific dest rules, we will end up picking up the same
@@ -726,6 +737,9 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 			return nil
 		}
 	}
+
+	// TODO: only do this when meshnetworks or gateway service changed
+	ps.initMeshNetworks(env)
 
 	ps.initDone = true
 	return nil
@@ -1196,7 +1210,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 		}
 	}
 
-	// build sidecar scopes for namespaces that dont have a non-workloadSelector sidecar CRD object.
+	// build sidecar scopes for namespaces that do not have a non-workloadSelector sidecar CRD object.
 	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
 	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
 	for _, nsMap := range ps.ServiceByHostnameAndNamespace {
@@ -1464,4 +1478,81 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 	return MergeGateways(out...)
+}
+
+// Only used by test
+func (ps *PushContext) InitMeshNetworks(env *Environment) {
+	ps.initMeshNetworks(env)
+}
+
+// pre computes gateways for each network
+func (ps *PushContext) initMeshNetworks(env *Environment) {
+	if env.MeshNetworks == nil || len(env.MeshNetworks.Networks) == 0 {
+		return
+	}
+
+	ps.networkGateways = map[string][]*Gateway{}
+	for network, networkConf := range env.MeshNetworks.Networks {
+		gws := networkConf.Gateways
+		if len(gws) == 0 {
+			log.Debugf("the endpoints within network %s will be ignored because of invalid MeshNetworks", network)
+			continue
+		}
+
+		registryName := getNetworkRegistry(networkConf)
+		gateways := []*Gateway{}
+		for _, gw := range gws {
+			gatewayAddresses := getGatewayAddresses(gw, registryName, env)
+			for _, addr := range gatewayAddresses {
+				gateways = append(gateways, &Gateway{addr, gw.Port})
+			}
+		}
+
+		ps.networkGateways[network] = gateways
+	}
+
+	return
+}
+
+func getNetworkRegistry(network *v1alpha1.Network) string {
+	var registryName string
+	for _, eps := range network.Endpoints {
+		if eps != nil && len(eps.GetFromRegistry()) > 0 {
+			registryName = eps.GetFromRegistry()
+			break
+		}
+	}
+
+	return registryName
+}
+
+func getGatewayAddresses(gw *v1alpha1.Network_IstioNetworkGateway, registryName string, env *Environment) []string {
+	// First, if a gateway address is provided in the configuration use it. If the gateway address
+	// in the config was a hostname it got already resolved and replaced with an IP address
+	// when loading the config
+	if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+		return []string{gw.GetAddress()}
+	}
+
+	// Second, try to find the gateway addresses by the provided service name
+	if gwSvcName := gw.GetRegistryServiceName(); len(gwSvcName) > 0 && len(registryName) > 0 {
+		svc, _ := env.GetService(host.Name(gwSvcName))
+		if svc != nil {
+			return svc.Attributes.ClusterExternalAddresses[registryName]
+		}
+	}
+
+	return nil
+}
+
+func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
+	return ps.networkGateways
+}
+
+func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
+	if ps.networkGateways != nil {
+		return ps.networkGateways[network]
+	}
+
+	return nil
 }

@@ -40,11 +40,12 @@ var (
 var nameDiscriminator int64
 
 type source struct {
-	mu   sync.Mutex
-	name string
-	s    *inmemory.KubeSource
-	root string
-	done chan struct{}
+	mu               sync.Mutex
+	name             string
+	s                *inmemory.KubeSource
+	root             string
+	done             chan struct{}
+	watchConfigFiles bool
 }
 type InMemoryKubeSrc interface {
 	event.Source
@@ -54,15 +55,16 @@ type InMemoryKubeSrc interface {
 var _ event.Source = &source{}
 
 // New returns a new filesystem based processor.Source.
-func New(root string, resources schema.KubeResources) (InMemoryKubeSrc, error) {
+func New(root string, resources schema.KubeResources, watchConfigFiles bool) (InMemoryKubeSrc, error) {
 	src := inmemory.NewKubeSource(resources)
 	name := fmt.Sprintf("fs-%d", nameDiscriminator)
 	nameDiscriminator++
 
 	s := &source{
-		name: name,
-		root: root,
-		s:    src,
+		name:             name,
+		root:             root,
+		s:                src,
+		watchConfigFiles: watchConfigFiles,
 	}
 
 	return s, nil
@@ -82,8 +84,10 @@ func (s *source) Start() {
 	c := make(chan appsignals.Signal, 1)
 	appsignals.Watch(c)
 	shut := make(chan os.Signal, 1)
-	if err := appsignals.FileTrigger(s.root, syscall.SIGUSR1, shut); err != nil {
-		scope.Source.Errorf("Unable to FileTrigger %s", s.root)
+	if s.watchConfigFiles {
+		if err := appsignals.FileTrigger(s.root, syscall.SIGUSR1, shut); err != nil {
+			scope.Source.Errorf("Unable to setup FileTrigger for %s: %v", s.root, err)
+		}
 	}
 	go func() {
 		s.reload()
@@ -96,7 +100,9 @@ func (s *source) Start() {
 					s.reload()
 				}
 			case <-done:
-				shut <- syscall.SIGTERM
+				if s.watchConfigFiles {
+					shut <- syscall.SIGTERM
+				}
 				return
 			}
 		}

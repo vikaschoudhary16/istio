@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
@@ -54,11 +55,111 @@ type testCase struct {
 //     * Note that if Namespace is omitted in the input YAML, it will be skipped here.
 var testGrid = []testCase{
 	{
+		name: "misannoted",
+		inputFiles: []string{
+			"testdata/misannotated.yaml",
+		},
+		analyzer: &annotations.K8sAnalyzer{},
+		expected: []message{
+			{msg.UnknownAnnotation, "Service httpbin"},
+			{msg.MisplacedAnnotation, "Service details"},
+			{msg.MisplacedAnnotation, "Pod grafana-test"},
+			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
+			{msg.MisplacedAnnotation, "Namespace staging"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerGlobalDestinationRuleNoMeshPolicy",
+		inputFiles: []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule default.istio-system"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerIgnoresIstioSystemNamespace",
+		inputFiles: []string{"testdata/mtls-ignores-istio-system.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoDestinationRule",
+		inputFiles: []string{"testdata/mtls-no-dr.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "Policy default.missing-dr"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoPolicy",
+		inputFiles: []string{"testdata/mtls-no-policy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule no-policy-service-dr.no-policy"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerNoSidecar",
+		inputFiles: []string{"testdata/mtls-no-sidecar.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithExports",
+		inputFiles: []string{"testdata/mtls-exports.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "Policy default.primary"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithMeshPolicy",
+		inputFiles: []string{"testdata/mtls-meshpolicy.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "MeshPolicy default"},
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithPermissiveMeshPolicy",
+		inputFiles: []string{"testdata/mtls-meshpolicy-permissive.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "mtlsAnalyzerWithPort",
+		inputFiles: []string{"testdata/mtls-with-port.yaml"},
+		analyzer:   &auth.MTLSAnalyzer{},
+		expected: []message{
+			{msg.MTLSPolicyConflict, "DestinationRule default.my-namespace"},
+			{msg.MTLSPolicyConflict, "Policy default.my-namespace"},
+		},
+	},
+	{
 		name:       "serviceRoleBindings",
 		inputFiles: []string{"testdata/servicerolebindings.yaml"},
 		analyzer:   &auth.ServiceRoleBindingAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "ServiceRoleBinding/test-bogus-binding"},
+			{msg.ReferencedResourceNotFound, "ServiceRoleBinding test-bogus-binding"},
+		},
+	},
+	{
+		name:       "serviceRoleServices",
+		inputFiles: []string{"testdata/serviceroleservices.yaml"},
+		analyzer:   &auth.ServiceRoleServicesAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-short-name.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole bogus-fqdn.default"},
+			{msg.ReferencedResourceNotFound, "ServiceRole fqdn.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole short-name.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole fqdn-cross-ns.anothernamespace"},
+			{msg.ReferencedResourceNotFound, "ServiceRole namespace-wide.anothernamespace"},
 		},
 	},
 	{
@@ -66,11 +167,11 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "VirtualService/route-egressgateway"},
-			{msg.Deprecated, "VirtualService/tornado"},
-			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"},
-			{msg.Deprecated, "EnvoyFilter/istio-system/istio-multicluster-egressgateway"}, // Duplicate, because resource has two problems
-			{msg.Deprecated, "ServiceRoleBinding/default/bind-mongodb-viewer"},
+			{msg.Deprecated, "VirtualService route-egressgateway"},
+			{msg.Deprecated, "VirtualService tornado"},
+			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"},
+			{msg.Deprecated, "EnvoyFilter istio-multicluster-egressgateway.istio-system"}, // Duplicate, because resource has two problems
+			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
 		},
 	},
 	{
@@ -78,7 +179,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-no-workload.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "Gateway/httpbin-gateway"},
+			{msg.ReferencedResourceNotFound, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -86,7 +187,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-no-port.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -110,7 +211,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin-gateway"},
+			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -118,17 +219,16 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway/httpbin8002-gateway"},
+			{msg.GatewayPortNotOnWorkload, "Gateway httpbin8002-gateway"},
 		},
 	},
-
 	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},
 		expected: []message{
-			{msg.NamespaceNotInjected, "Namespace/bar"},
-			{msg.PodMissingProxy, "Pod/default/noninjectedpod"},
+			{msg.NamespaceNotInjected, "Namespace bar"},
+			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
 		},
 	},
 	{
@@ -136,7 +236,42 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/injection-with-mismatched-sidecar.yaml"},
 		analyzer:   &injection.VersionAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyVersionMismatch, "Pod/enabled-namespace/details-v1-pod-old"},
+			{msg.IstioProxyVersionMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+		},
+	},
+	{
+		name:       "sidecarDefaultSelector",
+		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
+		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
+		expected: []message{
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-2.ns2"},
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-1.ns2"},
+		},
+	},
+	{
+		name:       "sidecarSelector",
+		inputFiles: []string{"testdata/sidecar-selector.yaml"},
+		analyzer:   &sidecar.SelectorAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "Sidecar maps-to-nonexistent.default"},
+			{msg.ReferencedResourceNotFound, "Sidecar maps-to-different-ns.other"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-1.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-2.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-1.default"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-2.default"},
+		},
+	},
+	{
+		name:       "virtualServiceConflictingMeshGatewayHosts",
+		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts.yaml"},
+		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
+		expected: []message{
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team3"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team4"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.foo"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.bar"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService productpage.foo"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bogus-productpage.foo"},
 		},
 	},
 	{
@@ -144,7 +279,11 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_destinationhosts.yaml"},
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogushost"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogushost.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bookinfo-other.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogushost.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogusport.default"},
+			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService reviews-2port-missing.default"},
 		},
 	},
 	{
@@ -152,7 +291,8 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_destinationrules.yaml"},
 		analyzer:   &virtualservice.DestinationRuleAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/default/reviews-bogussubset"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogussubset.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogussubset.default"},
 		},
 	},
 	{
@@ -160,20 +300,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_gateways.yaml"},
 		analyzer:   &virtualservice.GatewayAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService/httpbin-bogus"},
-		},
-	},
-	{
-		name: "misannoted",
-		inputFiles: []string{
-			"testdata/misannotated.yaml",
-		},
-		analyzer: &annotations.K8sAnalyzer{},
-		expected: []message{
-			{msg.UnknownAnnotation, "Service/httpbin"},
-			{msg.MisplacedAnnotation, "Service/details"},
-			{msg.MisplacedAnnotation, "Pod/grafana-test"},
-			{msg.MisplacedAnnotation, "Deployment/fortio-deploy"},
+			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
 		},
 	},
 }
@@ -205,7 +332,7 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputsByAnalyzer[analyzerName][col] = struct{}{}
 			}
 
-			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", cr, true)
+			sa := local.NewSourceAnalyzer(metadata.MustGet(), analysis.Combine("testCombined", testCase.analyzer), "", "istio-system", cr, true)
 
 			err := sa.AddFileKubeSource(testCase.inputFiles)
 			if err != nil {
@@ -213,12 +340,12 @@ func TestAnalyzers(t *testing.T) {
 			}
 			cancel := make(chan struct{})
 
-			msgs, err := sa.Analyze(cancel)
+			result, err := sa.Analyze(cancel)
 			if err != nil {
 				t.Fatalf("Error running analysis on testcase %s: %v", testCase.name, err)
 			}
 
-			actualMsgs := extractFields(msgs)
+			actualMsgs := extractFields(result.Messages)
 			g.Expect(actualMsgs).To(ConsistOf(testCase.expected))
 		})
 	}
@@ -254,6 +381,20 @@ func TestAnalyzers(t *testing.T) {
 	})
 }
 
+// Verify that all of the analyzers tested here are also registered in All()
+func TestAnalyzersInAll(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	var allNames []string
+	for _, a := range All() {
+		allNames = append(allNames, a.Metadata().Name)
+	}
+
+	for _, tc := range testGrid {
+		g.Expect(allNames).To(ContainElement(tc.analyzer.Metadata().Name))
+	}
+}
+
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -272,10 +413,13 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 func extractFields(msgs []diag.Message) []message {
 	result := make([]message, 0)
 	for _, m := range msgs {
-		result = append(result, message{
+		expMsg := message{
 			messageType: m.Type,
-			origin:      m.Origin.FriendlyName(),
-		})
+		}
+		if m.Origin != nil {
+			expMsg.origin = m.Origin.FriendlyName()
+		}
+		result = append(result, expMsg)
 	}
 	return result
 }

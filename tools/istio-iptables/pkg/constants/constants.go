@@ -18,21 +18,36 @@ package constants
 const (
 	MANGLE = "mangle"
 	NAT    = "nat"
+	FILTER = "filter"
 )
+
+// Built-in iptables chains
+const (
+	INPUT       = "INPUT"
+	OUTPUT      = "OUTPUT"
+	FORWARD     = "FORWARD"
+	PREROUTING  = "PREROUTING"
+	POSTROUTING = "POSTROUTING"
+)
+
+var BuiltInChainsMap = map[string]struct{}{
+	INPUT:       {},
+	OUTPUT:      {},
+	FORWARD:     {},
+	PREROUTING:  {},
+	POSTROUTING: {},
+}
 
 // Constants used for generating iptables commands
 const (
 	TCP = "tcp"
 
-	TPROXY     = "TPROXY"
-	PREROUTING = "PREROUTING"
-	RETURN     = "RETURN"
-	ACCEPT     = "ACCEPT"
-	REJECT     = "REJECT"
-	INPUT      = "INPUT"
-	OUTPUT     = "OUTPUT"
-	REDIRECT   = "REDIRECT"
-	MARK       = "MARK"
+	TPROXY   = "TPROXY"
+	RETURN   = "RETURN"
+	ACCEPT   = "ACCEPT"
+	REJECT   = "REJECT"
+	REDIRECT = "REDIRECT"
+	MARK     = "MARK"
 )
 
 // iptables chains
@@ -62,4 +77,11 @@ const (
 	KubeVirtInterfaces        = "kube-virt-interfaces"
 	DryRun                    = "dry-run"
 	Clean                     = "clean"
+	RestoreFormat             = "restore-format"
+)
+
+// Constants for iptables commands
+const (
+	IPTABLESRESTORE  = "iptables-restore"
+	IP6TABLESRESTORE = "ip6tables-restore"
 )

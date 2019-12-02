@@ -16,6 +16,8 @@ package schema
 import (
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/meta/schema/collection"
@@ -36,6 +38,11 @@ var _ analysis.Analyzer = &ValidationAnalyzer{}
 func AllValidationAnalyzers() []analysis.Analyzer {
 	result := make([]analysis.Analyzer, 0)
 	for _, s := range schemas.Istio {
+		// Skip synthetic service entries
+		// See https://github.com/istio/istio/issues/17949
+		if s.VariableName == schemas.SyntheticServiceEntry.VariableName {
+			continue
+		}
 		result = append(result, &ValidationAnalyzer{s: s})
 	}
 	return result
@@ -54,11 +61,17 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 	c := collection.NewName(a.s.Collection)
 
 	ctx.ForEach(c, func(r *resource.Entry) bool {
-		name, ns := r.Metadata.Name.InterpretAsNamespaceAndName()
+		ns, name := r.Metadata.Name.InterpretAsNamespaceAndName()
 
 		err := a.s.Validate(name, ns, r.Item)
 		if err != nil {
-			ctx.Report(c, msg.NewSchemaValidationError(r, err))
+			if multiErr, ok := err.(*multierror.Error); ok {
+				for _, err := range multiErr.WrappedErrors() {
+					ctx.Report(c, msg.NewSchemaValidationError(r, err))
+				}
+			} else {
+				ctx.Report(c, msg.NewSchemaValidationError(r, err))
+			}
 		}
 
 		return true

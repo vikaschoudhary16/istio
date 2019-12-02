@@ -200,7 +200,7 @@ func TestKubeSource_UnparseableSegment(t *testing.T) {
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, "	\n", data.YamlN2I2V1))
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(Not(BeNil()))
 
 	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(2))
@@ -216,7 +216,7 @@ func TestKubeSource_Unrecognized(t *testing.T) {
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnrecognized))
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(Not(BeNil()))
 
 	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
@@ -231,7 +231,7 @@ func TestKubeSource_UnparseableResource(t *testing.T) {
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlUnparseableResource))
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(Not(BeNil()))
 
 	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
@@ -246,7 +246,7 @@ func TestKubeSource_NonStringKey(t *testing.T) {
 	defer s.Stop()
 
 	err := s.ApplyContent("foo", kubeyaml.JoinString(data.YamlN1I1V1, data.YamlNonStringKey))
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(Not(BeNil()))
 
 	actual := removeEntryOrigins(s.Get(data.Collection1).AllSorted())
 	g.Expect(actual).To(HaveLen(1))
@@ -327,6 +327,20 @@ func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
 	actual := s.Get(data.Collection2).AllSorted()
 	g.Expect(actual).To(HaveLen(1))
 	g.Expect(actual[0].Metadata.Name).To(Equal(data.EntryI1V1NoNamespace.Metadata.Name))
+}
+
+func TestKubeSource_CanHandleDocumentSeparatorInComments(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	s, _ := setupKubeSource()
+	s.Start()
+	defer s.Stop()
+
+	s.SetDefaultNamespace("default")
+
+	err := s.ApplyContent("foo", data.YamlI1V1WithCommentContainingDocumentSeparator)
+	g.Expect(err).To(BeNil())
+	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"foo": {}}))
 }
 
 func setupKubeSource() (*KubeSource, *fixtures.Accumulator) {

@@ -104,10 +104,9 @@ func (s *Source) Dispatch(h event.Handler) {
 // Start implements processor.Source
 func (s *Source) Start() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if s.started {
 		scope.Source.Warn("Source.Start: already started")
+		s.mu.Unlock()
 		return
 	}
 	s.started = true
@@ -121,6 +120,8 @@ func (s *Source) Start() {
 		key := asKey(r.Group, r.Kind)
 		s.expectedResources[key] = r
 	}
+	// Releasing the lock here to avoid deadlock on crdWatcher between the existing one and a newly started one.
+	s.mu.Unlock()
 
 	// Start the CRD listener. When the listener is fully-synced, the listening of actual resources will start.
 	scope.Source.Infof("Beginning CRD Discovery, to figure out resources that are available...")

@@ -15,6 +15,8 @@
 package istioio
 
 import (
+	"io"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 )
@@ -22,6 +24,31 @@ import (
 // Context for the currently executing test.
 type Context struct {
 	framework.TestContext
-	Env       *kube.Environment
-	OutputDir string
+	snippetFile io.Writer
+
+	// Maintain the set of all snippets added so far to avoid duplicates.
+	snippetMap map[string]string
+}
+
+// addSnippet adds the content of the given snippet to the snippet file.
+func (ctx Context) addSnippet(snippetName, inputName, content string) {
+	// Ensure we don't duplicate snippet names.
+	if prevInput := ctx.snippetMap[snippetName]; prevInput != "" {
+		ctx.Fatalf("Duplicate snippet %s in input %s. Previous input: %s.", snippetName, inputName, prevInput)
+	}
+	ctx.snippetMap[snippetName] = inputName
+
+	// Write the snippet.
+	if _, err := ctx.snippetFile.Write([]byte(content)); err != nil {
+		ctx.Fatalf("Failed writing snippet %s: %v", snippetName, err)
+	}
+}
+
+// KubeEnv casts the test environment as a *kube.Environment. If the cast fails, fails the test.
+func (ctx Context) KubeEnv() *kube.Environment {
+	e, ok := ctx.Environment().(*kube.Environment)
+	if !ok {
+		ctx.Fatalf("test framework unable to get Kubernetes environment")
+	}
+	return e
 }

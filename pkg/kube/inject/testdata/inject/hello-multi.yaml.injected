@@ -23,7 +23,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
         tier: backend
         track: stable
         version: v1
@@ -62,8 +62,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "80"
         - --concurrency
         - "2"
         env:
@@ -90,6 +88,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: ISTIO_AUTO_MTLS_ENABLED
+          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -102,15 +102,13 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "80"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable","version":"v1"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello-v1
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/apps/v1/namespaces/default/deployments/hello-v1
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello-v1
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -211,7 +209,7 @@ spec:
       creationTimestamp: null
       labels:
         app: hello
-        security.istio.io/mtlsReady: "true"
+        security.istio.io/tlsMode: istio
         tier: backend
         track: stable
         version: v2
@@ -250,8 +248,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --applicationPorts
-        - "81"
         - --concurrency
         - "2"
         env:
@@ -278,6 +274,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: ISTIO_AUTO_MTLS_ENABLED
+          value: "true"
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:
@@ -290,15 +288,13 @@ spec:
           value: "false"
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
-          value: "81"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"hello","tier":"backend","track":"stable","version":"v2"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello-v2
         - name: ISTIO_META_OWNER
-          value: kubernetes://api/apps/v1/namespaces/default/deployments/hello-v2
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello-v2
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

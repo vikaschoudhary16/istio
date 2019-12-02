@@ -17,8 +17,10 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
+	"net/http/pprof"
 	"sort"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -39,6 +41,48 @@ import (
 	"istio.io/istio/pkg/config/host"
 )
 
+var indexTmpl = template.Must(template.New("index").Parse(`<html>
+<head>
+<title>Pilot Debug Console</title>
+</head>
+<style>
+#endpoints {
+  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+  border-collapse: collapse;
+}
+
+#endpoints td, #endpoints th {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+#endpoints tr:nth-child(even){background-color: #f2f2f2;}
+
+#endpoints tr:hover {background-color: #ddd;}
+
+#endpoints th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+  background-color: black;
+  color: white;
+}
+</style>
+<body>
+<br/>
+<table id="endpoints">
+<tr><th>Endpoint</th><th>Description</th></tr>
+{{range .}}
+	<tr>
+	<td><a href='{{.Href}}'>{{.Name}}</a></td><td>{{.Help}}</td>
+	</tr>
+{{end}}
+</table>
+<br/>
+</body>
+</html>
+`))
+
 const (
 	// configNameNotApplicable is used to represent the name of the authentication policy or
 	// destination rule when they are not specified.
@@ -46,7 +90,7 @@ const (
 )
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[host.Name]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
@@ -54,29 +98,47 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
 
-	sctl.AddRegistry(aggregate.Registry{
+	sctl.AddRegistry(serviceregistry.Simple{
 		ClusterID:        "v2-debug",
-		Name:             serviceregistry.ServiceRegistry("memAdapter"),
+		ProviderID:       serviceregistry.ProviderID("memAdapter"),
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.controller,
 	})
 
+	if enableProfiling {
+		s.addDebugHandler(mux, "/debug/pprof/", "Displays pprof index", pprof.Index)
+		s.addDebugHandler(mux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
+		s.addDebugHandler(mux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
+		s.addDebugHandler(mux, "/debug/pprof/symbol", "Symbol looks up the program counters listed in the request", pprof.Symbol)
+		s.addDebugHandler(mux, "/debug/pprof/trace", "A trace of execution of the current program.", pprof.Trace)
+	}
+
+	mux.HandleFunc("/debug", s.Debug)
 	mux.HandleFunc("/ready", s.ready)
 
-	mux.HandleFunc("/debug/edsz", s.edsz)
-	mux.HandleFunc("/debug/adsz", s.adsz)
-	mux.HandleFunc("/debug/cdsz", cdsz)
-	mux.HandleFunc("/debug/syncz", Syncz)
-	mux.HandleFunc("/debug/config_distribution", s.distributedVersions)
+	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
+	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
+	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
+	s.addDebugHandler(mux, "/debug/cdsz", "Status and debug interface for CDS", cdsz)
 
-	mux.HandleFunc("/debug/registryz", s.registryz)
-	mux.HandleFunc("/debug/endpointz", s.endpointz)
-	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
-	mux.HandleFunc("/debug/configz", s.configz)
+	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", Syncz)
+	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
-	mux.HandleFunc("/debug/authenticationz", s.Authenticationz)
-	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
-	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
+	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
+	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
+	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
+	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
+
+	s.addDebugHandler(mux, "/debug/authenticationz", "Dumpts the authn tls-check info", s.Authenticationz)
+	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
+	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
+	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+}
+
+func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
+	handler func(http.ResponseWriter, *http.Request)) {
+	s.debugHandlers[path] = help
+	mux.HandleFunc(path, handler)
 }
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
@@ -230,7 +292,9 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		var results []SyncedVersions
 		adsClientsMutex.RLock()
 		for _, con := range adsClients {
+			// wrap this in independent scope so that panic's don't bypass Unlock...
 			con.mu.RLock()
+
 			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
 				// TODO: handle skipped nodes
 				results = append(results, SyncedVersions{
@@ -263,17 +327,22 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 // len = ceil(bitlength/(2^6))+1
 const VersionLen = 12
 
-func (s *DiscoveryServer) getResourceVersion(configVersion, key string, cache map[string]string) string {
-	result, ok := cache[key]
+func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string]string) string {
+	if len(nonce) < VersionLen {
+		return ""
+	}
+	configVersion := nonce[:VersionLen]
+	result, ok := cache[configVersion]
 	if !ok {
-		result, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion[:VersionLen], key)
+		lookupResult, err := s.Env.IstioConfigStore.GetResourceAtVersion(configVersion, key)
 		if err != nil {
 			adsLog.Errorf("Unable to retrieve resource %s at version %s: %v", key, configVersion, err)
-			result = ""
+			lookupResult = ""
 		}
 		// update the cache even on an error, because errors will not resolve themselves, and we don't want to
 		// repeat the same error for many adsClients.
-		cache[key] = result
+		cache[configVersion] = lookupResult
+		return lookupResult
 	}
 	return result
 }
@@ -358,10 +427,8 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		connections, ok := adsSidecarIDConnectionsMap[proxyID]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = fmt.Fprintf(w, "ADS for %q does not exist. Only have:\n", proxyID)
-			for key := range adsSidecarIDConnectionsMap {
-				_, _ = fmt.Fprintf(w, "  %q,\n", key)
-			}
+			// Need to dump an empty JSON array so istioctl can peacefully ignore.
+			_, _ = fmt.Fprintf(w, "\n[\n]")
 			return
 		}
 
@@ -374,6 +441,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 		}
 		mostRecentProxy = connections[mostRecent].node
 		svc, _ := s.Env.ServiceDiscovery.Services()
+		autoMTLSEnabled := s.Env.Mesh.GetEnableAutoMtls() != nil && s.Env.Mesh.GetEnableAutoMtls().Value
 		info := []*AuthenticationDebug{}
 		for _, ss := range svc {
 			if ss.MeshExternal {
@@ -383,7 +451,7 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 			for _, p := range ss.Ports {
 				authnPolicy, authnMeta := s.globalPushContext().AuthenticationPolicyForWorkload(ss, p)
 				destConfig := s.globalPushContext().DestinationRule(mostRecentProxy, ss)
-				info = append(info, AnalyzeMTLSSettings(ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
+				info = append(info, AnalyzeMTLSSettings(autoMTLSEnabled, ss.Hostname, p, authnPolicy, authnMeta, destConfig)...)
 			}
 		}
 		if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
@@ -396,8 +464,25 @@ func (s *DiscoveryServer) Authenticationz(w http.ResponseWriter, req *http.Reque
 	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
+// AuthorizationDebug holds debug information for authorization policy.
+type AuthorizationDebug struct {
+	AuthorizationPolicies *model.AuthorizationPolicies `json:"authorization_policies"`
+}
+
+// Authorizationz dumps the internal authorization policies.
+func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	info := AuthorizationDebug{
+		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
+	}
+	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
+}
+
 // AnalyzeMTLSSettings returns mTLS compatibility status between client and server policies.
-func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
+func AnalyzeMTLSSettings(autoMTLSEnabled bool, hostname host.Name, port *model.Port, authnPolicy *authn.Policy, authnMeta *model.ConfigMeta,
 	destConfig *model.Config) []*AuthenticationDebug {
 	authnPolicyName := configName(authnMeta)
 	serverMTLSMode := authn_alpha1.GetMutualTLSMode(authnPolicy)
@@ -438,7 +523,7 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 		} else {
 			info.Host = fmt.Sprintf("%s|%s", hostname, ss)
 		}
-		info.TLSConflictStatus = EvaluateTLSState(c, serverMTLSMode)
+		info.TLSConflictStatus = EvaluateTLSState(autoMTLSEnabled, c, serverMTLSMode)
 
 		output = append(output, &info)
 	}
@@ -447,13 +532,18 @@ func AnalyzeMTLSSettings(hostname host.Name, port *model.Port, authnPolicy *auth
 
 // EvaluateTLSState returns the conflict state (string) for the input client+server settings.
 // The output string could be:
+// - "AUTO": auto mTLS feature is enabled, client TLS (destination rule) is not set and pilot can auto detect client (m)TLS settings.
 // - "OK": both client and server TLS settings are set correctly.
 // - "CONFLICT": both client and server TLS settings are set, but could be incompatible.
-func EvaluateTLSState(clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
+func EvaluateTLSState(autoMTLSEnabled bool, clientMode *networking.TLSSettings, serverMode authn_model.MutualTLSMode) string {
 	const okState string = "OK"
 	const conflictState string = "CONFLICT"
+	const autoState string = "AUTO"
 
 	if clientMode == nil {
+		if autoMTLSEnabled {
+			return autoState
+		}
 		// TLS settings was not set explicitly, pilot will try a setting that work well with the
 		// destination authN policy. We could use the separate state value (e.g AUTO) in the future.
 		return okState
@@ -577,7 +667,7 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	if model.LastPushStatus == nil {
 		return
 	}
-	out, err := model.LastPushStatus.JSON()
+	out, err := model.LastPushStatus.StatusJSON()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprintf(w, "unable to marshal push information: %v", err)
@@ -617,17 +707,33 @@ func writeAllADS(w io.Writer) {
 }
 
 func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
-	if s.ConfigController != nil {
-		if !s.ConfigController.HasSynced() {
-			w.WriteHeader(503)
-			return
-		}
+	w.WriteHeader(200)
+}
+
+// lists all the supported debug endpoints.
+func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
+	type debugEndpoint struct {
+		Name string
+		Href string
+		Help string
 	}
-	if s.KubeController != nil {
-		if !s.KubeController.HasSynced() {
-			w.WriteHeader(503)
-			return
-		}
+	var deps []debugEndpoint
+
+	for k, v := range s.debugHandlers {
+		deps = append(deps, debugEndpoint{
+			Name: k,
+			Href: k,
+			Help: v,
+		})
+	}
+
+	sort.Slice(deps, func(i, j int) bool {
+		return deps[i].Name < deps[j].Name
+	})
+
+	if err := indexTmpl.Execute(w, deps); err != nil {
+		adsLog.Errorf("Error in rendering index template %v", err)
+		w.WriteHeader(500)
 	}
 	w.WriteHeader(200)
 }

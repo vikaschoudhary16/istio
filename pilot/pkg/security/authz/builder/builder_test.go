@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/authz/policy"
+	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schemas"
 )
@@ -101,8 +102,8 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 		{
 			name: "v1beta1 only",
 			policies: []*model.Config{
-				policy.SimpleAuthzPolicy("authz-bar", "a"),
-				policy.SimpleAuthzPolicy("authz-foo", "a"),
+				policy.SimpleAuthorizationPolicy("authz-bar", "a"),
+				policy.SimpleAuthorizationPolicy("authz-foo", "a"),
 			},
 			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]", "ns[a]-policy[authz-foo]-rule[0]"},
 		},
@@ -112,7 +113,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 				policy.SimpleClusterRbacConfig(),
 				policy.SimpleRole("role-1", "a", "bar"),
 				policy.SimpleBinding("binding-1", "a", "role-1"),
-				policy.SimpleAuthzPolicy("authz-bar", "a"),
+				policy.SimpleAuthorizationPolicy("authz-bar", "a"),
 			},
 			wantPolicies: []string{"ns[a]-policy[authz-bar]-rule[0]"},
 		},
@@ -120,7 +121,7 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder("cluster.local", nil, service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
+		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
 		got := b.BuildHTTPFilter()
 		t.Run(tc.name, func(t *testing.T) {
@@ -138,6 +139,8 @@ func TestBuilder_BuildHTTPFilter(t *testing.T) {
 					}
 				} else {
 					rbacConfig := &http_config.RBAC{}
+
+					// nolint: staticcheck
 					if got.GetConfig() == nil {
 						t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
 					} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {
@@ -210,7 +213,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 
 	for _, tc := range testCases {
 		p := policy.NewAuthzPolicies(tc.policies, t)
-		b := NewBuilder("", nil, service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
+		b := NewBuilder(trustdomain.NewTrustDomainBundle("", nil), service, nil, "a", p, tc.isXDSMarshalingToAnyEnabled)
 
 		t.Run(tc.name, func(t *testing.T) {
 			got := b.BuildTCPFilter()
@@ -224,6 +227,7 @@ func TestBuilder_BuildTCPFilter(t *testing.T) {
 				}
 			} else {
 				rbacConfig := &tcp_config.RBAC{}
+				// nolint: staticcheck
 				if got.GetConfig() == nil {
 					t.Errorf("want struct config when isXDSMarshalingToAnyEnabled is false")
 				} else if err := conversion.StructToMessage(got.GetConfig(), rbacConfig); err != nil {

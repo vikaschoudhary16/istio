@@ -40,7 +40,13 @@ var (
 
 	edsInstances = monitoring.NewGauge(
 		"pilot_xds_eds_instances",
-		"Instances for each cluster, as of last push. Zero instances is an error.",
+		"Instances for each cluster(grouped by locality), as of last push. Zero instances is an error.",
+		monitoring.WithLabels(clusterTag),
+	)
+
+	edsAllLocalityEndpoints = monitoring.NewGauge(
+		"pilot_xds_eds_all_locality_endpoints",
+		"Network endpoints for each cluster(across all localities), as of last push. Zero endpoints is an error.",
 		monitoring.WithLabels(clusterTag),
 	)
 
@@ -147,13 +153,15 @@ var (
 	inboundConfigUpdates  = inboundUpdates.With(typeTag.Value("config"))
 	inboundEDSUpdates     = inboundUpdates.With(typeTag.Value("eds"))
 	inboundServiceUpdates = inboundUpdates.With(typeTag.Value("svc"))
+	inboundServiceDeletes = inboundUpdates.With(typeTag.Value("svcdelete"))
 )
 
 func recordSendError(metric monitoring.Metric, err error) {
 	s, ok := status.FromError(err)
-	// Unavailable code will be sent when a connection is closing down. This is very normal,
+	// Unavailable or canceled code will be sent when a connection is closing down. This is very normal,
 	// due to the XDS connection being dropped every 30 minutes, or a pod shutting down.
-	if !ok || s.Code() != codes.Unavailable {
+	isError := s.Code() != codes.Unavailable && s.Code() != codes.Canceled
+	if !ok || isError {
 		metric.Increment()
 	}
 }
@@ -170,6 +178,7 @@ func init() {
 		ldsReject,
 		rdsReject,
 		edsInstances,
+		edsAllLocalityEndpoints,
 		rdsExpiredNonce,
 		totalXDSRejects,
 		monServices,

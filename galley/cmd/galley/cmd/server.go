@@ -132,7 +132,7 @@ func serverCmd() *cobra.Command {
 		"Use insecure gRPC communication")
 	svr.PersistentFlags().BoolVar(&serverArgs.EnableServer, "enable-server", serverArgs.EnableServer, "Run galley server mode")
 	svr.PersistentFlags().StringVarP(&serverArgs.AccessListFile, "accessListFile", "", serverArgs.AccessListFile,
-		"The access list yaml file that contains the allowd mTLS peer ids.")
+		"The access list yaml file that contains the allowed mTLS peer ids.")
 	svr.PersistentFlags().StringVar(&serverArgs.ConfigPath, "configPath", serverArgs.ConfigPath,
 		"Istio config file path")
 	svr.PersistentFlags().StringVar(&serverArgs.MeshConfigFile, "meshConfigFile", serverArgs.MeshConfigFile,
@@ -155,6 +155,8 @@ func serverCmd() *cobra.Command {
 		"Enable service discovery processing in Galley")
 	svr.PersistentFlags().BoolVar(&serverArgs.UseOldProcessor, "useOldProcessor", serverArgs.UseOldProcessor,
 		"Use the old processing pipeline for config processing")
+	svr.PersistentFlags().BoolVar(&serverArgs.WatchConfigFiles, "watchConfigFiles", serverArgs.WatchConfigFiles,
+		"Enable the Fsnotify for watching config source files on the disk and implicit signaling on a config change. Explicit signaling will still be enabled")
 	svr.PersistentFlags().BoolVar(&serverArgs.EnableConfigAnalysis, "enableAnalysis", serverArgs.EnableConfigAnalysis,
 		"Enable config analysis service")
 

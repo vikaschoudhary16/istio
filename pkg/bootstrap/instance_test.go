@@ -161,6 +161,7 @@ func TestGolden(t *testing.T) {
 				_ = os.Remove(credPath)
 			},
 			check: func(got *v2.Bootstrap, t *testing.T) {
+				// nolint: staticcheck
 				cfg := got.Tracing.Http.GetConfig()
 				sdMsg := tracev2.OpenCensusConfig{}
 				if err := conversion.StructToMessage(cfg, &sdMsg); err != nil {
@@ -185,11 +186,13 @@ func TestGolden(t *testing.T) {
 					IncomingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
 						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
 						tracev2.OpenCensusConfig_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_GRPC_TRACE_BIN},
+						tracev2.OpenCensusConfig_GRPC_TRACE_BIN,
+						tracev2.OpenCensusConfig_B3},
 					OutgoingTraceContext: []tracev2.OpenCensusConfig_TraceContext{
 						tracev2.OpenCensusConfig_CLOUD_TRACE_CONTEXT,
 						tracev2.OpenCensusConfig_TRACE_CONTEXT,
-						tracev2.OpenCensusConfig_GRPC_TRACE_BIN},
+						tracev2.OpenCensusConfig_GRPC_TRACE_BIN,
+						tracev2.OpenCensusConfig_B3},
 				}
 
 				p, equal := diff.PrettyDiff(sdMsg, want)

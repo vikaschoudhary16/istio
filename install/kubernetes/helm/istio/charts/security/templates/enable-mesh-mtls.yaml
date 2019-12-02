@@ -16,6 +16,7 @@ metadata:
 spec:
   peers:
   - mtls: {}
+{{- if not .Values.global.mtls.auto }}
 ---
 # Corresponding destination rule to configure client side to use mutual TLS when talking to
 # any service (host) in the mesh.
@@ -68,4 +69,5 @@ spec:
   trafficPolicy:
     tls:
       mode: DISABLE
+{{- end }}
 {{- end }}

@@ -100,7 +100,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		MeshExternal: meshExternal,
 		Resolution:   resolution,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.ConsulRegistry),
+			ServiceRegistry: string(serviceregistry.Consul),
 			Name:            string(hostname),
 			Namespace:       model.IstioDefaultConfigNamespace,
 		},
@@ -126,6 +126,7 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 		resolution = model.DNSLB
 	}
 
+	tlsMode := model.GetTLSModeFromEndpointLabels(svcLabels)
 	hostname := serviceHostname(instance.ServiceName)
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -145,7 +146,8 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 				Namespace: model.IstioDefaultConfigNamespace,
 			},
 		},
-		Labels: svcLabels,
+		Labels:  svcLabels,
+		TLSMode: tlsMode,
 	}
 }
 

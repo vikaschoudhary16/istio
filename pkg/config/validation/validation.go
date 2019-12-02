@@ -36,7 +36,7 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	authz "istio.io/api/security/v1beta1"
+	security_beta "istio.io/api/security/v1beta1"
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pkg/config/constants"
@@ -65,16 +65,17 @@ const UnixAddressPrefix = "unix://"
 // envoy supported retry on header values
 var supportedRetryOnPolicies = map[string]bool{
 	// 'x-envoy-retry-on' supported policies:
-	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
 	"5xx":                    true,
 	"gateway-error":          true,
+	"reset":                  true,
 	"connect-failure":        true,
 	"retriable-4xx":          true,
 	"refused-stream":         true,
 	"retriable-status-codes": true,
 
 	// 'x-envoy-retry-grpc-on' supported policies:
-	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
 	"cancelled":          true,
 	"deadline-exceeded":  true,
 	"internal":           true,
@@ -235,35 +236,29 @@ func validatePercentageOrDefault(percentage *networking.Percent, defaultPercent 
 	return ValidatePercent(defaultPercent)
 }
 
-// ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
-func ValidateIPv4Subnet(subnet string) error {
+// ValidateIPSubnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPSubnet(subnet string) error {
 	// We expect a string in "CIDR notation" or "Dot-decimal notation"
-	// E.g., a.b.c.d/xx form or just a.b.c.d
+	// E.g., a.b.c.d/xx form or just a.b.c.d or 2001:1::1/64
 	if strings.Count(subnet, "/") == 1 {
-		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
+		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx or 2001:1::1/64 form
 		ip, _, err := net.ParseCIDR(subnet)
 		if err != nil {
 			return fmt.Errorf("%v is not a valid CIDR block", subnet)
 		}
-		// The current implementation only supports IP v4 addresses
-		if ip.To4() == nil {
-			return fmt.Errorf("%v is not a valid IPv4 address", subnet)
+		if ip.To4() == nil && ip.To16() == nil {
+			return fmt.Errorf("%v is not a valid IPv4 or IPv6 address", subnet)
 		}
 		return nil
 	}
-	return ValidateIPv4Address(subnet)
+	return ValidateIPAddress(subnet)
 }
 
-// ValidateIPv4Address validates that a string in "CIDR notation" or "Dot-decimal notation"
-func ValidateIPv4Address(addr string) error {
+// ValidateIPAddress validates that a string in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPAddress(addr string) error {
 	ip := net.ParseIP(addr)
 	if ip == nil {
 		return fmt.Errorf("%v is not a valid IP", addr)
-	}
-
-	// The current implementation only supports IP v4 addresses
-	if ip.To4() == nil {
-		return fmt.Errorf("%v is not a valid IPv4 address", addr)
 	}
 
 	return nil
@@ -773,7 +768,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 			ValidatePort(int(port.Number)))
 
 		if len(bind) != 0 {
-			errs = appendErrors(errs, ValidateIPv4Address(bind))
+			errs = appendErrors(errs, ValidateIPAddress(bind))
 		}
 	}
 
@@ -792,7 +787,7 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 		ValidatePort(int(port.Number)))
 
 	if len(bind) != 0 {
-		errs = appendErrors(errs, ValidateIPv4Address(bind))
+		errs = appendErrors(errs, ValidateIPAddress(bind))
 	}
 
 	return
@@ -888,6 +883,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 				errs = appendErrors(errs, fmt.Errorf("ttl required for HttpCookie"))
 			}
 		}
+	}
+	if err := validateLocalityLbSetting(settings.LocalityLbSetting); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 	return
 }
@@ -1489,7 +1487,7 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
-	in, ok := msg.(*authz.AuthorizationPolicy)
+	in, ok := msg.(*security_beta.AuthorizationPolicy)
 	if !ok {
 		return fmt.Errorf("cannot cast to AuthorizationPolicy")
 	}
@@ -1513,6 +1511,22 @@ func ValidateAuthorizationPolicy(_, _ string, msg proto.Message) error {
 		}
 	}
 	return nil
+}
+
+// ValidateRequestAuthentication checks that request authentication spec is well-formed.
+func ValidateRequestAuthentication(_, _ string, msg proto.Message) error {
+	in, ok := msg.(*security_beta.RequestAuthentication)
+	if !ok {
+		return errors.New("cannot cast to RequestAuthentication")
+	}
+	// TODO(diemtvu) add more details validation.
+	var errs error
+	for _, rule := range in.JwtRules {
+		if len(rule.Issuer) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("issuer must be set"))
+		}
+	}
+	return errs
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
@@ -1860,7 +1874,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 	}
 
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
 
 	if match.Port != 0 {
@@ -1904,10 +1918,10 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
 	if len(match.SourceSubnet) > 0 {
-		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
+		errs = appendErrors(errs, ValidateIPSubnet(match.SourceSubnet))
 	}
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
@@ -2362,7 +2376,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 	cidrFound := false
 	for _, address := range serviceEntry.Addresses {
 		cidrFound = cidrFound || strings.Contains(address, "/")
-		errs = appendErrors(errs, ValidateIPv4Subnet(address))
+		errs = appendErrors(errs, ValidateIPSubnet(address))
 	}
 
 	if cidrFound {
@@ -2390,11 +2404,6 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 		}
 	case networking.ServiceEntry_STATIC:
-		if len(serviceEntry.Endpoints) == 0 {
-			errs = appendErrors(errs,
-				fmt.Errorf("endpoints must be provided if service entry resolution mode is static"))
-		}
-
 		unixEndpoint := false
 		for _, endpoint := range serviceEntry.Endpoints {
 			addr := endpoint.GetAddress()
@@ -2405,7 +2414,7 @@ func ValidateServiceEntry(_, _ string, config proto.Message) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 				}
 			} else {
-				errs = appendErrors(errs, ValidateIPv4Address(addr))
+				errs = appendErrors(errs, ValidateIPAddress(addr))
 
 				for name, port := range endpoint.Ports {
 					if !servicePorts[name] {
@@ -2520,7 +2529,7 @@ func appendErrors(err error, errs ...error) error {
 }
 
 // validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
-func validateLocalityLbSetting(lb *meshconfig.LocalityLoadBalancerSetting) error {
+func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error {
 	if lb == nil {
 		return nil
 	}

@@ -83,7 +83,8 @@ func TestValidation(t *testing.T) {
 				// k8s typed errors.
 				return strings.Contains(err.Error(), "denied the request") ||
 					strings.Contains(err.Error(), "error validating data") ||
-					strings.Contains(err.Error(), "Invalid value")
+					strings.Contains(err.Error(), "Invalid value") ||
+					strings.Contains(err.Error(), "is invalid")
 			}
 
 			for _, d := range dataset {
@@ -105,8 +106,8 @@ func TestValidation(t *testing.T) {
 					ns := namespace.NewOrFail(t, fctx, namespace.Config{
 						Prefix: "validation",
 					})
-					err = env.ApplyContents(ns.Name(), ym)
-					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
+
+					err = env.ApplyContentsDryRun(ns.Name(), ym)
 
 					switch {
 					case err != nil && d.isValid():
@@ -121,6 +122,16 @@ func TestValidation(t *testing.T) {
 						if !denied(err) {
 							t.Fatalf("config request denied for wrong reason: %v", err)
 						}
+					}
+
+					wetRunErr := env.ApplyContents(ns.Name(), ym)
+					defer func() { _ = env.DeleteContents(ns.Name(), ym) }()
+
+					if err != nil && wetRunErr == nil {
+						t.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)
+					}
+					if err == nil && wetRunErr != nil {
+						t.Fatalf("wet run returned no errors, but dry run returned: %v", err)
 					}
 				})
 			}

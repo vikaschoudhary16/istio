@@ -135,7 +135,7 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 		t.Fatal(err)
 	}
 
-	// We shold see 10 requests but giving an error of 1, to make test less flaky.
+	// We should see 10 requests but giving an error of 1, to make test less flaky.
 	if (f - i) < float64(9) {
 		t.Errorf("Bad metric value: got %f, want at least 9", f-i)
 	}
@@ -175,6 +175,8 @@ func TestStateMetrics(t *testing.T) {
 func TestTcpMetric(t *testing.T) {
 	framework.
 		NewTest(t).
+		// TODO(https://github.com/istio/istio/issues/18105)
+		Label(label.Flaky).
 		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
