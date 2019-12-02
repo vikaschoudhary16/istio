@@ -10,6 +10,7 @@ replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538
 
 // Resolve istio.io imports from the current project
 replace istio.io/istio v0.0.0 => ../istio
+
 replace github.com/docker/docker => github.com/docker/engine v1.4.2-0.20191011211953-adfac697dc5b
 
 require (
@@ -19,7 +20,6 @@ require (
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1
 	fortio.org/fortio v1.3.1
 	github.com/DataDog/datadog-go v2.2.0+incompatible
-	github.com/alicebob/miniredis v0.0.0-20180201100744-9d52b1fc8da9
 	github.com/Masterminds/semver v1.4.2
 	github.com/Microsoft/go-winio v0.4.12 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
@@ -125,6 +125,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.4
 	istio.io/api v0.0.0-20191120195622-f0abe0c81e59
 	istio.io/gogo-genproto v0.0.0-20191024203824-d079cc8b1d55
+	istio.io/istio v0.0.0
 	istio.io/operator v0.0.0-20191122214537-480abfe34a1e
 	istio.io/pkg v0.0.0-20191113122952-4f521de9c8ca
 	k8s.io/api v0.0.0
