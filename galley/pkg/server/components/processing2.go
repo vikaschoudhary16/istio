@@ -121,7 +121,6 @@ func (p *Processing2) Start() (err error) {
 		return
 	}
 	p.KubeSource = src
-	transformProviders := transforms.Providers(m)
 
 	var distributor snapshotter.Distributor = snapshotter.NewMCPDistributor(p.mcpCache)
 
