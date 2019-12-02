@@ -52,25 +52,25 @@ gateways:
     sds:
       enabled: true
       image: node-agent-k8s
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 2000m
-          memory: 1024Mi
-    autoscaleEnabled: true
-    autoscaleMin: 1
-    autoscaleMax: 5
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 2000m
-        memory: 1024Mi
-    cpu:
-      targetAverageUtilization: 80
+      #resources:
+      #  requests:
+      #    cpu: 100m
+      #    memory: 128Mi
+      #  limits:
+      #    cpu: 2000m
+      #    memory: 1024Mi
+    #autoscaleEnabled: true
+    #autoscaleMin: 1
+    #autoscaleMax: 5
+    #resources:
+    #  requests:
+    #    cpu: 100m
+    #    memory: 128Mi
+    #  limits:
+    #    cpu: 2000m
+    #    memory: 1024Mi
+    #cpu:
+    #  targetAverageUtilization: 80
     loadBalancerIP: ""
     loadBalancerSourceRanges: {}
     externalIPs: []
