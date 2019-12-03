@@ -58,3 +58,8 @@ jobs:
       - run: VERSION=${VERSION} make docker.all
       - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
       - run: VERSION=${VERSION} make push
+
+workflows:
+  version: 2
+  jobs:
+  - build
