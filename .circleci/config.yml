@@ -151,6 +151,7 @@ jobs:
       - run: |
           mkdir -p ~/.ssh
           echo -e "\tStrictHostKeyChecking no" >> ~/.ssh/config
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
       - checkout
       - run: make sync
       - run: VERSION=${VERSION} make build
