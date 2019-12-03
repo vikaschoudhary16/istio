@@ -97,6 +97,9 @@ sidecarInjectorWebhook:
 galley:
   enabled: false
 
+tsbd:
+  enabled: false
+
 mixer:
   policy:
     enabled: false
