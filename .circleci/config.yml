@@ -148,7 +148,9 @@ jobs:
   dockerpush:
     <<: *defaults
     steps:
-      - run: ssh-keyscan github.com >> ~/.ssh/known_hosts
+      - run: |
+          mkdir -p ~/.ssh
+          echo -e "\tStrictHostKeyChecking no" >> ~/.ssh/config
       - checkout
       - run: make sync
       - run: VERSION=${VERSION} make build
