@@ -1,4 +1,3 @@
-
 version: 2
 
 # Docker environment.
@@ -42,6 +41,8 @@ initWorkingDir: &initWorkingDir
     GOROOT=$(go env GOROOT)
     sudo rm -r $(go env GOROOT)
     sudo mkdir $GOROOT
+    mkdir -p ~/.ssh
+    echo -e "\tStrictHostKeyChecking no" >> ~/.ssh/config
     curl https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
 
 recordZeroExitCodeIfTestPassed: &recordZeroExitCodeIfTestPassed
@@ -146,8 +147,8 @@ jobs:
   # DOCKER_USER, DOCKER_PASS, HUB, TAG
   dockerpush:
     <<: *defaults
-    resource_class: xlarge
     steps:
+      - run: ssh-keyscan github.com >> ~/.ssh/known_hosts
       - checkout
       - run: make sync
       - run: VERSION=${VERSION} make build
