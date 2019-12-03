@@ -20,6 +20,7 @@ jobs:
   # DOCKER_USER, DOCKER_PASS, HUB, TAG
   dockerpush:
     <<: *defaults
+    resource_class: xlarge
     steps:
       - run:
           name: setup ssh
