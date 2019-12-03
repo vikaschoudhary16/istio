@@ -39,6 +39,14 @@ jobs:
 
 workflows:
   version: 2
-  dummy:
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+
     jobs:
-      - build
+      - test
