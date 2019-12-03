@@ -99,7 +99,6 @@ galley:
 
 tsbd:
   enabled: false
-  token: ""
 
 mixer:
   policy:

@@ -23,7 +23,6 @@ galley:
 tsbd:
   enabled: true
   tag: "__TCC__"
-  token: ""
 
 mixer:
   policy:
