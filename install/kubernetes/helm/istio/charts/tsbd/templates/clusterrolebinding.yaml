@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tsbd-admin-role-binding-{{ .Release.Namespace }}
+  labels:
+    app: tsbd
+    chart: {{ template "tsbd.chart" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tsbd-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: tsbd-service-account
+    namespace: {{ .Release.Namespace }}

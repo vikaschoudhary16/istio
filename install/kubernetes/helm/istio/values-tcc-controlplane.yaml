@@ -18,10 +18,11 @@ sidecarInjectorWebhook:
   enabled: true
 
 galley:
+  enabled: false
+
+tsbd:
   enabled: true
-  configSink:
-    tag: "__TCC__"
-    token: ""
+  tag: "__TCC__"
 
 mixer:
   policy:

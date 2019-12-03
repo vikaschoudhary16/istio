@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tsbd
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: tsbd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tsbd
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: tsbd
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: tsbd-service-account      
+      containers:
+        - name: tsbd
+          image: {{ .Values.global.hub }}/tsbd-server:{{ .Values.tag }}
+          imagePullPolicy: IfNotPresent
+          command: 
+          - /usr/local/bin/tsbd-server
+          - server
+          - --tcc-host={{ .Values.global.tcc.host }}:{{ .Values.global.tcc.port }}
+          - --cluster={{ .Values.global.tcc.cluster }}
+          - --tenant={{ .Values.global.tcc.tenant }}
+          - --environment={{ .Values.global.tcc.environment }}
+          - --jwt-file=/etc/iam/token
+          - --meshConfigFile=/etc/mesh-config/mesh
+          - --livenessProbeInterval=1s
+          - --livenessProbePath=/tmp/healthliveness
+          - --readinessProbePath=/tmp/healthready
+          - --readinessProbeInterval=1s
+          - --deployment-namespace={{ .Release.Namespace }}
+          - --insecure=false
+          - --enable-validation=false
+          - --enable-reconcileWebhookConfiguration=false
+          - --monitoringPort=15014
+          - --resyncPeriod=1s
+          - --log-output-level=default:info
+          volumeMounts:
+          - name: tsbd-dir
+            mountPath: /etc/tsbd/
+          - name: jwt-token
+            mountPath: /etc/iam
+          - name: mesh-config
+            mountPath: /etc/mesh-config
+            readOnly: true
+          - name: certs
+            mountPath: /etc/certs
+            readOnly: true  
+          - name: config
+            mountPath: /etc/config
+            readOnly: true  
+          ports:
+          - containerPort: 9443
+          - containerPort: 15014
+          - containerPort: 9901
+          - containerPort: 9080
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/tsbd-server
+                - probe
+                - --probe-path=/tmp/healthliveness
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/tsbd-server
+                - probe
+                - --probe-path=/tmp/healthready
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+      volumes:
+      - name: tsbd-dir
+        persistentVolumeClaim:
+          claimName: configsink-data
+      - name: jwt-token
+        secret:
+          secretName: tsbd-jwt-token
+      - name: mesh-config
+        configMap:
+          name: istio
+      - name: certs
+        secret:
+          secretName: istio.tsbd-service-account   
+      - name: config
+        configMap:
+          name: tsbd-configuration  
