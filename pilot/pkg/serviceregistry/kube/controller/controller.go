@@ -203,7 +203,7 @@ func (c *Controller) Cluster() string {
 
 // notify is the first handler in the handler chain.
 // Returning an error causes repeated execution of the entire chain.
-func (c *Controller) notify(obj interface{}, event model.Event) error {
+func (c *Controller) notify(old, curr interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
@@ -224,19 +224,19 @@ func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otyp
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
+					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventDelete})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
 			},
 		})
 
@@ -268,7 +268,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventAdd})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventAdd))
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
@@ -277,7 +277,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 
 				if !compareEndpoints(oldE, curE) {
 					incrementEvent(otype, "update")
-					c.queue.Push(kube.Task{Handler: handler.Apply, Obj: cur, Event: model.EventUpdate})
+					c.queue.Push(kube.NewTask(handler.Apply, old, cur, model.EventUpdate))
 				} else {
 					incrementEvent(otype, "updatesame")
 				}
@@ -288,7 +288,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 				// deleting the service should delete the resources. The full sync replaces the
 				// maps.
 				// c.updateEDS(obj.(*v1.Endpoints))
-				c.queue.Push(kube.Task{Handler: handler.Apply, Obj: obj, Event: model.EventDelete})
+				c.queue.Push(kube.NewTask(handler.Apply, nil, obj, model.EventDelete))
 			},
 		})
 
@@ -483,7 +483,6 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 		return nil, nil
 	}
 
-	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 	// Locate all ports in the actual service
 	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
@@ -507,9 +506,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 			if pod != nil {
 				az = c.GetPodLocality(pod)
 				sa = kube.SecureNamingSAN(pod)
-				if mixerEnabled {
-					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
-				}
+				uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 			}
 			tlsMode := kube.PodTLSMode(pod)
 
@@ -850,17 +847,17 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.services.handler.Append(func(obj interface{}, event model.Event) error {
-		svc, ok := obj.(*v1.Service)
+	c.services.handler.Append(func(old, curr interface{}, event model.Event) error {
+		svc, ok := curr.(*v1.Service)
 		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				log.Errorf("Couldn't get object from tombstone %#v", curr)
 				return nil
 			}
 			svc, ok = tombstone.Obj.(*v1.Service)
 			if !ok {
-				log.Errorf("Tombstone contained object that is not a service %#v", obj)
+				log.Errorf("Tombstone contained object that is not a service %#v", curr)
 				return nil
 			}
 		}
@@ -902,17 +899,17 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	if c.endpoints.handler == nil {
 		return nil
 	}
-	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
-		ep, ok := obj.(*v1.Endpoints)
+	c.endpoints.handler.Append(func(old, curr interface{}, event model.Event) error {
+		ep, ok := curr.(*v1.Endpoints)
 		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				log.Errorf("Couldn't get object from tombstone %#v", curr)
 				return nil
 			}
 			ep, ok = tombstone.Obj.(*v1.Endpoints)
 			if !ok {
-				log.Errorf("Tombstone contained an object that is not an endpoint %#v", obj)
+				log.Errorf("Tombstone contained an object that is not an endpoint %#v", curr)
 				return nil
 			}
 		}
@@ -946,7 +943,6 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
-	mixerEnabled := c.Env != nil && c.Env.Mesh != nil && (c.Env.Mesh.MixerCheckServer != "" || c.Env.Mesh.MixerReportServer != "")
 
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
@@ -975,9 +971,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				if pod != nil {
 					locality = c.GetPodLocality(pod)
 					sa = kube.SecureNamingSAN(pod)
-					if mixerEnabled {
-						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
-					}
+					uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					labels = map[string]string(configKube.ConvertLabels(pod.ObjectMeta))
 				}
 
