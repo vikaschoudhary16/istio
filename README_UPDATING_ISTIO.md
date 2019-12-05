@@ -11,9 +11,9 @@ git merge istio/master
 git push origin upstream-istio
 ```
 
-Note down the SHA in the upstream-istio branch that corresponds to the Istio commit that you pulled in.
+Note down the `SHA` in the `upstream-istio` branch that corresponds to the Istio commit that you pulled in.
 
-2. Now update TCC.
+2. Now update the [tcc](https://github.com/tetrateio/istio/tree/tcc) branch of this repo.
 
 ```
 git checkout tcc
@@ -24,7 +24,7 @@ git push origin tcc
 ```
 
 
-3. If you have to rebuild all Istio docker containers, run the trigger_istio_release.sh script below
+3. If you have to rebuild all Istio docker containers, run the `trigger_istio_release.sh` script below.
 
 ```bash
 #!/bin/bash
@@ -54,4 +54,12 @@ curl -X POST --header "Content-Type: application/json" -d '{
 
 Wait for 5 minutes for the images to build.
 
-4. Update dependencies.sh in tetrateio/tcc with the TAG and the commit SHA.
+4. Update [dependencies.sh](https://github.com/tetrateio/tetrate/blob/master/dependencies.sh) in [tetrateio/tetrate](https://github.com/tetrateio/tetrate) with the `TAG` and the commit `SHA`.
+
+5. It is encouraged to update the `istio.io/istio`'s replace entry in [go.mod](https://github.com/tetrateio/tetrate/blob/master/go.mod) to use the latest SHA of this repo (`tcc` branch).
+
+```
+$ go mod edit -replace istio.io/istio=github.com/tetrateio/istio@<LATEST_SHA_OF_THIS_REPO>
+# For example
+$ go mod edit -replace istio.io/istio=github.com/tetrateio/istio@23393db
+```
