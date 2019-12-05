@@ -41,3 +41,16 @@ global:
     key: "key.pem"
     certchain: "cert-chain.pem"
     rootcert: "root-cert.pem"
+
+  vmgateway:
+    host: 34.212.162.140
+
+  sidecar:
+    appNs: "__APPNS__"
+    appId: "__APPID__"
+    appPort: 9080
+    hostModeNetwork: true
+    certs:
+      cert: "cert.crt"
+      key: "key.pem"
+      certchain: "cert-chain.pem"
