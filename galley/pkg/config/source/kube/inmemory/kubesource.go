@@ -171,6 +171,10 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 
 	for k, col := range oldKeys {
 		s.source.Get(col).Remove(k.fullName)
+		_, found := s.shas[k]
+		if found {
+			delete(s.shas, k)
+		}
 	}
 	s.byFile[name] = newKeys
 
