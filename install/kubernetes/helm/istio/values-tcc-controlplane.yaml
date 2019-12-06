@@ -8,7 +8,42 @@ pilot:
     PILOT_SCOPE_GATEWAY_TO_NAMESPACE: "true"
 
 gateways:
-  enabled: false
+  enabled: true
+
+  istio-ingressgateway:
+    enabled: false
+
+  # VM gateway to service external VM workloads
+  vmgateway:
+    enabled: true
+    labels:
+      app: vmgateway
+      tcc: vmgateway
+    sds:
+      enabled: true
+      image: node-agent-k8s
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 2000m
+          memory: 1024Mi
+    env:
+      ISTIO_META_ROUTER_MODE: ""
+    ports:
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grpc
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc
+    - port: 11800
+      targetPort: 11800
+      name: tcp-oap-grpc
+    - port: 9411
+      targetPort: 9411
+      name: tcp-tracing-grpc
 
 security:
   enabled: true
