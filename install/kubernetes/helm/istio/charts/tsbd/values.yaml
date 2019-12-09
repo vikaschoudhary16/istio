@@ -1,3 +1,7 @@
 enabled: false
 tag: ""
 token: ""
+# Resources for tsbd install
+resources:
+  requests:
+    cpu: 100m
