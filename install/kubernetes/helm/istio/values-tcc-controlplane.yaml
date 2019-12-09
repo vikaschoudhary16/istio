@@ -97,6 +97,9 @@ oap:
   elasticsearch:
     host: "__HOST__"
     port: 8443
+  spm:
+    host: "__HOST__"
+    port: 8443
 
 global:
   tcc:
