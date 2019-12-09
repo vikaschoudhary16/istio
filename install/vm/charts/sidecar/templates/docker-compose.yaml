@@ -48,6 +48,7 @@ services:
       - ISTIO_META_TSB_CLUSTER={{ .Values.global.tcc.cluster }}
       - ISTIO_META_TSB_ENVIRONMENT={{ .Values.global.tcc.env }}
       - ISTIO_META_TSB_APPLICATION={{ .Values.global.sidecar.appId }}
+      - ISTIO_META_NETWORK="vm"
     extra_hosts:
     - "istio-pilot.istio-system.svc.cluster.local:{{ .Values.global.vmgateway.host }}"
     - "oap.istio-system.svc.cluster.local:{{ .Values.global.vmgateway.host }}"

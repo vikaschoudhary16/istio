@@ -23,16 +23,13 @@ gateways:
     sds:
       enabled: true
       image: node-agent-k8s
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-        limits:
-          cpu: 2000m
-          memory: 1024Mi
     env:
-      ISTIO_META_ROUTER_MODE: ""
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
+      ISTIO_META_NETWORK: "k8s"
     ports:
+    - port: 15443
+      targetPort: 15443
+      name: tls-k8s-services
     - port: 15011
       targetPort: 15011
       name: tcp-pilot-grpc
@@ -101,6 +98,14 @@ oap:
     host: "__HOST__"
     port: 8443
 
+nodeagent:
+  enabled: true
+  image: node-agent-k8s
+  env:
+    CA_PROVIDER: "Citadel"
+    CA_ADDR: "istio-citadel:8060"
+    VALID_TOKEN: true
+
 global:
   tcc:
     enabled: true
@@ -138,12 +143,42 @@ global:
     enabled: false
     auto: true
 
+  sds:
+    enabled: true
+    udsPath: "unix:/var/run/sds/uds_path"
+    token:
+      aud: "istio-ca"
+
   outboundTrafficPolicy:
     mode: ALLOW_ANY
 
   configRootNamespace: istio-config
   defaultConfigVisibilitySettings:
   - '*'
+
+  # Configure the mesh networks to be used by the Split Horizon EDS.
+  # All K8S pods fall into the K8S network and the VMs fall into the
+  # VM network.  By default we assume that K8S worker nodes and VMs
+  # are in the same subnet with direct connectivity.  As a result, K8S
+  # pods can directly talk to VMs. However, VMs can only talk to K8S
+  # via the Gateways using the nodePorts or the Gateway LB IPs.
+  #
+  # In this topology, when Pilot sends EDS to Envoys on K8S, it sends
+  # all the VM IPs that belong to a VM service. When it sends eds to
+  # an Envoy on VM (say for productpage.ns1.svc.cluster.local), it
+  # sends only the Gateway IP that is configured here. The Gateway in
+  # turn will forward traffic to productpage.ns1.
+  meshNetworks:
+    k8s:
+      gateways:
+      - registryServiceName: vmgateway.istio-system.svc.cluster.local
+        port: 15443
+    vm: {}
+
+  # Network defines the network this cluster belong to. This name
+  # corresponds to the networks in the map of mesh networks.
+  network: "k8s"
+
   elasticsearch:
     user: ""
     password: ""

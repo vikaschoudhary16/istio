@@ -26,20 +26,6 @@ gateways:
 
   istio-ingressgateway:
     enabled: false
-    labels:
-      app: istio-ingressgateway
-      istio: ingressgateway
-      tcc: clustergateway
-    sds:
-      enabled: true
-    env:
-      ISTIO_META_ROUTER_MODE: ""
-    ports:
-    - port: 80
-      name: http2
-    - port: 443
-      name: https
-    secretVolumes: 
 
   istio-egressgateway:
     enabled: false
@@ -49,6 +35,9 @@ gateways:
     labels:
       app: __UNIQUENAME__
       tcc: gateway
+    env:
+      ISTIO_META_ROUTER_MODE: "standard"
+      ISTIO_META_NETWORK: "k8s"
     sds:
       enabled: true
       image: node-agent-k8s
