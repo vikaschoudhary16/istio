@@ -16,6 +16,7 @@ gateways:
   # VM gateway to service external VM workloads
   vmgateway:
     enabled: true
+    type: LoadBalancer
     labels:
       app: vmgateway
       tcc: vmgateway
