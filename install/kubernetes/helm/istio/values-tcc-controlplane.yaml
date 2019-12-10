@@ -97,10 +97,18 @@ oap:
   elasticsearch:
     host: "__HOST__"
     port: 8443
-  spm:
-    enabled: false
-    host: "__HOST__"
-    port: 8443
+  analysis: reg-agent-mesh
+  externalServices:
+    # For SPM metadata service.
+    metadata:
+      enabled: false
+    # For SPM configuration service (DCS).
+    configuration:
+      enabled: false
+      clusterName: default
+    # Optionally add (default) webhook uri here.
+    webhook:
+      uri: ""
 
 global:
   tcc:
