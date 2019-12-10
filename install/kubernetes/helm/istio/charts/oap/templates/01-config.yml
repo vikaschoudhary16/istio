@@ -64,6 +64,7 @@ data:
                     route: { cluster: oap-tcc }
               http_filters:
               - name: envoy.router
+      {{- if .Values.spm.enabled }}
       - name: spm_tcc_listener
         address:
           socket_address: { address: 0.0.0.0, port_value: 9080 }
@@ -87,6 +88,7 @@ data:
                     route: { cluster: spm-tcc }
               http_filters:
               - name: envoy.router
+        {{- end }}
       clusters:
       - name: elasticsearch
         connect_timeout: 5s
@@ -109,6 +111,7 @@ data:
         - socket_address:
             address: {{ .Values.global.tcc.host }}
             port_value: {{ .Values.global.tcc.port }}
+      {{- if .Values.spm.enabled }}
       - name: spm-tcc
         connect_timeout: 5s
         type: STRICT_DNS
@@ -119,6 +122,7 @@ data:
         - socket_address:
             address: {{ .Values.spm.host }}
             port_value: {{ .Values.spm.port }}
+      {{- end }}
   application.yml: |-
     cluster:
       kubernetes:
@@ -154,7 +158,13 @@ data:
         enableDatabaseSession: ${SW_CORE_ENABLE_DATABASE_SESSION:true}
         topNReportPeriod: ${SW_CORE_TOPN_REPORT_PERIOD:10} # top_n record worker report cycle, unit is minute
     storage:
+      {{- if .Values.spm.enabled }}
       tsb-es:
+        tsbHost: ${SW_TSB_HOST:localhost}
+        tsbPort: ${SW_TSB_HOST:9080}
+      {{- else }}
+      elasticsearch:
+      {{- end }}
         nameSpace: ${SW_NAMESPACE:""}
         clusterNodes: ${SW_STORAGE_ES_CLUSTER_NODES:localhost:9200}
         user: ${SW_ES_USER:"{{ .Values.global.elasticsearch.user }}"}
@@ -173,8 +183,6 @@ data:
         metadataQueryMaxSize: ${SW_STORAGE_ES_QUERY_MAX_SIZE:5000}
         segmentQueryMaxSize: ${SW_STORAGE_ES_QUERY_SEGMENT_SIZE:200}
         advanced: ${SW_STORAGE_ES_ADVANCED:""}
-        tsbHost: ${SW_TSB_HOST:localhost}
-        tsbPort: ${SW_TSB_HOST:9080}
     receiver-sharing-server:
       default:
     receiver-register:

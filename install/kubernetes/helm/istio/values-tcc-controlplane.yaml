@@ -98,6 +98,7 @@ oap:
     host: "__HOST__"
     port: 8443
   spm:
+    enabled: false
     host: "__HOST__"
     port: 8443
 
