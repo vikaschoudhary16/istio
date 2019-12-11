@@ -25,7 +25,7 @@ gateways:
       image: node-agent-k8s
     env:
       ISTIO_META_ROUTER_MODE: "sni-dnat"
-      ISTIO_META_NETWORK: "k8s"
+      ISTIO_META_NETWORK: "Kubernetes"
     ports:
     - port: 15443
       targetPort: 15443
@@ -108,13 +108,13 @@ oap:
     webhook:
       uri: ""
 
-nodeagent: # for sds
-  enabled: false
-  image: node-agent-k8s
-  env:
-    CA_PROVIDER: "Citadel"
-    CA_ADDR: "istio-citadel:8060"
-    VALID_TOKEN: true
+# nodeagent: # for sds
+#   enabled: false
+#   image: node-agent-k8s
+#   env:
+#     CA_PROVIDER: "Citadel"
+#     CA_ADDR: "istio-citadel:8060"
+#     VALID_TOKEN: true
 
 global:
   tcc:
@@ -153,11 +153,11 @@ global:
     enabled: false
     auto: true
 
-  sds:
-    enabled: false
-    udsPath: "unix:/var/run/sds/uds_path"
-    token:
-      aud: "istio-ca"
+  # sds:
+  #   enabled: false
+  #   udsPath: "unix:/var/run/sds/uds_path"
+  #   token:
+  #     aud: "istio-ca"
 
   outboundTrafficPolicy:
     mode: ALLOW_ANY
@@ -179,7 +179,10 @@ global:
   # sends only the Gateway IP that is configured here. The Gateway in
   # turn will forward traffic to productpage.ns1.
   meshNetworks:
-    k8s:
+    Kubernetes:
+      endpoints:
+        # VODOO value. DO NOT CHANGE THIS
+      - fromRegistry: Kubernetes
       gateways:
       - registryServiceName: vmgateway.istio-system.svc.cluster.local
         port: 15443
@@ -187,7 +190,7 @@ global:
 
   # Network defines the network this cluster belong to. This name
   # corresponds to the networks in the map of mesh networks.
-  network: "k8s"
+  network: "Kubernetes"
 
   elasticsearch:
     user: ""

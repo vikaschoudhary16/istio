@@ -37,7 +37,7 @@ gateways:
       tcc: gateway
     env:
       ISTIO_META_ROUTER_MODE: "standard"
-      ISTIO_META_NETWORK: "k8s"
+      ISTIO_META_NETWORK: "Kubernetes"
     sds:
       enabled: true
       image: node-agent-k8s
