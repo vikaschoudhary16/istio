@@ -64,6 +64,56 @@ data:
                     route: { cluster: oap-tcc }
               http_filters:
               - name: envoy.router
+      {{- if .Values.externalServices.metadata.enabled }}
+      - name: ex_metadata_listener
+        address:
+          socket_address: { address: 0.0.0.0, port_value: 9080 }
+        filter_chains:
+        - filters:
+          - name: envoy.http_connection_manager
+            config:
+              stat_prefix: ex_metadata
+              codec_type: AUTO
+              route_config:
+                name: local_route
+                request_headers_to_add:
+                - header:
+                    key: Authorization
+                    value: "Bearer $token"
+                virtual_hosts:
+                - name: local_service
+                  domains: ['*']
+                  routes:
+                  - match: { prefix: '/' }
+                    route: { cluster: oap-tcc }
+              http_filters:
+              - name: envoy.router
+      {{- end }}
+      {{- if .Values.externalServices.configuration.enabled }}
+      - name: ex_configuraion_listener
+        address:
+          socket_address: { address: 0.0.0.0, port_value: 9081 }
+        filter_chains:
+        - filters:
+          - name: envoy.http_connection_manager
+            config:
+              stat_prefix: ex_configuration
+              codec_type: AUTO
+              route_config:
+                name: local_route
+                request_headers_to_add:
+                - header:
+                    key: Authorization
+                    value: "Bearer $token"
+                virtual_hosts:
+                - name: local_service
+                  domains: ['*']
+                  routes:
+                  - match: { prefix: '/' }
+                    route: { cluster: oap-tcc }
+              http_filters:
+              - name: envoy.router
+      {{- end }}
       clusters:
       - name: elasticsearch
         connect_timeout: 5s
@@ -121,7 +171,13 @@ data:
         enableDatabaseSession: ${SW_CORE_ENABLE_DATABASE_SESSION:true}
         topNReportPeriod: ${SW_CORE_TOPN_REPORT_PERIOD:10} # top_n record worker report cycle, unit is minute
     storage:
+      {{- if .Values.externalServices.metadata.enabled }}
+      tsb-es:
+        tsbHost: ${SW_TSB_HOST:localhost}
+        tsbPort: ${SW_TSB_HOST:9080}
+      {{- else }}
       elasticsearch:
+      {{- end }}
         nameSpace: ${SW_NAMESPACE:""}
         clusterNodes: ${SW_STORAGE_ES_CLUSTER_NODES:localhost:9200}
         user: ${SW_ES_USER:"{{ .Values.global.elasticsearch.user }}"}
@@ -154,7 +210,7 @@ data:
       default:
         enableMetricsService: ${SW_ENABLE_ENVOY_METRICS_SERIVCE:true}
         enableALS: ${SW_ENABLE_ENVOY_ALS:true}
-        alsHTTPAnalysis: ${SW_ENVOY_METRIC_ALS_HTTP_ANALYSIS:reg-agent-mesh}
+        alsHTTPAnalysis: {{ .Values.analysis }}
         cluster: {{ .Values.global.tcc.cluster }}
         env: {{ .Values.global.tcc.environment }}
         regAgentHost: ${SW_ENVOY_METRIC_ALS_REG_AGENT_HOST:tsbd}
@@ -169,7 +225,15 @@ data:
         host: ${SW_TELEMETRY_PROMETHEUS_HOST:0.0.0.0}
         port: ${SW_TELEMETRY_PROMETHEUS_PORT:1234}
     configuration:
+      {{- if .Values.externalServices.configuration.enabled }}
+      grpc:
+        host: ${SW_CONFIGURATION_GRPC_HOST:localhost}
+        port: ${SW_CONFIGURATION_GRPC_PORT:9081}
+        period: {{ .Values.externalServices.configuration.period }}
+        clusterName: "{{ .Values.externalServices.configuration.clusterName }}"
+      {{- else }}
       none:
+      {{- end }}
     exporter:
       user2central:
         targetHost: ${SW_EXPORTER_GRPC_HOST:localhost}
@@ -271,3 +335,45 @@ data:
     disable(top_n_database_statement);
     disable(zipkin_span);
     disable(jaeger_span);
+  alarm-settings.yml: |-
+    rules:
+      # Rule unique name, must be ended with `_rule`.
+      service_resp_time_rule:
+        metrics-name: service_resp_time
+        op: ">"
+        threshold: 1000
+        period: 10
+        count: 3
+        silence-period: 5
+        message: Response time of service {name} is more than 1000ms in 3 minutes of last 10 minutes.
+      service_sla_rule:
+        # Metrics value need to be long, double or int
+        metrics-name: service_sla
+        op: "<"
+        threshold: 8000
+        # The length of time to evaluate the metrics
+        period: 10
+        # How many times after the metrics match the condition, will trigger alarm
+        count: 2
+        # How many times of checks, the alarm keeps silence after alarm triggered, default as same as period.
+        silence-period: 3
+        message: Successful rate of service {name} is lower than 80% in 2 minutes of last 10 minutes
+      service_p90_sla_rule:
+        # Metrics value need to be long, double or int
+        metrics-name: service_p90
+        op: ">"
+        threshold: 1000
+        period: 10
+        count: 3
+        silence-period: 5
+        message: 90% response time of service {name} is more than 1000ms in 3 minutes of last 10 minutes
+      service_instance_resp_time_rule:
+        metrics-name: service_instance_resp_time
+        op: ">"
+        threshold: 1000
+        period: 10
+        count: 2
+        silence-period: 5
+        message: Response time of service instance {name} is more than 1000ms in 2 minutes of last 10 minutes
+    webhooks:
+      {{ .Values.externalServices.webhook.uri }}
