@@ -229,7 +229,8 @@ data:
       grpc:
         host: ${SW_CONFIGURATION_GRPC_HOST:localhost}
         port: ${SW_CONFIGURATION_GRPC_PORT:9081}
-        clusterName: {{ .Values.externalServices.configuration.clusterName }}
+        period: {{ .Values.externalServices.configuration.period }}
+        clusterName: "{{ .Values.externalServices.configuration.clusterName }}"
       {{- else }}
       none:
       {{- end }}

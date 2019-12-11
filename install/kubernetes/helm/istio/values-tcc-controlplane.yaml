@@ -106,6 +106,7 @@ oap:
     configuration:
       enabled: false
       clusterName: default
+      period: 60
     # Optionally add (default) webhook uri here.
     webhook:
       uri: ""
