@@ -184,7 +184,7 @@ global:
         # VODOO value. DO NOT CHANGE THIS
       - fromRegistry: Kubernetes
       gateways:
-      - registryServiceName: vmgateway.istio-system.svc.cluster.local
+      - registryServiceName: vmgateway-istio-system.istio-system.svc.cluster.local
         port: 15443
     vm: {}
 
