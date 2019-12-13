@@ -43,7 +43,7 @@ jobs:
             curl -sSL https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz | \
             sudo tar xz -C $GOROOT --strip-components=1
       - checkout
-      - run: make sync
+      - run: make init
       - run: VERSION=${VERSION} make docker.all
       - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
       - run: VERSION=${VERSION} make push

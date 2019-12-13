@@ -1,5 +1,8 @@
 # Please keep this file updated.
-commit 43550e212ca6a3e24d3668643abeb479262a6688 (HEAD -> upstream-istio, istio/master)
-Author: Rama Chavali <rama.rao@salesforce.com>
-Date:   Fri Dec 13 15:11:11 2019 +0530
+commit 022c70f5cf7a078a70ba4abc92414f344913d880 (HEAD -> upstream-istio, origin/upstream-istio, istio/master)
+Author: Shriram Rajagopalan <rshriram@users.noreply.github.com>
+Date:   Fri Dec 13 13:36:30 2019 -0500
+
+    Fix split-horizon routing and add meshNetworks test (#19528)
+
 
