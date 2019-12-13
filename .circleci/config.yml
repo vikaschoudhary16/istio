@@ -4,7 +4,7 @@ version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: gcr.io/istio-testing/build-tools:master-2019-11-14T12-01-13
+    - image: gcr.io/istio-testing/build-tools:master-2019-12-04T21-25-52
   environment:
     GOPATH: /go
     SKIP_CLEANUP: true
