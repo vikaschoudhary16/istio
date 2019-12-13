@@ -4,7 +4,7 @@ version: 2
 defaults: &defaults
   working_directory: /home/circleci/istio
   machine:
-    - image: ubuntu-1604:201903-01
+    image: ubuntu-1604:201903-01
   environment:
     GOPATH: /go
     SKIP_CLEANUP: true
@@ -26,7 +26,7 @@ jobs:
   dockerpush:
     working_directory: /home/circleci/istio
     machine:
-    - image: ubuntu-1604:201903-01
+      image: ubuntu-1604:201903-01
     steps:
       - run:
           name: setup ssh
