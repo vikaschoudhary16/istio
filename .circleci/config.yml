@@ -44,7 +44,6 @@ jobs:
             sudo tar xz -C $GOROOT --strip-components=1
       - checkout
       - run: make sync
-      - run: BUILD_WITH_CONTAINER=1 VERSION=${VERSION} make build
       - run: VERSION=${VERSION} make docker.all
       - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
       - run: VERSION=${VERSION} make push
