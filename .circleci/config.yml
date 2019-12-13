@@ -2,9 +2,9 @@ version: 2
 
 # Docker environment.
 defaults: &defaults
-  working_directory: /home/circleci/istio
-  machine:
-    image: ubuntu-1604:201903-01
+  working_directory: /go/src/istio.io/istio
+  docker:
+    - image: gcr.io/istio-testing/build-tools:master-2019-12-04T21-25-52
   environment:
     GOPATH: /go
     SKIP_CLEANUP: true
@@ -24,27 +24,19 @@ jobs:
   # This job is triggered via API. expect env vars
   # DOCKER_USER, DOCKER_PASS, HUB, TAG
   dockerpush:
-    working_directory: /home/circleci/istio
-    machine:
-      image: ubuntu-1604:201903-01
+    <<: *defaults
+    resource_class: xlarge
     steps:
       - run:
           name: setup ssh
           command: |
-            mkdir -p ~/.ssh
-            echo -e "\tStrictHostKeyChecking no" >> ~/.ssh/config
-            ssh-keyscan github.com >> ~/.ssh/known_hosts
-      - run:
-          name: install go
-          command: |
-            export GOROOT=$(go env GOROOT)
-            sudo rm -rf $(go env GOROOT)
-            sudo mkdir -p $GOROOT
-            curl -sSL https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz | \
-            sudo tar xz -C $GOROOT --strip-components=1
+            mkdir -p /root/.ssh
+            ssh-keyscan github.com >> /root/.ssh/known_hosts
       - checkout
       - run: make sync
-      - run: BUILD_WITH_CONTAINER=1 VERSION=${VERSION} make build
+      - run: VERSION=${VERSION} make build
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run: VERSION=${VERSION} make docker.all
       - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
       - run: VERSION=${VERSION} make push
