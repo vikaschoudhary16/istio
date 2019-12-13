@@ -37,20 +37,20 @@ spec:
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
       containers:
-{{- if .Values.configSink }}
-        - name: configsink
-          image: {{ .Values.global.hub }}/configsink-server:{{ .Values.configSink.tag }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-          command: 
-          - /usr/local/bin/configsink-server
-          - server
-          - --tcc-host={{ .Values.global.tcc.host }}:{{ .Values.global.tcc.port }}
-          - --cluster={{ .Values.global.tcc.cluster }}
-          - --tenant={{ .Values.global.tcc.tenant }}
-          - --environment={{ .Values.global.tcc.environment }}
-{{- if .Values.configSink.token }}
-          - --jwt-file=/etc/configsink/token
+        - name: galley
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+          - containerPort: 9443
+          - containerPort: {{ .Values.global.monitoringPort }}
+          - containerPort: 9901
+          command:
+          - /usr/local/bin/galley
+          - server
           - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
           - --livenessProbePath=/tmp/healthliveness
@@ -79,12 +79,8 @@ spec:
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
-{{- if .Values.configSink }}
-          - --configPath=/etc/tcc/config.yaml
-          - --resyncPeriod=1s
-{{- end }}
 {{- if $.Values.global.logging.level }}
-          - --log-output-level={{ $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
 {{- end}}
 {{- if .Values.enableAnalysis }}
           - --enableAnalysis=true
@@ -95,12 +91,6 @@ spec:
           - --validation.tls.caCertificates=/etc/dnscerts/root-cert.pem
 {{- end }}
           volumeMounts:
-          - name: configsink-dir
-            mountPath: /etc/tcc/
-{{- if .Values.configSink.token }}
-          - name: configsink-token
-            mountPath: /etc/configsink
-{{- end }}
           - name: certs
             mountPath: /etc/certs
             readOnly: true
@@ -115,15 +105,10 @@ spec:
           - name: mesh-config
             mountPath: /etc/mesh-config
             readOnly: true
-          ports:
-          - containerPort: 9443
-          - containerPort: {{ .Values.global.monitoringPort }}
-          - containerPort: 9901
-          - containerPort: 9080
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/configsink-server
+                - /usr/local/bin/galley
                 - probe
                 - --probe-path=/tmp/healthliveness
                 - --interval=10s
@@ -132,7 +117,7 @@ spec:
           readinessProbe:
             exec:
               command:
-                - /usr/local/bin/configsink-server
+                - /usr/local/bin/galley
                 - probe
                 - --probe-path=/tmp/healthready
                 - --interval=10s
@@ -144,16 +129,7 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
-{{- end }}
       volumes:
-      - name: configsink-dir
-        persistentVolumeClaim:
-          claimName: configsink-data
-{{- if .Values.configSink.token }}
-      - name: configsink-token
-        secret:
-          secretName: configsink-token
-{{- end }}
       - name: certs
         secret:
           secretName: istio.istio-galley-service-account

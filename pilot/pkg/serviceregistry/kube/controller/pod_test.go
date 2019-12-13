@@ -101,15 +101,9 @@ func cleanup(ki kubernetes.Interface) {
 }
 
 func TestPodCache(t *testing.T) {
-	t.Run("localApiserver", func(t *testing.T) {
-		c, fx := newLocalController(t)
-		defer c.Stop()
-		defer cleanup(c.client)
-		testPodCache(t, c, fx)
-	})
 	t.Run("fakeApiserver", func(t *testing.T) {
 		t.Parallel()
-		c, fx := newFakeController(t)
+		c, fx := newFakeController()
 		defer c.Stop()
 		testPodCache(t, c, fx)
 	})
@@ -142,7 +136,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 		pod := pod
 		addPods(t, c, pod)
 		// Wait for the workload event
-		waitForPod(c, pod.Status.PodIP)
+		_ = waitForPod(c, pod.Status.PodIP)
 	}
 
 	// Verify podCache
@@ -173,7 +167,7 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
 	handler := &kube.ChainHandler{}
-	c, fx := newFakeController(t)
+	c, fx := newFakeController()
 	podCache := newPodCache(cacheHandler{handler: handler}, c)
 
 	f := podCache.event

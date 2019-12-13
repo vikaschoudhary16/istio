@@ -29,6 +29,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	accesslogconfig "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	grpc_stats "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/grpc_stats/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -592,7 +593,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 			pluginParams.Push, pluginParams.ServiceInstance, clusterName),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
-		direction:        http_conn.HttpConnectionManager_Tracing_INGRESS,
 		connectionManager: &http_conn.HttpConnectionManager{
 			// Append and forward client cert to backend.
 			ForwardClientCertDetails: http_conn.HttpConnectionManager_APPEND_FORWARD,
@@ -636,7 +636,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	if old, exists := listenerMap[listenerMapKey]; exists {
 		// For sidecar specified listeners, the caller is expected to supply a dummy service instance
 		// with the right port and a hostname constructed from the sidecar config's name+namespace
-		pluginParams.Push.Add(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
+		pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
 			fmt.Sprintf("Conflicting inbound listener:%s. existing: %s, incoming: %s", listenerMapKey,
 				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
 
@@ -805,13 +805,13 @@ type outboundListenerConflict struct {
 	newProtocol     protocol.Instance
 }
 
-func (c outboundListenerConflict) addMetric(node *model.Proxy, push *model.PushContext) {
+func (c outboundListenerConflict) addMetric(node *model.Proxy, metrics model.Metrics) {
 	currentHostnames := make([]string, len(c.currentServices))
 	for i, s := range c.currentServices {
 		currentHostnames[i] = string(s.Hostname)
 	}
 	concatHostnames := strings.Join(currentHostnames, ",")
-	push.Add(c.metric,
+	metrics.AddMetric(c.metric,
 		c.listenerName,
 		c.node,
 		fmt.Sprintf("Listener=%s Accepted%s=%s Rejected%s=%s %sServices=%d",
@@ -1065,7 +1065,6 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 		return nil
 	}
 
-	traceOperation := http_conn.HttpConnectionManager_Tracing_EGRESS
 	listenAddress := actualLocalHostAddress
 
 	httpOpts := &core.Http1ProtocolOptions{
@@ -1085,7 +1084,6 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 			httpOpts: &httpListenerOpts{
 				rds:              RDSHttpProxy,
 				useRemoteAddress: false,
-				direction:        traceOperation,
 				connectionManager: &http_conn.HttpConnectionManager{
 					HttpProtocolOptions: httpOpts,
 				},
@@ -1193,7 +1191,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
 		useRemoteAddress: features.UseRemoteAddress.Get(),
-		direction:        http_conn.HttpConnectionManager_Tracing_EGRESS,
 		rds:              rdsName,
 	}
 
@@ -1330,7 +1327,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		if listenerOpts.port == CanonicalHTTPSPort && pluginParams.Port.Protocol == protocol.HTTP {
 			msg := fmt.Sprintf("listener conflict detected: service %v specifies an HTTP service on HTTPS only port %d.",
 				pluginParams.Service.Hostname, CanonicalHTTPSPort)
-			pluginParams.Push.Add(model.ProxyStatusConflictOutboundListenerHTTPoverHTTPS, string(pluginParams.Service.Hostname), node, msg)
+			pluginParams.Push.AddMetric(model.ProxyStatusConflictOutboundListenerHTTPoverHTTPS, string(pluginParams.Service.Hostname), node, msg)
 			return
 		}
 	}
@@ -1723,7 +1720,6 @@ type httpListenerOpts struct {
 	// stat prefix for the http connection manager
 	// DO not set this field. Will be overridden by buildCompleteFilterChain
 	statPrefix string
-	direction  http_conn.HttpConnectionManager_Tracing_OperationName
 	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
 	// should be added.
 	addGRPCWebFilter bool
@@ -1767,6 +1763,20 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	if httpOpts.addGRPCWebFilter {
 		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
+	}
+
+	if util.IsIstioVersionGE14(pluginParams.Node) &&
+		pluginParams.ServiceInstance != nil &&
+		pluginParams.ServiceInstance.Endpoint.ServicePort != nil &&
+		pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == protocol.GRPC {
+		filters = append(filters, &http_conn.HttpFilter{
+			Name: "envoy.filters.http.grpc_stats",
+			ConfigType: &http_conn.HttpFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(&grpc_stats.FilterConfig{
+					EmitFilterState: true,
+				}),
+			},
+		})
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
@@ -1824,7 +1834,13 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	idleTimeout, err := time.ParseDuration(pluginParams.Node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		if util.IsIstioVersionGE14(pluginParams.Node) {
+			connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+				IdleTimeout: ptypes.DurationProto(idleTimeout),
+			}
+		} else {
+			connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		}
 	}
 
 	notimeout := ptypes.DurationProto(0 * time.Second)
@@ -1853,17 +1869,11 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: wellknown.FileAccessLog,
+			Name:       wellknown.FileAccessLog,
+			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 		}
 
 		buildAccessLog(pluginParams.Node, fl, pluginParams.Push)
-
-		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
-		}
-
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
 	}
 
@@ -1886,13 +1896,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		}
 
 		acc := &accesslog.AccessLog{
-			Name: wellknown.HTTPGRPCAccessLog,
-		}
-
-		if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-			acc.ConfigType = &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)}
-		} else {
-			acc.ConfigType = &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)}
+			Name:       wellknown.HTTPGRPCAccessLog,
+			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 		}
 
 		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
@@ -1901,7 +1906,6 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	if pluginParams.Push.Mesh.EnableTracing {
 		tc := authn_model.GetTraceConfig()
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
-			OperationName: httpOpts.direction,
 			ClientSampling: &envoy_type.Percent{
 				Value: tc.ClientSampling,
 			},
@@ -2102,12 +2106,8 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.
 			opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
-				Name: wellknown.HTTPConnectionManager,
-			}
-			if util.IsXDSMarshalingToAnyEnabled(pluginParams.Node) {
-				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])}
-			} else {
-				filter.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])}
+				Name:       wellknown.HTTPConnectionManager,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])},
 			}
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",

@@ -24,6 +24,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
@@ -32,8 +33,15 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schemas"
 	"istio.io/istio/pkg/config/visibility"
-	"istio.io/pkg/monitoring"
 )
+
+// Metrics is an interface for capturing metrics on a per-node basis.
+type Metrics interface {
+	// AddMetric will add an case to the metric for the given node.
+	AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string)
+}
+
+var _ Metrics = &PushContext{}
 
 // PushContext tracks the status of a push - metrics and errors.
 // Metrics are reset after a push - at the beginning all
@@ -302,8 +310,8 @@ func (ps *PushContext) IsMixerEnabled() bool {
 	return ps != nil && ps.Mesh != nil && (ps.Mesh.MixerCheckServer != "" || ps.Mesh.MixerReportServer != "")
 }
 
-// Add will add an case to the metric.
-func (ps *PushContext) Add(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+// AddMetric will add an case to the metric.
+func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
@@ -736,8 +744,8 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		return nil
 	}
 
-	ps.Mesh = env.Mesh
-	ps.Networks = env.MeshNetworks
+	ps.Mesh = env.Mesh()
+	ps.Networks = env.Networks()
 	ps.ServiceDiscovery = env
 	ps.IstioConfigStore = env
 	ps.Version = env.Version()
@@ -1084,13 +1092,15 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				if w.Destination != nil {
+					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				}
 			}
 			if d.Mirror != nil {
 				d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta))
 			}
 		}
-		//resolve host in tcp route.destination
+		// resolve host in tcp route.destination
 		for _, d := range rule.Tcp {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
@@ -1100,7 +1110,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				if w.Destination != nil {
+					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				}
 			}
 		}
 		//resolve host in tls route.destination
@@ -1113,7 +1125,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				}
 			}
 			for _, w := range tls.Route {
-				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				if w.Destination != nil {
+					w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
+				}
 			}
 		}
 	}

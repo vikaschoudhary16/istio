@@ -348,13 +348,12 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
-  ./cmd/istiod \
   ./tools/hyperistio \
   ./tools/istio-iptables \
   ./tools/istio-clean-iptables
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istiod istioctl galley sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent sidecar-injector mixc mixs mixgen node_agent node_agent_k8s istio_ca istioctl galley sdsclient
 
 .PHONY: build
 build: depend
@@ -369,7 +368,7 @@ build-linux: depend
 # * Building all docker images (generally in CI). In this case we want to build everything at once, so they share work
 # * Building a single docker image (generally during dev). In this case we just want to build the single binary alone
 BUILD_ALL ?= true
-define build-linux =
+define build-linux
 .PHONY: $(ISTIO_OUT_LINUX)/$(shell basename $(1))
 ifeq ($(BUILD_ALL),true)
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): build-linux
@@ -387,7 +386,20 @@ $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
 MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
-lint: lint-go lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
+# To save on memory, run for each folder
+lint-go-split:
+	@golangci-lint run -c ./common/config/.golangci.yml ./galley/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./istioctl/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./mixer/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./pilot/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./pkg/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./samples/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./security/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./sidecar-injector/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./tests/...
+	@golangci-lint run -c ./common/config/.golangci.yml ./tools/...
+
+lint: lint-go-split lint-python lint-copyright-banner lint-scripts lint-dockerfiles lint-markdown lint-yaml lint-licenses
 	@bin/check_helm.sh
 	@bin/check_samples.sh
 	@bin/check_dashboards.sh
@@ -452,7 +464,7 @@ istioctl-install:
 # Target: test
 #-----------------------------------------------------------------------------
 
-.PHONY: test localTestEnv
+.PHONY: test
 
 JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
@@ -479,12 +491,6 @@ test: | $(JUNIT_REPORT)
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 GOTEST_PARALLEL ?= '-test.parallel=1'
-
-localTestEnv: build
-	bin/testEnvLocalK8S.sh ensure
-
-localTestEnvCleanup: build
-	bin/testEnvLocalK8S.sh stop
 
 .PHONY: pilot-test
 pilot-test:
@@ -691,11 +697,14 @@ show.goenv: ; $(info $(H) go environment...)
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
 
+# Deprecated. This target exists only to satisify old CI tests that cannot be updated atomically, and can be removed.
+localTestEnv:
+
 #-----------------------------------------------------------------------------
 # Target: custom resource definitions
 #-----------------------------------------------------------------------------
 
-update-crds: 
+update-crds:
 	bin/update_crds.sh
 
 #-----------------------------------------------------------------------------
