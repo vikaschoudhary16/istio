@@ -9,7 +9,8 @@ initContainers:
 {{- else }}
   image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
 {{- end }}
-  args:
+  command:
+  - istio-iptables
   - "-p"
   - "15001"
   - "-z"
@@ -207,14 +208,6 @@ containers:
     value: "{{ $value }}"
 {{- end }}
 {{- end }}
-{{- end }}
-{{- if .Values.global.tcc.enabled }}
-  - name: ISTIO_META_TSB_TENANT
-    value: {{ .Values.global.tcc.tenant }}
-  - name: ISTIO_META_TSB_CLUSTER
-    value: {{ .Values.global.tcc.cluster }}
-  - name: ISTIO_META_TSB_ENVIRONMENT
-    value: {{ .Values.global.tcc.environment }}
 {{- end }}
   - name: ISTIO_META_POD_NAME
     valueFrom:

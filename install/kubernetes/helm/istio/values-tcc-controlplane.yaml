@@ -139,13 +139,13 @@ global:
       enabled: true
       host: oap.istio-system
       port: 11800
-  proxy_init:
+  #proxy_init:
     # Base name for the istio-init container, used to configure iptables.
     # FIXME: due to a bug in latest proxyv2 image, this code segfaults on circleci
     # so sticking to an old image as we just use the iptables. We need to add this to
     # the release if the bug is not fixed on time
     # https://github.com/istio/istio/issues/19380
-    image: tetrate/proxy_init:0.6.6-istio-90c06491b
+    #image: tetrate/proxy_init:0.6.6-istio-90c06491b
 
   # set this to false to disable the post install jobs
   # this setting does not control mTLS. TCC does.
