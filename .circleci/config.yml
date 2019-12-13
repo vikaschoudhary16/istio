@@ -40,7 +40,7 @@ jobs:
             export GOROOT=$(go env GOROOT)
             sudo rm -rf $(go env GOROOT)
             sudo mkdir -p $GOROOT
-            curl -sSL https://dl.google.com/go/1.13.1.linux-amd64.tar.gz | \
+            curl -sSL https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz | \
             sudo tar xz -C $GOROOT --strip-components=1
       - checkout
       - run: make sync
