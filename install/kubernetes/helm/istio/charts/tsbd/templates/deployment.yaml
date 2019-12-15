@@ -24,7 +24,7 @@ spec:
       serviceAccountName: tsbd-service-account      
       containers:
         - name: tsbd
-          image: {{ .Values.global.hub }}/tsbd-server:{{ .Values.tag }}
+          image: {{ .Values.global.hub }}/tsbd-server:{{ .Values.tsbd.tag }}
           imagePullPolicy: IfNotPresent
           command: 
           - /usr/local/bin/tsbd-server
