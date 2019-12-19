@@ -21,12 +21,12 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: tsbd-service-account      
+      serviceAccountName: tsbd-service-account
       containers:
         - name: tsbd
-          image: {{ .Values.global.hub }}/tsbd-server:{{ .Values.tsbd.tag }}
+          image: {{ .Values.global.hub }}/tsbd-server:{{ .Values.tag }}
           imagePullPolicy: IfNotPresent
-          command: 
+          command:
           - /usr/local/bin/tsbd-server
           - server
           - --tcc-host={{ .Values.global.tcc.host }}:{{ .Values.global.tcc.port }}
@@ -56,10 +56,10 @@ spec:
             readOnly: true
           - name: certs
             mountPath: /etc/certs
-            readOnly: true  
+            readOnly: true
           - name: config
             mountPath: /etc/config
-            readOnly: true  
+            readOnly: true
           ports:
           - containerPort: 9443
           - containerPort: 15014
@@ -101,7 +101,7 @@ spec:
           name: istio
       - name: certs
         secret:
-          secretName: istio.tsbd-service-account   
+          secretName: istio.tsbd-service-account
       - name: config
         configMap:
-          name: tsbd-configuration  
+          name: tsbd-configuration

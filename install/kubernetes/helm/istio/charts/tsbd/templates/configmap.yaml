@@ -4,4 +4,4 @@ metadata:
   labels:
     app: tsbd
   name: tsbd-configuration
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}

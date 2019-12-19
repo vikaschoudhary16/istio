@@ -11,6 +11,7 @@ keywords:
   - mixer
   - pilot
   - galley
+  - tsbd
 sources:
   - http://github.com/istio/istio
 engine: gotpl
