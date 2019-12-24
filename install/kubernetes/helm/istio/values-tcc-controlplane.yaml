@@ -95,6 +95,7 @@ oap:
     host: "__HOST__"
     port: 8443
   analysis: reg-agent-mesh
+  logLevel: WARN
   externalServices:
     # For SPM metadata service.
     metadata:
