@@ -28,7 +28,6 @@ import (
 	oidc "github.com/coreos/go-oidc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/spiffe"
@@ -75,7 +74,7 @@ var (
 		cmd.DefaultMaxWorkloadCertTTL,
 		"The max TTL of issued workload certificates.")
 
-	selfSignedCACertTTL = env.RegisterDurationVar("CITADEL_SELF_SIGNED_CA_CERT_TTL",
+	SelfSignedCACertTTL = env.RegisterDurationVar("CITADEL_SELF_SIGNED_CA_CERT_TTL",
 		cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate.")
 
@@ -99,7 +98,7 @@ var (
 	k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
 		"Kuberenetes service host, set automatically when running in-cluster")
 
-	// JWTPath is the well-knwon location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
+	// JWTPath is the well-known location of the projected K8S JWT. This is mounted on all workloads, as well as istiod.
 	// In a cluster that doesn't support projected JWTs we can't run the CA functionality of istiod - instead
 	// old-style Citadel must be run, with Secret created for each workload.
 	JWTPath = "./var/run/secrets/tokens/istio-token"
@@ -121,29 +120,50 @@ const (
 type CAOptions struct {
 	// domain to use in SPIFFE identity URLs
 	TrustDomain string
+	Namespace   string
+}
+
+// EnableCA returns whether CA functionality is enabled in istiod.
+// The logic of this function is from the logic of whether running CA
+// in RunCA(). The reason for moving this logic from RunCA into EnableCA() is
+// to have a central consistent endpoint to get whether CA functionality is
+// enabled in istiod. EnableCA() is called in multiple places.
+func (s *Server) EnableCA() bool {
+	if s.kubeClient == nil {
+		// No k8s - no self-signed certs.
+		// TODO: implement it using a local directory, for non-k8s env.
+		log.Warn("kubeclient is nil; disable the CA functionality")
+		return false
+	}
+	if _, err := ioutil.ReadFile(JWTPath); err != nil {
+		// for debug we may want to override this by setting trustedIssuer explicitly
+		if trustedIssuer.Get() == "" {
+			log.Warnf("istiod running without access to K8S tokens (jwt path %v); disable the CA functionality", JWTPath)
+			return false
+		}
+	}
+	return true
 }
 
 // RunCA will start the cert signing GRPC service on an existing server.
 // Protected by installer options: the CA will be started only if the JWT token in /var/run/secrets
 // is mounted. If it is missing - for example old versions of K8S that don't support such tokens -
 // we will not start the cert-signing server, since pods will have no way to authenticate.
-func (s *Server) RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptions) {
-	if cs == nil {
-		// No k8s - no self-signed certs.
-		// TODO: implement it using a local directory, for non-k8s env.
+func (s *Server) RunCA(grpc *grpc.Server, ca *ca.IstioCA, opts *CAOptions, stopCh <-chan struct{}) {
+	if !s.EnableCA() {
+		return
+	}
+	if ca == nil {
+		// When the CA to run is nil, return
+		log.Warn("the CA to run is nil")
 		return
 	}
 	iss := trustedIssuer.Get()
 	aud := audience.Get()
 
 	ch := make(chan struct{})
-	if token, err := ioutil.ReadFile(JWTPath); err != nil {
-		// for debug we may want to override this by setting trustedIssuer explicitly
-		if iss == "" {
-			log.Warna("istiod running without access to K8S tokens. Disable the CA functionality", JWTPath)
-			return
-		}
-	} else {
+	token, err := ioutil.ReadFile(JWTPath)
+	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
 			log.Warna("Starting with invalid K8S JWT token", err, string(token))
@@ -156,9 +176,6 @@ func (s *Server) RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptio
 			}
 		}
 	}
-
-	ca := s.createCA(cs.CoreV1(), opts)
-
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
@@ -191,6 +208,14 @@ func (s *Server) RunCA(grpc *grpc.Server, cs kubernetes.Interface, opts *CAOptio
 		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
 	}
 	log.Info("Istiod CA has started")
+
+	nc, err := NewNamespaceController(ca, s.kubeClient.CoreV1())
+	if err != nil {
+		log.Warnf("failed to start istiod namespace controller, error: %v", err)
+	} else {
+		nc.Run(stopCh)
+		log.Info("istiod namespace controller has started")
+	}
 }
 
 type jwtAuthenticator struct {
@@ -340,11 +365,14 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.Is
 
 		// readSigningCertOnly set to false - it doesn't seem to be used in Citadel, nor do we have a way
 		// to set it only for one job.
+		// maxCertTTL in NewSelfSignedIstioCAOptions() is set to be the same as
+		// SelfSignedCACertTTL because the istiod certificate issued by Citadel
+		// will have a TTL equal to SelfSignedCACertTTL.
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
-			selfSignedRootCertGracePeriodPercentile.Get(), selfSignedCACertTTL.Get(),
+			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
-			s.Args.Namespace, -1, client, rootCertFile,
+			SelfSignedCACertTTL.Get(), opts.TrustDomain, true,
+			opts.Namespace, -1, client, rootCertFile,
 			enableJitterForRootCertRotator.Get())
 		if err != nil {
 			log.Fatalf("Failed to create a self-signed Citadel (error: %v)", err)
@@ -359,7 +387,7 @@ func (s *Server) createCA(client corev1.CoreV1Interface, opts *CAOptions) *ca.Is
 		certChainFile := path.Join(localCertDir.Get(), "cert-chain.pem")
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), s.Args.Namespace, client)
+			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), opts.Namespace, client)
 		if err != nil {
 			log.Fatalf("Failed to create an Citadel (error: %v)", err)
 		}

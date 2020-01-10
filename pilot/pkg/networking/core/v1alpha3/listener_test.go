@@ -23,6 +23,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_filter "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -31,6 +32,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/google/go-cmp/cmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -127,7 +130,7 @@ var (
 					Namespace: "not-default",
 				},
 			},
-			Labels: nil,
+			Endpoint: &model.IstioEndpoint{},
 		},
 	}
 	virtualServiceSpec = &networking.VirtualService{
@@ -1291,7 +1294,7 @@ func TestHttpProxyListener(t *testing.T) {
 	proxy.ServiceInstances = nil
 	env.Mesh().ProxyHttpPort = 15007
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext, nil)
+	httpProxy := configgen.buildHTTPProxy(&proxy, env.PushContext)
 	f := httpProxy.FilterChains[0].Filters[0]
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 
@@ -1702,16 +1705,9 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 	}
 }
 
-func buildEndpoint(service *model.Service) model.NetworkEndpoint {
-	return model.NetworkEndpoint{
-		ServicePort: service.Ports[0],
-		Port:        8080,
-	}
-}
-
 func buildServiceInstance(service *model.Service, instanceIP string) *model.ServiceInstance {
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: &model.IstioEndpoint{
 			Address: instanceIP,
 		},
 		Service: service,
@@ -1729,33 +1725,34 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service:  s,
-			Endpoint: buildEndpoint(s),
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: 8080,
+			},
+			ServicePort: s.Ports[0],
 		}
 	}
 	serviceDiscovery.GetProxyServiceInstancesReturns(instances, nil)
 
-	configStore := &fakes.IstioConfigStore{
-		EnvoyFilterStub: func(workloadLabels labels.Collection) *model.Config {
-			return &model.Config{
-				ConfigMeta: model.ConfigMeta{
-					Name:      "test-envoyfilter",
-					Namespace: "not-default",
-				},
-				Spec: &networking.EnvoyFilter{
-					Filters: []*networking.EnvoyFilter_Filter{
-						{
-							InsertPosition: &networking.EnvoyFilter_InsertPosition{
-								Index: networking.EnvoyFilter_InsertPosition_FIRST,
-							},
-							FilterType:   networking.EnvoyFilter_Filter_HTTP,
-							FilterName:   "envoy.lua",
-							FilterConfig: &types.Struct{},
-						},
-					},
-				},
-			}
+	envoyFilter := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:      "test-envoyfilter",
+			Namespace: "not-default",
 		},
+		Spec: &networking.EnvoyFilter{
+			Filters: []*networking.EnvoyFilter_Filter{
+				{
+					InsertPosition: &networking.EnvoyFilter_InsertPosition{
+						Index: networking.EnvoyFilter_InsertPosition_FIRST,
+					},
+					FilterType:   networking.EnvoyFilter_Filter_HTTP,
+					FilterName:   "envoy.lua",
+					FilterConfig: &types.Struct{},
+				},
+			},
+		},
+	}
+	configStore := &fakes.IstioConfigStore{
 		ListStub: func(typ, namespace string) (configs []model.Config, e error) {
 			if typ == "virtual-service" {
 				result := make([]model.Config, len(virtualServices))
@@ -1763,6 +1760,9 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 					result[i] = *virtualServices[i]
 				}
 				return result, nil
+			}
+			if typ == "envoy-filter" {
+				return []model.Config{envoyFilter}, nil
 			}
 			return nil, nil
 
@@ -1854,5 +1854,126 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 				t.Errorf("Expected exactly 1 filter chain on the tests[idx].listener")
 			}
 		})
+	}
+}
+
+func TestMergeTCPFilterChains(t *testing.T) {
+	push := &model.PushContext{
+		Mesh:        &meshconfig.MeshConfig{},
+		ProxyStatus: map[string]map[string]model.ProxyPushStatus{},
+	}
+
+	node := &model.Proxy{
+		ID:       "foo.bar",
+		Metadata: &model.NodeMetadata{},
+		SidecarScope: &model.SidecarScope{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			},
+		},
+	}
+
+	tcpProxy := &tcp_proxy.TcpProxy{
+		StatPrefix:       "outbound|443||foo.com",
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: "outbound|443||foo.com"},
+	}
+
+	tcpProxyFilter := &listener.Filter{
+		Name:       xdsutil.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
+	}
+
+	tcpProxy = &tcp_proxy.TcpProxy{
+		StatPrefix:       "outbound|443||bar.com",
+		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: "outbound|443||bar.com"},
+	}
+
+	tcpProxyFilter2 := &listener.Filter{
+		Name:       xdsutil.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
+	}
+
+	svcPort := &model.Port{
+		Name:     "https",
+		Port:     443,
+		Protocol: protocol.HTTPS,
+	}
+	listenerMap := map[string]*outboundListenerEntry{
+		"0.0.0.0_443": {
+			servicePort: svcPort,
+			services: []*model.Service{{
+				CreationTime: tnow,
+				Hostname:     host.Name("foo.com"),
+				Address:      "192.168.1.1",
+				Ports:        []*model.Port{svcPort},
+				Resolution:   model.DNSLB,
+			}},
+			listener: &xdsapi.Listener{
+				FilterChains: []*listener.FilterChain{
+					{
+						FilterChainMatch: &listener.FilterChainMatch{
+							PrefixRanges: []*core.CidrRange{
+								{
+									AddressPrefix: "10.244.0.18",
+									PrefixLen:     &wrappers.UInt32Value{Value: 32},
+								},
+								{
+									AddressPrefix: "fe80::1c97:c3ff:fed7:5940",
+									PrefixLen:     &wrappers.UInt32Value{Value: 128},
+								},
+							},
+						},
+						Filters: nil, // This is not a valid config, just for test
+					},
+					{
+						FilterChainMatch: &listener.FilterChainMatch{
+							ServerNames: []string{"foo.com"},
+						},
+						// This is not a valid config, just for test
+						Filters: []*listener.Filter{tcpProxyFilter},
+					},
+					{
+						FilterChainMatch: &listener.FilterChainMatch{},
+						// This is not a valid config, just for test
+						Filters: []*listener.Filter{newTCPProxyOutboundListenerFilter(push, node)},
+					},
+				},
+			},
+		},
+	}
+
+	insertFallthroughMetadata(listenerMap["0.0.0.0_443"].listener.FilterChains[2])
+
+	incomingFilterChains := []*listener.FilterChain{
+		{
+			FilterChainMatch: &listener.FilterChainMatch{},
+			// This is not a valid config, just for test
+			Filters: []*listener.Filter{tcpProxyFilter2},
+		},
+	}
+
+	svc := model.Service{
+		Hostname: "bar.com",
+	}
+
+	params := &plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolTCP,
+		Node:             node,
+		Port:             svcPort,
+		ServiceInstance:  &model.ServiceInstance{Service: &svc},
+		Push:             push,
+	}
+
+	out := mergeTCPFilterChains(incomingFilterChains, params, "0.0.0.0_443", listenerMap, node)
+
+	if len(out) != 3 {
+		t.Errorf("Got %d filter chains, expected 3", len(out))
+	}
+	if !isMatchAllFilterChain(out[2]) {
+		t.Errorf("The last filter chain  %#v is not wildcard matching", out[2])
+	}
+
+	if !reflect.DeepEqual(out[2].Filters, incomingFilterChains[0].Filters) {
+		t.Errorf("got %v\nwant %v\ndiff %v", out[2].Filters, incomingFilterChains[0].Filters, cmp.Diff(out[2].Filters, incomingFilterChains[0].Filters))
 	}
 }

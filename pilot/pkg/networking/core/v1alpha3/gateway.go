@@ -129,7 +129,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		var si *model.ServiceInstance
 		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
 		for _, w := range node.ServiceInstances {
-			if w.Endpoint.Port == int(portNumber) {
+			if w.Endpoint.EndpointPort == portNumber {
 				if si == nil {
 					si = w
 				}
@@ -750,7 +750,6 @@ func convertTLSMatchToL4Match(tlsMatch *networking.TLSMatchAttributes) *networki
 	return &networking.L4MatchAttributes{
 		DestinationSubnets: tlsMatch.DestinationSubnets,
 		Port:               tlsMatch.Port,
-		SourceSubnet:       tlsMatch.SourceSubnet,
 		SourceLabels:       tlsMatch.SourceLabels,
 		Gateways:           tlsMatch.Gateways,
 	}

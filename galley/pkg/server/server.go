@@ -28,8 +28,7 @@ import (
 type Server struct {
 	host process.Host
 
-	p  *components.Processing
-	P2 *components.Processing2
+	p *components.Processing
 }
 
 // New returns a new instance of a Server.
@@ -50,17 +49,10 @@ func New(a *settings.Args) *Server {
 	}
 
 	if a.EnableServer {
-		if a.UseOldProcessor {
-			s.p = components.NewProcessing(a)
-			s.host.Add(s.p)
-			t := s.p.ConfigZTopic()
-			topics = append(topics, t)
-		} else {
-			s.P2 = components.NewProcessing2(a)
-			s.host.Add(s.P2)
-			t := s.P2.ConfigZTopic()
-			topics = append(topics, t)
-		}
+		s.p = components.NewProcessing(a)
+		s.host.Add(s.p)
+		t := s.p.ConfigZTopic()
+		topics = append(topics, t)
 	}
 
 	mon := components.NewMonitoring(a.MonitoringPort)
@@ -79,10 +71,7 @@ func New(a *settings.Args) *Server {
 
 // Address returns the address of the config processing server.
 func (s *Server) Address() net.Addr {
-	if s.p != nil {
-		return s.p.Address()
-	}
-	return s.P2.Address()
+	return s.p.Address()
 
 }
 

@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/tests/util"
 
 	// Import the resource package to pull in all proto types.
-	_ "istio.io/istio/galley/pkg/config/meta/metadata"
+	_ "istio.io/istio/galley/pkg/config/schema"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptesting "istio.io/istio/pkg/mcp/testing"
 	"istio.io/istio/pkg/test/env"
@@ -106,7 +106,7 @@ func runMcpServer() (*mcptesting.Server, error) {
 
 func runEnvoy(t *testing.T, nodeID string, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	t.Log("create a new envoy test environment")
-	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
+	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/mcp_bootstrap_tmpl.json")
 	if err != nil {
 		t.Fatal("Can't read bootstrap template", err)
 	}
