@@ -47,10 +47,6 @@ type source struct {
 	done             chan struct{}
 	watchConfigFiles bool
 }
-type InMemoryKubeSrc interface {
-	event.Source
-	ApplyContents(string, []byte)
-}
 
 var _ event.Source = &source{}
 
@@ -127,13 +123,6 @@ func (s *source) Stop() {
 // Dispatch implements event.Source
 func (s *source) Dispatch(h event.Handler) {
 	s.s.Dispatch(h)
-}
-
-// ApplyContents will be invoked from within the binary
-func (s *source) ApplyContents(srcName string, data []byte) {
-	if err := s.s.ApplyContent(srcName, string(data)); err != nil {
-		scope.Source.Errorf("[%s] Error applying contents(%q): %v", s.name, srcName, err)
-	}
 }
 
 func (s *source) reload() {

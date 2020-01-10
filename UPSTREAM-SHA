@@ -1,8 +1,8 @@
 # Please keep this file updated.
-commit 022c70f5cf7a078a70ba4abc92414f344913d880 (HEAD -> upstream-istio, origin/upstream-istio, istio/master)
-Author: Shriram Rajagopalan <rshriram@users.noreply.github.com>
-Date:   Fri Dec 13 13:36:30 2019 -0500
+commit 19bfdf0376ae6645c0c8f3fdee2cf2924995595c (tetrate/upstream-istio, origin/master, origin/HEAD, upstream-istio, master)
+Author: lei-tang <32078630+lei-tang@users.noreply.github.com>
+Commit: Istio Automation <istio.testing@gmail.com>
 
-    Fix split-horizon routing and add meshNetworks test (#19528)
+    Randomize CSR name to avoid race conditions from multiple instances (#20052)
 
-
+    Randomize CSR names to avoid race conditions from running multiple istiod instances.
