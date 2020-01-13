@@ -1,6 +1,7 @@
 enabled: false
 tag: ""
 token: ""
+disableauthz: false
 # Resources for tsbd install
 resources:
   requests:

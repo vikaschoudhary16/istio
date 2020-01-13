@@ -43,6 +43,7 @@ spec:
           - --monitoringPort=15014
           - --resyncPeriod=1s
           - --log-output-level=default:info
+          - --disable-authz={{ .Values.disableauthz }}
           volumeMounts:
           - name: tsbd-dir
             mountPath: /etc/tsbd/
