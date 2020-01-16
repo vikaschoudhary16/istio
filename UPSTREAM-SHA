@@ -1,8 +1,7 @@
 # Please keep this file updated.
-commit 19bfdf0376ae6645c0c8f3fdee2cf2924995595c (tetrate/upstream-istio, origin/master, origin/HEAD, upstream-istio, master)
-Author: lei-tang <32078630+lei-tang@users.noreply.github.com>
-Commit: Istio Automation <istio.testing@gmail.com>
+commit 05cb2d7bc62ba393c9f1080ca55f9bd11c564961 (HEAD -> upstream-istio, origin/upstream-istio, istio/master)
+Author: Istio Automation <istio.testing@gmail.com>
+Date:   Wed Jan 15 13:33:16 2020 -0800
 
-    Randomize CSR name to avoid race conditions from multiple instances (#20052)
+    Automator: update istio/api@master dependency in istio/istio@master (#20210)
 
-    Randomize CSR names to avoid race conditions from running multiple istiod instances.

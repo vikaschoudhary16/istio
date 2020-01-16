@@ -4,7 +4,7 @@ version: 2
 # defaults: &defaults
 #   working_directory: /go/src/istio.io/istio
 #   docker:
-#     - image: gcr.io/istio-testing/build-tools:master-2019-12-04T21-25-52
+#     - image: gcr.io/istio-testing/build-tools:master-2019-12-15T16-17-48
 #   environment:
 #     GOPATH: /go
 #     SKIP_CLEANUP: true
@@ -43,10 +43,8 @@ jobs:
             curl -sSL https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz | \
             sudo tar xz -C $GOROOT --strip-components=1
       - checkout
-      - run: make init
-      - run: VERSION=${VERSION} make docker.all
       - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-      - run: VERSION=${VERSION} make push
+      - run: BUILD_WITH_CONTAINER=1 VERSION=${VERSION} make init docker.all push
   # dockerpush:
   #   <<: *defaults
   #   resource_class: xlarge
