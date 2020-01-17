@@ -56,6 +56,7 @@ galley:
 tsbd:
   enabled: true
   tag: "__TCC__"
+  disableauthz: false
 
 mixer:
   policy:
