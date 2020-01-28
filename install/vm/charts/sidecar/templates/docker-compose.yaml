@@ -14,10 +14,7 @@ services:
         --ca-address "{{ .Values.global.vmgateway.host }}:8060"
         --platform vm
     volumes:
-      - cert-volume:/etc/certs:rw
-      - {{ .Values.global.sidecar.certs.cert }}:/etc/certs/cert.crt
-      - {{ .Values.global.sidecar.certs.key }}:/etc/certs/key.pem
-      - {{ .Values.global.sidecar.certs.certchain }}:/etc/certs/cert-chain.pem
+      - {{ .Values.global.sidecar.certPath }}:/etc/certs:rw
 {{- if $.Values.global.sidecar.hostModeNetwork}}
     network_mode: host
 {{- end }}
@@ -37,12 +34,12 @@ services:
       --envoyAccessLogService '{"address":"oap.istio-system.svc.cluster.local:11800","tlsSettings":{"mode":"DISABLE","subjectAltNames":[]},"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"}}'
       --zipkinAddress zipkin.istio-system.svc.cluster.local:9411
     environment:
-      - ISTIO_METAJSON_LABELS={"app":"{{ .Values.global.sidecar.appId }}.{{ .Values.global.sidecar.appNs }}","catalog.tetrate.io/serviceName":"{{ .Values.global.sidecar.appId }}.{{ .Values.global.sidecar.appNs }}"}
+      - ISTIO_METAJSON_LABELS={"app":"{{ .Values.global.sidecar.serviceDefinition }}.{{ .Values.global.sidecar.appNs }}","catalog.tetrate.io/serviceName":"{{ .Values.global.sidecar.serviceDefinition }}.{{ .Values.global.sidecar.appNs }}"}
       - ISTIO_META_POD_PORTS=[{"containerPort":{{ .Values.global.sidecar.appPort }},"protocol":"TCP"}]
-      - POD_NAME=sidecar.{{ .Values.global.sidecar.appId }}
+      - POD_NAME=sidecar.{{ .Values.global.sidecar.serviceDefinition }}
       - POD_NAMESPACE={{ .Values.global.sidecar.appNs }}
       - SERVICE_ACCOUNT=default
-      - ISTIO_META_POD_NAME=sidecar.{{ .Values.global.sidecar.appId }}
+      - ISTIO_META_POD_NAME=sidecar.{{ .Values.global.sidecar.serviceDefinition }}
       - ISTIO_META_CONFIG_NAMESPACE={{ .Values.global.sidecar.appNs }}
       - ISTIO_META_TSB_TENANT={{ .Values.global.tcc.tenant }}
       - ISTIO_META_TSB_CLUSTER={{ .Values.global.tcc.cluster }}
@@ -56,11 +53,8 @@ services:
     ports:
     - "15090:15090"
     volumes:
-      - cert-volume:/etc/certs
+      - {{ .Values.global.sidecar.certPath }}:/etc/certs:rw
 {{- if $.Values.global.sidecar.hostModeNetwork}}
     network_mode: host
 {{- end }}
     restart: unless-stopped
-
-volumes:
-  cert-volume:
