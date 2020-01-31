@@ -30,8 +30,9 @@ gateways:
   istio-egressgateway:
     enabled: false
 
-  tcc-gateway:
+  tsb-gateway:
     enabled: false
+    tier1: false
     labels:
       app: __UNIQUENAME__
       tcc: gateway
