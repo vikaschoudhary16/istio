@@ -14,6 +14,7 @@ global:
     tenant: "__TENANT__"
     cluster: "__CLUSTER__"
     environment: "__ENV__"
+    tier1: false
 
   proxy:
     envoyAccessLogService:
@@ -30,7 +31,7 @@ gateways:
   istio-egressgateway:
     enabled: false
 
-  tcc-gateway:
+  tsb-gateway:
     enabled: false
     labels:
       app: __UNIQUENAME__
