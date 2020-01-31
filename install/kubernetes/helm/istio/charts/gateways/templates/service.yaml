@@ -4,7 +4,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-{{- if $.Values.global.tcc.tier1 }}
+{{- if and (eq $key "tsb-gateway") (index $.Values "tsb-gateway" "tier1") }}
   name: {{ $key }}-tier1-{{ $.Release.Namespace }}
 {{- else }}
   name: {{ $key }}-{{ $.Release.Namespace }}

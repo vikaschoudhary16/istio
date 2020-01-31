@@ -14,7 +14,6 @@ global:
     tenant: "__TENANT__"
     cluster: "__CLUSTER__"
     environment: "__ENV__"
-    tier1: false
 
   proxy:
     envoyAccessLogService:
@@ -33,6 +32,7 @@ gateways:
 
   tsb-gateway:
     enabled: false
+    tier1: false
     labels:
       app: __UNIQUENAME__
       tcc: gateway
