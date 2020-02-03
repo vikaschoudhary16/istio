@@ -298,62 +298,74 @@ type v1alpha1PolicyApplier struct {
 	policy *authn_v1alpha1.Policy
 }
 
-func (a v1alpha1PolicyApplier) JwtFilter(isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a v1alpha1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
 	// v2 api will use inline public key.
 	filterName, filterConfigProto := convertPolicyToJwtConfig(a.policy)
 	if filterConfigProto == nil {
 		return nil
 	}
 	out := &http_conn.HttpFilter{
-		Name: filterName,
+		Name:       filterName,
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)},
 	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
-	}
+
 	return out
 }
 
-func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType, isXDSMarshalingToAnyEnabled bool) *http_conn.HttpFilter {
+func (a v1alpha1PolicyApplier) AuthNFilter(proxyType model.NodeType) *http_conn.HttpFilter {
 	filterConfigProto := convertPolicyToAuthNFilterConfig(a.policy, proxyType)
 	if filterConfigProto == nil {
 		return nil
 	}
 	out := &http_conn.HttpFilter{
-		Name: authn_model.AuthnFilterName,
-	}
-	if isXDSMarshalingToAnyEnabled {
-		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
-	} else {
-		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+		Name:       authn_model.AuthnFilterName,
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)},
 	}
 	return out
 }
 
-func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, meta *model.NodeMetadata) []plugin.FilterChain {
+func (a v1alpha1PolicyApplier) InboundFilterChain(sdsUdsPath string, node *model.Proxy) []plugin.FilterChain {
 	if a.policy == nil || len(a.policy.Peers) == 0 {
 		return nil
 	}
-	alpnIstioMatch := &ldsv2.FilterChainMatch{
-		ApplicationProtocols: util.ALPNInMesh,
+	meta := node.Metadata
+	var alpnIstioMatch *ldsv2.FilterChainMatch
+	var tls *auth.DownstreamTlsContext
+	if util.IsTCPMetadataExchangeEnabled(node) {
+		alpnIstioMatch = &ldsv2.FilterChainMatch{
+			ApplicationProtocols: util.ALPNInMeshWithMxc,
+		}
+		tls = &auth.DownstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
+				// expect the same from server. This  is so that secure metadata exchange
+				// transfer can take place between sidecars for TCP with mTLS.
+				AlpnProtocols: util.ALPNDownstream,
+			},
+			RequireClientCertificate: protovalue.BoolTrue,
+		}
+	} else {
+		alpnIstioMatch = &ldsv2.FilterChainMatch{
+			ApplicationProtocols: util.ALPNInMesh,
+		}
+		tls = &auth.DownstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
+				// which is used to differentiate between service mesh and legacy traffic.
+				//
+				// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
+				//
+				// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
+				// include "istio" for the secure traffic, but its TLSContext.ALPN must not
+				// include "istio", which would interfere with negotiation of the underlying
+				// protocol, e.g. HTTP/2.
+				AlpnProtocols: util.ALPNHttp,
+			},
+			RequireClientCertificate: protovalue.BoolTrue,
+		}
 	}
-	tls := &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
-			// which is used to differentiate between service mesh and legacy traffic.
-			//
-			// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
-			//
-			// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
-			// include "istio" for the secure traffic, but its TLSContext.ALPN must not
-			// include "istio", which would interfere with negotiation of the underlying
-			// protocol, e.g. HTTP/2.
-			AlpnProtocols: util.ALPNHttp,
-		},
-		RequireClientCertificate: protovalue.BoolTrue,
-	}
-	if sdsUdsPath == "" {
+
+	if !node.Metadata.SdsEnabled || sdsUdsPath == "" {
 		base := meta.SdsBase + constants.AuthCertsPath
 		tlsServerRootCert := model.GetOrDefault(meta.TLSServerRootCert, base+constants.RootCertFilename)
 

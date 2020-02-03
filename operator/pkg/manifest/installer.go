@@ -25,6 +25,7 @@ import (
 	"time" // For kubeclient GCP auth
 
 	"github.com/ghodss/yaml"
+	goversion "github.com/hashicorp/go-version"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -50,8 +51,10 @@ import (
 	"istio.io/istio/operator/pkg/kubectlcmd"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	pkgversion "istio.io/istio/operator/pkg/version"
+	binversion "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 )
 
@@ -72,6 +75,8 @@ var (
 	istioComponentLabelStr = name.OperatorAPINamespace + "/component"
 	// istioVersionLabelStr indicates the Istio version of the installation.
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
+
+	scope = log.RegisterScope("installer", "installer", 0)
 )
 
 // ComponentApplyOutput is used to capture errors and stdout/stderr outputs for a command, per component.
@@ -99,8 +104,7 @@ type deployment struct {
 
 var (
 	componentDependencies = componentNameToListMap{
-		name.IstioBaseComponentName: {
-			name.PilotComponentName,
+		name.PilotComponentName: {
 			name.PolicyComponentName,
 			name.TelemetryComponentName,
 			name.GalleyComponentName,
@@ -111,6 +115,9 @@ var (
 			name.IngressComponentName,
 			name.EgressComponentName,
 			name.AddonComponentName,
+		},
+		name.IstioBaseComponentName: {
+			name.PilotComponentName,
 		},
 	}
 
@@ -195,14 +202,54 @@ func renderRecursive(manifests name.ManifestMap, installTree componentTree, outp
 	return nil
 }
 
+// Version runs the `kubectl version` and returns kubectl version and k8s server version
+func Version(opts *kubectlcmd.Options) (*goversion.Version, *goversion.Version, error) {
+	stdout, stderr, kubectlErr := kubectl.Version(opts)
+	if kubectlErr != nil && stderr != "" && strings.TrimSpace(stdout) == "" {
+		return nil, nil, fmt.Errorf("%s: %s", kubectlErr, stderr)
+	}
+	return parseKubectlVersion(stdout)
+}
+
+func parseKubectlVersion(kubectlStdout string) (*goversion.Version, *goversion.Version, error) {
+	yamlObj := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(kubectlStdout), &yamlObj)
+	if err != nil {
+		return nil, nil, err
+	}
+	var errs util.Errors
+	var clientVersion, serverVersion *goversion.Version
+	cPath := util.ToYAMLPath("clientVersion.gitVersion")
+	cNode, cFound, err := tpath.GetFromTreePath(yamlObj, cPath)
+	errs = util.AppendErr(errs, err)
+	if cFound {
+		var cVer string
+		if cVer, err = pkgversion.TagToVersionString(cNode.(string)); err == nil {
+			clientVersion, err = goversion.NewVersion(cVer)
+		}
+		errs = util.AppendErr(errs, err)
+	}
+	sPath := util.ToYAMLPath("serverVersion.gitVersion")
+	sNode, sFound, err := tpath.GetFromTreePath(yamlObj, sPath)
+	errs = util.AppendErr(errs, err)
+	if sFound {
+		var sVer string
+		if sVer, err = pkgversion.TagToVersionString(sNode.(string)); err == nil {
+			serverVersion, err = goversion.NewVersion(sVer)
+		}
+		errs = util.AppendErr(errs, err)
+	}
+	return clientVersion, serverVersion, errs.ToError()
+}
+
 // ApplyAll applies all given manifests using kubectl client.
 func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, opts *kubectlcmd.Options) (CompositeOutput, error) {
-	log.Infof("Preparing manifests for these components:")
+	scope.Infof("Preparing manifests for these components:")
 	for c := range manifests {
-		log.Infof("- %s", c)
+		scope.Infof("- %s", c)
 	}
-	log.Infof("Component dependencies tree: \n%s", installTreeString())
-	if err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+	scope.Infof("Component dependencies tree: \n%s", installTreeString())
+	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
 		return nil, err
 	}
 	return applyRecursive(manifests, version, opts)
@@ -219,9 +266,9 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 		wg.Add(1)
 		go func() {
 			if s := dependencyWaitCh[c]; s != nil {
-				log.Infof("%s is waiting on a prerequisite...", c)
+				scope.Infof("%s is waiting on a prerequisite...", c)
 				<-s
-				log.Infof("Prerequisite for %s has completed, proceeding with install.", c)
+				scope.Infof("Prerequisite for %s has completed, proceeding with install.", c)
 			}
 			applyOut, appliedObjects := ApplyManifest(c, strings.Join(m, helm.YAMLSeparator), version.String(), *opts)
 			mu.Lock()
@@ -229,9 +276,16 @@ func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, opts
 			allAppliedObjects = append(allAppliedObjects, appliedObjects...)
 			mu.Unlock()
 
+			// If we are depending on a component, we may depend on it actually running (eg Deployment is ready)
+			// For example, for the validation webhook to become ready, so we should wait for it always.
+			if len(componentDependencies[c]) > 0 {
+				if err := WaitForResources(appliedObjects, opts); err != nil {
+					scope.Errorf("failed to wait for resource: %v", err)
+				}
+			}
 			// Signal all the components that depend on us.
 			for _, ch := range componentDependencies[c] {
-				log.Infof("unblocking child %s.", ch)
+				scope.Infof("unblocking child %s.", ch)
 				dependencyWaitCh[ch] <- struct{}{}
 			}
 			wg.Done()
@@ -257,7 +311,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 	// TODO: remove this when `kubectl --prune` supports empty objects
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
-	if len(objects) == 0 {
+	if len(objects) == 0 && !opts.DryRun {
 		getOpts := opts
 		getOpts.Output = "yaml"
 		getOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}
@@ -281,6 +335,7 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version string
 			return buildComponentApplyOutput(stdout, stderr, appliedObjects, err), appliedObjects
 		}
 		delOpts := opts
+		delOpts.Output = ""
 		delOpts.ExtraArgs = []string{"--selector", componentLabel}
 		stdoutDel, stderrDel, err := kubectl.Delete(stdoutGet, &delOpts)
 		stdout += "\n" + stdoutDel
@@ -352,20 +407,20 @@ func GetKubectlGetItems(stdoutGet string) ([]interface{}, error) {
 		return nil, err
 	}
 	if yamlGet["kind"] != "List" {
-		return nil, fmt.Errorf("`kubectl get` returned a yaml whose kind is not List")
+		return nil, fmt.Errorf("`kubectl get` returned YAML whose kind is not List")
 	}
 	if _, ok := yamlGet["items"]; !ok {
-		return nil, fmt.Errorf("`kubectl get` returned a yaml without 'items' in the root")
+		return nil, fmt.Errorf("`kubectl get` returned YAML without 'items'")
 	}
 	switch items := yamlGet["items"].(type) {
 	case []interface{}:
 		return items, nil
 	}
-	return nil, fmt.Errorf("`kubectl get` returned a yaml incorrecnt type 'items' in the root")
+	return nil, fmt.Errorf("`kubectl get` returned incorrect 'items' type")
 }
 
 func DeploymentExists(kubeconfig, context, namespace, name string) (bool, error) {
-	if err := InitK8SRestClient(kubeconfig, context); err != nil {
+	if _, err := InitK8SRestClient(kubeconfig, context); err != nil {
 		return false, err
 	}
 
@@ -386,7 +441,7 @@ func applyObjects(objs object.K8sObjects, opts *kubectlcmd.Options, stdout, stde
 		return stdout, stderr, nil
 	}
 
-	objs.Sort(defaultObjectOrder())
+	objs.Sort(DefaultObjectOrder())
 
 	mns, err := objs.JSONManifest()
 	if err != nil {
@@ -410,7 +465,8 @@ func buildComponentApplyOutput(stdout string, stderr string, objects object.K8sO
 	}
 }
 
-func defaultObjectOrder() func(o *object.K8sObject) int {
+// DefaultObjectOrder is default sorting function used to sort k8s objects.
+func DefaultObjectOrder() func(o *object.K8sObject) int {
 	return func(o *object.K8sObject) int {
 		gk := o.Group + "/" + o.Kind
 		switch gk {
@@ -423,6 +479,10 @@ func defaultObjectOrder() func(o *object.K8sObject) int {
 			return 1
 		case "rbac.authorization.k8s.io/ClusterRoleBinding":
 			return 2
+
+			// Validation webook maybe impact CRs applied later
+		case "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
+			return 3
 
 			// Pods might need configmap or secrets - avoid backoff by creating them first
 		case "/ConfigMap", "/Secrets":
@@ -486,11 +546,11 @@ func objectsNotInLists(objects object.K8sObjects, lists ...object.K8sObjects) ob
 
 func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 	if dryRun {
-		log.Info("Not waiting for CRDs in dry run mode.")
+		scope.Info("Not waiting for CRDs in dry run mode.")
 		return nil
 	}
 
-	log.Info("Waiting for CRDs to be applied.")
+	scope.Info("Waiting for CRDs to be applied.")
 	cs, err := apiextensionsclient.NewForConfig(k8sRESTConfig)
 	if err != nil {
 		return fmt.Errorf("k8s client error: %s", err)
@@ -512,27 +572,27 @@ func waitForCRDs(objects object.K8sObjects, dryRun bool) error {
 				switch cond.Type {
 				case apiextensionsv1beta1.Established:
 					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						log.Infof("established CRD %q", crdName)
+						scope.Infof("established CRD %q", crdName)
 						continue descriptor
 					}
 				case apiextensionsv1beta1.NamesAccepted:
 					if cond.Status == apiextensionsv1beta1.ConditionFalse {
-						log.Warnf("name conflict: %v", cond.Reason)
+						scope.Warnf("name conflict: %v", cond.Reason)
 					}
 				}
 			}
-			log.Infof("missing status condition for %q", crdName)
+			scope.Infof("missing status condition for %q", crdName)
 			return false, nil
 		}
 		return true, nil
 	})
 
 	if errPoll != nil {
-		log.Errorf("failed to verify CRD creation; %s", errPoll)
+		scope.Errorf("failed to verify CRD creation; %s", errPoll)
 		return fmt.Errorf("failed to verify CRD creation: %s", errPoll)
 	}
 
-	log.Info("Finished applying CRDs.")
+	scope.Info("Finished applying CRDs.")
 	return nil
 }
 
@@ -746,18 +806,18 @@ func buildInstallTreeString(componentName name.ComponentName, prefix string, sb 
 	}
 }
 
-func InitK8SRestClient(kubeconfig, context string) error {
+func InitK8SRestClient(kubeconfig, context string) (*rest.Config, error) {
 	var err error
 	if kubeconfig == currentKubeconfig && context == currentContext && k8sRESTConfig != nil {
-		return nil
+		return k8sRESTConfig, nil
 	}
 	currentKubeconfig, currentContext = kubeconfig, context
 
 	k8sRESTConfig, err = defaultRestConfig(kubeconfig, context)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return k8sRESTConfig, nil
 }
 
 func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
@@ -802,8 +862,42 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
 }
 
+// CheckK8sVersion checks if the current client and server version is supported
+func CheckK8sVersion(opts *kubectlcmd.Options) error {
+	cK8sVer, sK8sVer, err := Version(opts)
+	if err != nil {
+		return fmt.Errorf("failed to read versions from client and cluster: %v", err)
+	}
+	compatibleMap, err := pkgversion.GetVersionCompatibleMap("", binversion.OperatorBinaryGoVersion)
+	if err != nil {
+		return err
+	}
+	return checkK8sVersion(compatibleMap, cK8sVer, sK8sVer)
+}
+
+// checkK8sVersion checks if the client and server versions are supported in CompatibilityMapping
+func checkK8sVersion(vmap *pkgversion.CompatibilityMapping, cVer, sVer *goversion.Version) error {
+	if cVer == nil {
+		return fmt.Errorf("failed to get Kubernetes client version, please check if kubectl is correctly installed")
+	}
+	if sVer == nil {
+		return fmt.Errorf("failed to get Kubernetes server version, please check if the k8s context is configured")
+	}
+	if vmap.K8sClientVersionRange != nil && !vmap.K8sClientVersionRange.Check(cVer) {
+		return fmt.Errorf("failed to meet the requirements of kubectl version for Istio %s: "+
+			"current kubectl version: %s, supported version range: %s",
+			binversion.OperatorCodeBaseVersion, cVer, vmap.K8sClientVersionRange)
+	}
+	if vmap.K8sServerVersionRange != nil && !vmap.K8sServerVersionRange.Check(sVer) {
+		return fmt.Errorf("failed to meet the requirements of k8s server version for Istio %s: "+
+			"current k8s server version: %s, supported version range: %s",
+			binversion.OperatorCodeBaseVersion, sVer, vmap.K8sServerVersionRange)
+	}
+	return nil
+}
+
 func logAndPrint(v ...interface{}) {
 	s := fmt.Sprintf(v[0].(string), v[1:]...)
-	log.Infof(s)
+	scope.Infof(s)
 	fmt.Println(s)
 }

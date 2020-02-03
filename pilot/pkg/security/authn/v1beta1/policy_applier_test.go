@@ -608,7 +608,7 @@ func TestJwtFilter(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := NewPolicyApplier(c.in, c.alphaPolicyIn).JwtFilter(true); !reflect.DeepEqual(c.expected, got) {
+			if got := NewPolicyApplier(c.in, c.alphaPolicyIn).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -938,8 +938,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 		},
 		expected: &http_conn.HttpFilter{
 			Name: "istio_authn",
-			ConfigType: &http_conn.HttpFilter_Config{
-				Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+			ConfigType: &http_conn.HttpFilter_TypedConfig{
+				TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 					JwtOutputPayloadLocations: map[string]string{
 						"https://secret.foo.com": "istio-sec-bb4594e42ba8128d87988eea9e4a8f2eaf874856",
 					},
@@ -973,8 +973,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_Config{
-					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						Policy: &authn_alpha.Policy{
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
 								{
@@ -1003,8 +1003,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_Config{
-					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						Policy: &authn_alpha.Policy{
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
 								{
@@ -1057,8 +1057,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_Config{
-					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						Policy: &authn_alpha.Policy{
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
 								{
@@ -1116,8 +1116,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_Config{
-					Config: pilotutil.MessageToStruct(&authn_filter.FilterConfig{
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						Policy: &authn_alpha.Policy{
 							Peers: []*authn_alpha.PeerAuthenticationMethod{
 								{
@@ -1149,7 +1149,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := NewPolicyApplier(c.in, c.alphaPolicyIn).AuthNFilter(model.SidecarProxy, false)
+			got := NewPolicyApplier(c.in, c.alphaPolicyIn).AuthNFilter(model.SidecarProxy)
 			if !reflect.DeepEqual(c.expected, got) {
 				gotYaml, _ := gogoprotomarshal.ToYAML(got)
 				expectedYaml, _ := gogoprotomarshal.ToYAML(c.expected)
@@ -1187,7 +1187,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			AlpnProtocols: []string{"h2", "http/1.1"},
+			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
@@ -1197,7 +1197,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 		in         *authn_alpha_api.Policy
 		sdsUdsPath string
 		expected   []plugin.FilterChain
-		meta       *model.NodeMetadata
+		node       *model.Proxy
 	}{
 		name: "PermissiveMTLS",
 		in: &authn_alpha_api.Policy{
@@ -1211,13 +1211,15 @@ func TestOnInboundFilterChain(t *testing.T) {
 				},
 			},
 		},
-		meta: &model.NodeMetadata{},
+		node: &model.Proxy{
+			Metadata: &model.NodeMetadata{},
+		},
 		// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 		expected: []plugin.FilterChain{
 			{
 				TLSContext: tlsContext,
 				FilterChainMatch: &listener.FilterChainMatch{
-					ApplicationProtocols: []string{"istio"},
+					ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 				},
 				ListenerFilters: []*listener.ListenerFilter{
 					{
@@ -1233,7 +1235,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 	}
 	got := NewPolicyApplier(nil, tc.in).InboundFilterChain(
 		tc.sdsUdsPath,
-		tc.meta,
+		tc.node,
 	)
 	if !reflect.DeepEqual(got, tc.expected) {
 		t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)

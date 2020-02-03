@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/component/controlplane"
@@ -45,15 +46,6 @@ var (
 
 func genApplyManifests(setOverlay []string, inFilename []string, force bool, dryRun bool, verbose bool,
 	kubeConfigPath string, context string, wait bool, waitTimeout time.Duration, l *Logger) error {
-	overlayFromSet, err := MakeTreeFromSetList(setOverlay, force, l)
-	if err != nil {
-		return fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
-	}
-
-	manifests, iops, err := GenManifests(inFilename, overlayFromSet, force, l)
-	if err != nil {
-		return fmt.Errorf("failed to generate manifest: %v", err)
-	}
 	opts := &kubectlcmd.Options{
 		DryRun:      dryRun,
 		Verbose:     verbose,
@@ -61,6 +53,24 @@ func genApplyManifests(setOverlay []string, inFilename []string, force bool, dry
 		WaitTimeout: waitTimeout,
 		Kubeconfig:  kubeConfigPath,
 		Context:     context,
+	}
+	if err := manifest.CheckK8sVersion(opts); err != nil {
+		l.logAndError(err)
+	}
+
+	overlayFromSet, err := MakeTreeFromSetList(setOverlay, force, l)
+	if err != nil {
+		return fmt.Errorf("failed to generate tree from the set overlay, error: %v", err)
+	}
+
+	kubeconfig, err := manifest.InitK8SRestClient(opts.Kubeconfig, opts.Context)
+	if err != nil {
+		return err
+	}
+
+	manifests, iops, err := GenManifests(inFilename, overlayFromSet, force, kubeconfig, l)
+	if err != nil {
+		return fmt.Errorf("failed to generate manifest: %v", err)
 	}
 
 	for _, cn := range name.DeprecatedNames {
@@ -75,7 +85,7 @@ func genApplyManifests(setOverlay []string, inFilename []string, force bool, dry
 	gotError := false
 	skippedComponentMap := map[name.ComponentName]bool{}
 	for cn := range manifests {
-		enabledInSpec, err := name.IsComponentEnabledInSpec(cn, iops)
+		enabledInSpec, err := translate.IsComponentEnabledInSpec(cn, iops)
 		if err != nil {
 			l.logAndPrintf("failed to check if %s is enabled in IstioOperatorSpec: %v", cn, err)
 		}
@@ -112,8 +122,9 @@ func genApplyManifests(setOverlay []string, inFilename []string, force bool, dry
 }
 
 // GenManifests generate manifest from input file and setOverLay
-func GenManifests(inFilename []string, setOverlayYAML string, force bool, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
-	mergedYAML, err := genProfile(false, inFilename, "", setOverlayYAML, "", force, l)
+func GenManifests(inFilename []string, setOverlayYAML string, force bool,
+	kubeConfig *rest.Config, l *Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
+	mergedYAML, err := genProfile(false, inFilename, "", setOverlayYAML, "", force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err
 	}

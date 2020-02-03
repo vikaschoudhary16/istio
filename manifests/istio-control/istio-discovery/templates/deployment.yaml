@@ -29,7 +29,7 @@ spec:
       {{- if ne .Values.version ""}}
       app: pilot
       version: {{ .Values.version }}
-      {{ else }}
+      {{- else }}
       istio: pilot
       {{- end }}
   template:
@@ -38,7 +38,7 @@ spec:
         app: pilot
         {{- if ne .Values.version ""}}
         version: {{ .Values.version }}
-        {{ else }}
+        {{- else }}
         # Label used by the 'default' service. For versioned deployments we match with app and version.
         # This avoids default deployment picking the canary
         istio: pilot
@@ -65,7 +65,7 @@ spec:
 {{- if contains "/" .Values.pilot.image }}
           image: "{{ .Values.pilot.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.pilot.hub | default .Values.global.hub }}/{{ .Values.pilot.image | default "pilot" }}:{{ .Values.pilot.tag | default .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
           args:
@@ -83,8 +83,12 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-          - --secureGrpcAddr
-          - ""
+
+{{- if and .Values.global.controlPlaneSecurityEnabled .Values.global.istiod.enabled }}
+          - --secureGrpcAddr=:15011
+{{- else }}
+          - --secureGrpcAddr=
+{{- end }}
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
@@ -112,6 +116,8 @@ spec:
               name: istiod
               optional: true
           env:
+          - name: JWT_POLICY
+            value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
           - name: POD_NAME
@@ -124,6 +130,11 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.serviceAccountName
           {{- if .Values.pilot.env }}
           {{- range $key, $val := .Values.pilot.env }}
           - name: {{ $key }}
@@ -159,12 +170,12 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          {{ if .Values.global.istiod.enabled }}
-          {{ if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          {{- if .Values.global.istiod.enabled }}
+          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          {{ end }}
+          {{- end }}
           - name: local-certs
             mountPath: /var/run/secrets/istio-dns
           - name: cacerts
@@ -179,8 +190,8 @@ spec:
           - name: validation
             mountPath: /var/lib/istio/validation
             readOnly: true
-          {{ end }}
-{{- if .Values.global.controlPlaneSecurityEnabled }}
+          {{- end }}
+{{- if and .Values.global.controlPlaneSecurityEnabled (not .Values.global.istiod.enabled) }}
         - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
@@ -231,8 +242,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
-          - name: SDS_ENABLED
-            value: "{{ .Values.global.sds.enabled }}"
           resources:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | trim | indent 12 }}
@@ -249,15 +258,6 @@ spec:
 {{- end }}
           - name: pilot-envoy-config
             mountPath: /var/lib/envoy
-          {{- if .Values.global.sds.enabled }}
-          - name: sds-uds-path
-            mountPath: /var/run/sds
-            readOnly: true
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-          - name: istio-token
-            mountPath: /var/run/secrets/tokens
-          {{- end }}
-          {{- end }}
 {{- end }}
       volumes:
       {{- if .Values.global.istiod.enabled }}
@@ -293,22 +293,6 @@ spec:
         configMap:
           name: istio-validation
           optional: true
-
-      {{ else }}
-      {{- if .Values.global.sds.enabled }}
-      - hostPath:
-          path: /var/run/sds
-        name: sds-uds-path
-      {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-      - name: istio-token
-        projected:
-          sources:
-          - serviceAccountToken:
-              audience: {{ .Values.global.sds.token.aud }}
-              expirationSeconds: 43200
-              path: istio-token
-      {{- end }}
-      {{- end }}
       {{- end }}
 
       - name: config-volume

@@ -16,7 +16,6 @@ package analyzers
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -24,6 +23,8 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
@@ -39,10 +40,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/galley/pkg/config/schema"
-	"istio.io/istio/galley/pkg/config/schema/collection"
 	"istio.io/istio/galley/pkg/config/scope"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collection"
 )
 
 type message struct {
@@ -501,13 +501,13 @@ func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*lo
 	}
 
 	// Gather test files
-	var files []io.Reader
+	var files []local.ReaderSource
 	for _, f := range tc.inputFiles {
 		of, err := os.Open(f)
 		if err != nil {
 			return nil, fmt.Errorf("error opening test file: %q", f)
 		}
-		files = append(files, of)
+		files = append(files, local.ReaderSource{Name: f, Reader: of})
 	}
 
 	// Include resources from test files
