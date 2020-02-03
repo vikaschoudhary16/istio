@@ -4,8 +4,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-{{- if and (eq $key "tsb-gateway") (index $.Values "tsb-gateway" "tier1") }}
+{{- if eq $key "tsb-gateway" }}
+{{- if index $.Values "tsb-gateway" "tier1" }}
   name: {{ $key }}-tier1-{{ $.Release.Namespace }}
+{{- else }}
+  name: {{ $key }}-{{ $.Release.Namespace }}
+{{- end }}
 {{- else }}
   name: {{ $key }}-{{ $.Release.Namespace }}
 {{- end }}
