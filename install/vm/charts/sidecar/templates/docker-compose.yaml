@@ -34,7 +34,7 @@ services:
       --envoyAccessLogService '{"address":"oap.istio-system.svc.cluster.local:11800","tlsSettings":{"mode":"DISABLE","subjectAltNames":[]},"tcpKeepalive":{"interval":"10s","probes":3,"time":"10s"}}'
       --zipkinAddress zipkin.istio-system.svc.cluster.local:9411
     environment:
-      - ISTIO_METAJSON_LABELS={"app":"{{ .Values.global.sidecar.serviceDefinition }}.{{ .Values.global.sidecar.appNs }}","catalog.tetrate.io/serviceName":"{{ .Values.global.sidecar.serviceDefinition }}.{{ .Values.global.sidecar.appNs }}"}
+      - ISTIO_METAJSON_LABELS={"app":"{{ .Values.global.sidecar.serviceDefinition }}","catalog.tetrate.io/serviceName":"{{ .Values.global.sidecar.serviceDefinition }}.{{ .Values.global.sidecar.appNs }}"}
       - ISTIO_META_POD_PORTS=[{"containerPort":{{ .Values.global.sidecar.appPort }},"protocol":"TCP"}]
       - POD_NAME=sidecar.{{ .Values.global.sidecar.serviceDefinition }}
       - POD_NAMESPACE={{ .Values.global.sidecar.appNs }}
