@@ -47,6 +47,8 @@ spec:
           name: grpc
         - containerPort: 12800
           name: rest
+        - containerPort: 1234
+          name: http-monioring
         resources:
 {{ toYaml .Values.resources | indent 10 }}
         env:

@@ -15,5 +15,7 @@ spec:
     name: rest
   - port: 11800
     name: grpc
+  - port: 1234
+    name: http-monitoring
   selector:
     app: oap
