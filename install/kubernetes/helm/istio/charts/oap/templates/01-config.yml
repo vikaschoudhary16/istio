@@ -275,13 +275,7 @@ data:
     service_apdex = from(Service.latency).apdex(name, status);
     service_percentile = from(Service.latency).percentile(10); // Multiple values including p50, p75, p90, p95, p99
 
-    service_p99 = from(Service.latency).p99(10);
-    service_p95 = from(Service.latency).p95(10);
-    service_p90 = from(Service.latency).p90(10);
-    service_p75 = from(Service.latency).p75(10);
-    service_p50 = from(Service.latency).p50(10);
-
-    service_status_code = from(Service.*).statusCode(responseCode)
+    service_status_code = from(Service.*).statusCode(responseCode);
     service_2xx = from(Service.*).filter(responseCode >= 200).filter(responseCode < 400).cpm();
     service_4xx = from(Service.*).filter(responseCode >= 400).filter(responseCode < 500).cpm();
     service_5xx = from(Service.*).filter(responseCode >= 500).cpm();
@@ -293,16 +287,6 @@ data:
     service_instance_relation_server_call_sla = from(ServiceInstanceRelation.*).filter(detectPoint == DetectPoint.SERVER).percent(status == true);
     service_instance_relation_client_resp_time = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.CLIENT).longAvg();
     service_instance_relation_server_resp_time = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.SERVER).longAvg();
-    service_instance_relation_client_p99 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.CLIENT).p99(10);
-    service_instance_relation_server_p99 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.SERVER).p99(10);
-    service_instance_relation_client_p95 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.CLIENT).p95(10);
-    service_instance_relation_server_p95 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.SERVER).p95(10);
-    service_instance_relation_client_p90 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.CLIENT).p90(10);
-    service_instance_relation_server_p90 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.SERVER).p90(10);
-    service_instance_relation_client_p75 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.CLIENT).p75(10);
-    service_instance_relation_server_p75 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.SERVER).p75(10);
-    service_instance_relation_client_p50 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.CLIENT).p50(10);
-    service_instance_relation_server_p50 = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.SERVER).p50(10);
     service_instance_relation_client_percentile = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.CLIENT).percentile(10); // Multiple values including p50, p75, p90, p95, p99
     service_instance_relation_server_percentile = from(ServiceInstanceRelation.latency).filter(detectPoint == DetectPoint.SERVER).percentile(10); // Multiple values including p50, p75, p90, p95, p99
 
@@ -311,16 +295,9 @@ data:
     service_instance_resp_time= from(ServiceInstance.latency).longAvg();
     service_instance_cpm = from(ServiceInstance.*).cpm();
     service_instance_apdex = from(ServiceInstance.latency).apdex(name, status);
-
-    service_instance_p99 = from(ServiceInstance.latency).p99(10);
-    service_instance_p95 = from(ServiceInstance.latency).p95(10);
-    service_instance_p90 = from(ServiceInstance.latency).p90(10);
-    service_instance_p75 = from(ServiceInstance.latency).p75(10);
-    service_instance_p50 = from(ServiceInstance.latency).p50(10);
-
     service_instance_percentile = from(ServiceInstance.latency).percentile(10); // Multiple values including p50, p75, p90, p95, p99
 
-    service_instance_status_code = from(ServiceInstance.*).statusCode(responseCode)
+    service_instance_status_code = from(ServiceInstance.*).statusCode(responseCode);
     service_instance_2xx = from(ServiceInstance.*).filter(responseCode >= 200).filter(responseCode < 400).cpm();
     service_instance_4xx = from(ServiceInstance.*).filter(responseCode >= 400).filter(responseCode < 500).cpm();
     service_instance_5xx = from(ServiceInstance.*).filter(responseCode >= 500).cpm();
@@ -343,15 +320,9 @@ data:
     endpoint_avg = from(Endpoint.latency).longAvg();
     endpoint_sla = from(Endpoint.*).percent(status == true);
     endpoint_apdex = from(Endpoint.latency).apdex(name, status);
-    endpoint_p99 = from(Endpoint.latency).p99(10);
-    endpoint_p95 = from(Endpoint.latency).p95(10);
-    endpoint_p90 = from(Endpoint.latency).p90(10);
-    endpoint_p75 = from(Endpoint.latency).p75(10);
-    endpoint_p50 = from(Endpoint.latency).p50(10);
-
     endpoint_percentile = from(Endpoint.latency).percentile(10); // Multiple values including p50, p75, p90, p95, p99
 
-    endpoint_status_code = from(Endpoint.*).statusCode(responseCode)
+    endpoint_status_code = from(Endpoint.*).statusCode(responseCode);
     endpoint_2xx = from(Endpoint.*).filter(responseCode >= 200).filter(responseCode < 400).cpm();
     endpoint_4xx = from(Endpoint.*).filter(responseCode >= 400).filter(responseCode < 500).cpm();
     endpoint_5xx = from(Endpoint.*).filter(responseCode >= 500).cpm();
