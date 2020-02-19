@@ -98,6 +98,8 @@ oap:
     port: 8443
   analysis: reg-agent-mesh
   logLevel: WARN
+  enabledPackedDownsampling: false
+  dayStep: 1
   externalServices:
     # For SPM metadata service.
     metadata:

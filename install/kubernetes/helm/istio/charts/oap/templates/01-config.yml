@@ -184,6 +184,8 @@ data:
         password: ${SW_ES_PASSWORD:"{{ .Values.global.elasticsearch.password }}"}
         indexShardsNumber: ${SW_STORAGE_ES_INDEX_SHARDS_NUMBER:2}
         indexReplicasNumber: ${SW_STORAGE_ES_INDEX_REPLICAS_NUMBER:0}
+        enablePackedDownsampling: {{ .Values.enabledPackedDownsampling }}
+        dayStep: {{ .Values.dayStep }}
         # Those data TTL settings will override the same settings in core module.
         recordDataTTL: ${SW_STORAGE_ES_RECORD_DATA_TTL:7} # Unit is day
         otherMetricsDataTTL: ${SW_STORAGE_ES_OTHER_METRIC_DATA_TTL:45} # Unit is day
