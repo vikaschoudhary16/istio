@@ -718,6 +718,16 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 				}
 			}
+
+			errs = appendErrors(errs, validateSidecarIngressTLS(i.InboundTls))
+
+			// If inbound TLS defined, the port must be either TLS or HTTPS
+			if i.InboundTls != nil {
+				p := protocol.Parse(i.Port.Protocol)
+				if !p.IsTLS() {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: ingress cannot have TLS settings for non HTTPS/TLS ports"))
+				}
+			}
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -763,10 +773,52 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
 				}
 			}
+
 		}
+
+		errs = appendErrors(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
 
 		return
 	})
+
+func validateSidecarIngressTLS(tls *networking.Server_TLSOptions) (errs error) {
+	if tls == nil {
+		return nil
+	}
+
+	if tls.HttpsRedirect {
+		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls must not set 'httpsRedirect'"))
+	}
+
+	if tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH ||
+		tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL {
+		errs = appendErrors(errs, fmt.Errorf("sidecar: inbound tls mode must not be %s", tls.Mode.String()))
+	}
+	errs = appendErrors(errs, validateTLSOptions(tls))
+	return
+}
+
+func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
+	if tp == nil {
+		return
+	}
+	mode := tp.GetMode()
+	if tp.EgressProxy != nil {
+		if mode != networking.OutboundTrafficPolicy_ALLOW_ANY {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy must be set only with ALLOW_ANY outbound_traffic_policy mode"))
+			return
+		}
+
+		errs = appendErrors(errs, ValidateFQDN(tp.EgressProxy.GetHost()))
+
+		if tp.EgressProxy.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy port must be non-nil"))
+			return
+		}
+		errs = appendErrors(errs, validateDestination(tp.EgressProxy))
+	}
+	return
+}
 
 func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
 	captureMode networking.CaptureMode) (errs error) {
@@ -1668,14 +1720,6 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		}
 
 		var errs error
-		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
-		if name == constants.DefaultAuthenticationPolicyName && !emptySelector {
-			errs = appendErrors(errs, fmt.Errorf("default request authentication cannot have workload selector"))
-		} else if emptySelector && name != constants.DefaultAuthenticationPolicyName {
-			errs = appendErrors(errs,
-				fmt.Errorf("request authentication with empty workload selector must be named %q", constants.DefaultAuthenticationPolicyName))
-		}
-
 		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
 
 		for _, rule := range in.JwtRules {
@@ -1716,6 +1760,38 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 	return
 }
+
+// ValidatePeerAuthentication checks that peer authentication spec is well-formed.
+var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
+	func(name, namespace string, msg proto.Message) error {
+		in, ok := msg.(*security_beta.PeerAuthentication)
+		if !ok {
+			return errors.New("cannot cast to PeerAuthentication")
+		}
+
+		var errs error
+		emptySelector := in.Selector == nil || len(in.Selector.MatchLabels) == 0
+
+		if emptySelector && len(in.PortLevelMtls) != 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("mesh/namespace peer authentication cannot have port level mTLS"))
+		}
+
+		if in.PortLevelMtls != nil && len(in.PortLevelMtls) == 0 {
+			errs = appendErrors(errs,
+				fmt.Errorf("port level mTLS, if defined, must have at least one element"))
+		}
+
+		for port := range in.PortLevelMtls {
+			if port == 0 {
+				errs = appendErrors(errs, fmt.Errorf("port cannot be 0"))
+			}
+		}
+
+		errs = appendErrors(errs, validateWorkloadSelector(in.Selector))
+
+		return errs
+	})
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
 var ValidateServiceRole = registerValidateFunc("ValidateServiceRole",

@@ -1,3 +1,17 @@
+# AddonComponents grafana component is disabled.
+
+---
+# AddonComponents istiocoredns component is disabled.
+
+---
+# AddonComponents kiali component is disabled.
+
+---
+# AddonComponents prometheus component is disabled.
+
+---
+# AddonComponents istio-tracing component is disabled.
+
 # Base component is disabled.
 
 # Citadel component is disabled.
@@ -6,13 +20,9 @@
 
 # Galley component is disabled.
 
-# NodeAgent component is disabled.
-
-# Pilot component is disabled.
+# Pilot istiod component is disabled.
 
 # Policy component is disabled.
-
-# SidecarInjector component is disabled.
 
 # Resources for Telemetry component
 
@@ -317,9 +327,8 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
+      grpc_response_status: response.grpc_status | ""
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -354,9 +363,8 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
+      grpc_response_status: response.grpc_status | ""
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -391,9 +399,8 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
+      grpc_response_status: response.grpc_status | ""
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -428,9 +435,8 @@ spec:
       destination_service_namespace: destination.service.namespace | "unknown"
       request_protocol: api.protocol | context.protocol | "unknown"
       response_code: response.code | 200
+      grpc_response_status: response.grpc_status | ""
       response_flags: context.proxy_error_code | "-"
-      permissive_response_code: rbac.permissive.response_code | "none"
-      permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
       connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -601,10 +607,9 @@ spec:
       - destination_service_name
       - destination_service_namespace
       - request_protocol
+      - grpc_response_status
       - response_code
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
     - name: request_duration_seconds
       instance_name: requestduration.instance.istio-system
@@ -626,9 +631,8 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - grpc_response_status
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       buckets:
         explicit_buckets:
@@ -653,9 +657,8 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - grpc_response_status
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       buckets:
         exponentialBuckets:
@@ -682,9 +685,8 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - grpc_response_status
       - response_flags
-      - permissive_response_code
-      - permissive_response_policyid
       - connection_security_policy
       buckets:
         exponentialBuckets:
@@ -1337,7 +1339,6 @@ spec:
         - name: GOMAXPROCS
           value: "6"
         image: gcr.io/istio-testing/mixer:latest
-        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /version
@@ -1356,12 +1357,21 @@ spec:
           requests:
             cpu: 1000m
             memory: 1G
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /sock
           name: uds-socket
         - mountPath: /var/run/secrets/istio.io/telemetry/adapter
           name: telemetry-adapter-secret
           readOnly: true
+      securityContext:
+        fsGroup: 1337
       serviceAccountName: istio-mixer-service-account
       volumes:
       - name: istio-certs

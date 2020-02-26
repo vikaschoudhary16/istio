@@ -24,7 +24,7 @@ docker: docker.all
 # Add new docker targets to the end of the DOCKER_TARGETS list.
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar docker.test_policybackend \
-	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s \
+	docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector \
 	docker.istioctl docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
@@ -65,15 +65,6 @@ $(ISTIO_DOCKER)/certs:
 DOCKER_FILES_FROM_SOURCE:=tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
-
-
-# tell make which files are copied from ISTIO_BIN and generate rules to copy them to the proper location:
-# generates rules like the following:
-# $(ISTIO_DOCKER)/kubectl: $(ISTIO_BIN)/kubectl | $(ISTIO_DOCKER)
-# 	cp $(ISTIO_BIN)/kubectl $(ISTIO_DOCKER)/kubectl
-DOCKER_FILES_FROM_ISTIO_BIN:=kubectl
-$(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
-        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_BIN)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_BIN)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
 
 docker.sidecar_injector: BUILD_PRE=&& chmod 755 sidecar-injector
 docker.sidecar_injector: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -133,32 +124,18 @@ docker.app: $(ISTIO_DOCKER)/certs
 # Test application bundled with the sidecar (for non-k8s).
 docker.app_sidecar: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app_sidecar: tools/packaging/common/envoy_bootstrap_v2.json
-docker.app_sidecar: tools/packaging/common/istio-start.sh
-docker.app_sidecar: tools/packaging/common/istio-node-agent-start.sh
-docker.app_sidecar: tools/packaging/deb/postinst.sh
-docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
+docker.app_sidecar: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar: $(ISTIO_DOCKER)/certs
-docker.app_sidecar: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/pilot-agent
-docker.app_sidecar: $(ISTIO_OUT_LINUX)/node_agent
+docker.app_sidecar: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar: pkg/test/echo/docker/Dockerfile.app_sidecar
-docker.app_sidecar: pilot/docker/envoy_pilot.yaml.tmpl
-docker.app_sidecar: pilot/docker/envoy_policy.yaml.tmpl
-docker.app_sidecar: pilot/docker/envoy_telemetry.yaml.tmpl
-docker.app_sidecar: $(ISTIO_DOCKER)/istio-iptables
-docker.app_sidecar: $(ISTIO_DOCKER)/istio-clean-iptables
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration
 docker.test_policybackend: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
 docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
-	$(DOCKER_RULE)
-
-docker.kubectl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.kubectl: docker/Dockerfile.kubectl
 	$(DOCKER_RULE)
 
 docker.istioctl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -168,7 +145,7 @@ docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
 
 docker.operator: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.operator: operator/docker/Dockerfile.operator
-docker.operator: $(ISTIO_OUT_LINUX)/manager
+docker.operator: $(ISTIO_OUT_LINUX)/operator
 	$(DOCKER_RULE)
 
 # mixer docker images
@@ -239,11 +216,6 @@ docker.citadel-test: $(ISTIO_DOCKER)/istio_ca.key
 docker.node-agent: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.node-agent: security/docker/Dockerfile.node-agent
 docker.node-agent: $(ISTIO_DOCKER)/node_agent
-	$(DOCKER_RULE)
-
-docker.node-agent-k8s: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.node-agent-k8s: security/docker/Dockerfile.node-agent-k8s
-docker.node-agent-k8s: $(ISTIO_DOCKER)/node_agent_k8s
 	$(DOCKER_RULE)
 
 docker.node-agent-test: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}

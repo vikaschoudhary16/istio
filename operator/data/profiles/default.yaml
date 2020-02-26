@@ -1,10 +1,10 @@
 apiVersion: operator.istio.io/v1alpha1
 kind: IstioOperator
+metadata:
+  namespace: istio-system
 spec:
   hub: gcr.io/istio-testing
   tag: latest
-  meshConfig:
-    rootNamespace: istio-system
 
   # Traffic management feature
   components:
@@ -24,18 +24,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-pilot
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
         readinessProbe:
           httpGet:
             path: /ready
@@ -43,10 +31,6 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
-        resources:
-          requests:
-            cpu: 500m
-            memory: 2048Mi
         strategy:
           rollingUpdate:
             maxSurge: "100%"
@@ -125,9 +109,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-    nodeAgent:
-      enabled: false
-
   # Config management feature
     galley:
       enabled: false
@@ -136,16 +117,6 @@ spec:
         resources:
           requests:
             cpu: 100m
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
-  # Auto injection feature
-    sidecarInjector:
-      enabled: false
-      k8s:
-        replicaCount: 1
         strategy:
           rollingUpdate:
             maxSurge: "100%"
@@ -214,10 +185,26 @@ spec:
   addonComponents:
     prometheus:
       enabled: true
+      k8s:
+        replicaCount: 1
+    kiali:
+      enabled: false
+      k8s:
+        replicaCount: 1
+    grafana:
+      enabled: false
+      k8s:
+        replicaCount: 1
+    tracing:
+      enabled: false
+    istiocoredns:
+      enabled: false
 
   # Global values passed through to helm global.yaml.
+  # Please keep this in sync with manifests/global.yaml
   values:
     global:
+      istioNamespace: istio-system
       istiod:
         enabled: true
       logging:
@@ -293,7 +280,9 @@ spec:
           requests:
             cpu: 10m
             memory: 10Mi
-      imagePullPolicy: IfNotPresent
+      # Specify image pull policy if default behavior isn't desired.
+      # Default behavior: latest images will be Always else IfNotPresent.
+      imagePullPolicy: ""
       certificates: []
       operatorManageWebhooks: false
       controlPlaneSecurityEnabled: true
@@ -310,6 +299,11 @@ spec:
           address: ""
         datadog:
           address: "$(HOST_IP):8126"
+        stackdriver:
+          debug: false
+          maxNumberOfAttributes: 200
+          maxNumberOfAnnotations: 200
+          maxNumberOfMessageEvents: 200
       mtls:
         enabled: false
         auto: true
@@ -340,14 +334,15 @@ spec:
       outboundTrafficPolicy:
         mode: ALLOW_ANY
       sds:
-        enabled: false
-        udsPath: ""
         token:
           aud: istio-ca
+      sts:
+        servicePort: 0
       meshNetworks: {}
       localityLbSetting:
         enabled: true
       enableHelmTest: false
+      mountMtlsCerts: false
     pilot:
       autoscaleEnabled: true
       autoscaleMin: 1
@@ -450,15 +445,9 @@ spec:
       dnsCerts:
         istio-pilot-service-account.istio-control: istio-pilot.istio-control
 
-    nodeagent:
-      image: node-agent-k8s
-
     gateways:
       istio-egressgateway:
         autoscaleEnabled: true
-        zvpn:
-          suffix: global
-          enabled: true
         type: ClusterIP
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
@@ -484,19 +473,6 @@ spec:
         debug: info
         domain: ""
         type: LoadBalancer
-        zvpn:
-          enabled: true
-          suffix: global
-        sds:
-          enabled: false
-          image: node-agent-k8s
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 2000m
-              memory: 1024Mi
         env:
           ISTIO_META_ROUTER_MODE: "sni-dnat"
         ports:
@@ -504,9 +480,10 @@ spec:
             targetPort: 15020
             name: status-port
           - port: 80
-            targetPort: 80
+            targetPort: 8080
             name: http2
           - port: 443
+            targetPort: 8443
             name: https
           - port: 15029
             targetPort: 15029
@@ -531,7 +508,7 @@ spec:
             targetPort: 8060
             name: tcp-citadel-grpc-tls
           - port: 853
-            targetPort: 853
+            targetPort: 8853
             name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
@@ -542,18 +519,14 @@ spec:
             mountPath: /etc/istio/ingressgateway-ca-certs
 
     sidecarInjectorWebhook:
-      image: sidecar_injector
       enableNamespacesByDefault: false
       rewriteAppHTTPProbe: false
-      selfSigned: false
       injectLabel: istio-injection
       objectSelector:
         enabled: false
         autoInject: true
 
     prometheus:
-      enabled: true
-      replicaCount: 1
       hub: docker.io/prom
       tag: v2.15.1
       retention: 6h
@@ -571,10 +544,9 @@ spec:
       tolerations: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
+      provisionPrometheusCert: true
 
     grafana:
-      enabled: false
-      replicaCount: 1
       image:
         repository: grafana/grafana
         tag: 6.5.2
@@ -623,7 +595,6 @@ spec:
       envSecrets: {}
 
     tracing:
-      enabled: false
       provider: jaeger
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -677,14 +648,11 @@ spec:
         annotations:
         tls:
     istiocoredns:
-      enabled: false
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     kiali:
-      enabled: false
-      replicaCount: 1
       hub: quay.io/kiali
       tag: v1.9
       contextPath: /kiali

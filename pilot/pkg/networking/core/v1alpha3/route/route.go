@@ -335,7 +335,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	// resolved Traffic to such clusters will blackhole.
 
 	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, node.WorkloadLabels, gatewayNames) {
+	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames) {
 		return nil
 	}
 
@@ -585,6 +585,14 @@ func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *ro
 		out.Headers = append(out.Headers, &matcher)
 	}
 
+	if util.IsIstioVersionGE14(node) {
+		for name, stringMatch := range in.WithoutHeaders {
+			matcher := translateHeaderMatch(name, stringMatch, node)
+			matcher.InvertMatch = true
+			out.Headers = append(out.Headers, &matcher)
+		}
+	}
+
 	// guarantee ordering of headers
 	sort.Slice(out.Headers, func(i, j int) bool {
 		return out.Headers[i].Name < out.Headers[j].Name
@@ -668,10 +676,32 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) route.Que
 	return out
 }
 
+// isCatchAllHeaderMatch determines if the given header is matched with all strings or not.
+// Currently, if the regex has "*" value, it returns true
+func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
+	catchall := false
+
+	if in == nil {
+		return true
+	}
+
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Regex:
+		catchall = m.Regex == "*"
+	}
+
+	return catchall
+}
+
 // translateHeaderMatch translates to HeaderMatcher
 func translateHeaderMatch(name string, in *networking.StringMatch, node *model.Proxy) route.HeaderMatcher {
 	out := route.HeaderMatcher{
 		Name: name,
+	}
+
+	if isCatchAllHeaderMatch(in) {
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_PresentMatch{PresentMatch: true}
+		return out
 	}
 
 	switch m := in.MatchType.(type) {
@@ -796,7 +826,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
-	notimeout := ptypes.DurationProto(0 * time.Second)
+	notimeout := ptypes.DurationProto(0)
 
 	val := &route.Route{
 		Match: translateRouteMatch(nil, node),
@@ -923,7 +953,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		cookie := consistentHash.GetHttpCookie()
 		var ttl *duration.Duration
 		if cookie.GetTtl() != nil {
-			ttl = ptypes.DurationProto(*cookie.GetTtl())
+			ttl = gogo.DurationToProtoDuration(cookie.GetTtl())
 		}
 		return &route.RouteAction_HashPolicy{
 			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
@@ -939,6 +969,14 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 			PolicySpecifier: &route.RouteAction_HashPolicy_ConnectionProperties_{
 				ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
 					SourceIp: consistentHash.GetUseSourceIp(),
+				},
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpQueryParameterName:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_QueryParameter_{
+				QueryParameter: &route.RouteAction_HashPolicy_QueryParameter{
+					Name: consistentHash.GetHttpQueryParameterName(),
 				},
 			},
 		}

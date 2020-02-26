@@ -12,7 +12,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/includeInboundPorts: ""
@@ -21,6 +21,8 @@ spec:
       labels:
         app: traffic
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: traffic
+        service.istio.io/canonical-revision: latest
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0
@@ -34,30 +36,10 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
-        - --configPath
-        - /etc/istio/proxy
-        - --binaryPath
-        - /usr/local/bin/envoy
         - --serviceCluster
         - traffic.$(POD_NAMESPACE)
-        - --drainDuration
-        - 45s
-        - --parentShutdownDuration
-        - 1m0s
-        - --discoveryAddress
-        - istio-pilot:15010
-        - --zipkinAddress
-        - ""
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
-        - --connectTimeout
-        - 1s
-        - --proxyAdminPort
-        - "15000"
-        - --controlPlaneAuthPolicy
-        - NONE
-        - --dnsRefreshRate
-        - 300s
         - --statusPort
         - "15020"
         - --trust-domain=cluster.local
@@ -91,6 +73,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: MESH_CONFIG
+          value: |
+            {}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -111,7 +96,7 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         image: gcr.io/istio-release/proxyv2:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -148,9 +133,8 @@ spec:
           name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
+        - mountPath: /etc/istio/pod
+          name: podinfo
       initContainers:
       - command:
         - istio-iptables
@@ -169,9 +153,9 @@ spec:
         - -b
         - ""
         - -d
-        - 4,5,6,15020
+        - 15090,4,5,6,15020
         image: gcr.io/istio-release/proxy_init:master-latest-daily
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: istio-init
         resources:
           limits:
@@ -197,6 +181,15 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - downwardAPI:
+          items:
+          - fieldRef:
+              fieldPath: metadata.labels
+            path: labels
+          - fieldRef:
+              fieldPath: metadata.annotations
+            path: annotations
+        name: podinfo
       - name: istio-token
         projected:
           sources:
@@ -207,10 +200,6 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: citadel-ca-cert
-      - name: istio-certs
-        secret:
-          optional: true
-          secretName: istio.default
 status: {}
 
 ---

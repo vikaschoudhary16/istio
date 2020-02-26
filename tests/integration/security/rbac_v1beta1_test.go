@@ -15,6 +15,7 @@
 package security
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -110,11 +111,12 @@ func TestV1beta1_JWT(t *testing.T) {
 			g.ApplyConfigOrFail(t, ns, policies...)
 			defer g.DeleteConfigOrFail(t, ns, policies...)
 
-			var a, b, c echo.Instance
+			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
 				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
 				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
+				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -147,6 +149,24 @@ func TestV1beta1_JWT(t *testing.T) {
 				newTestCase(b, "[PermissionTokenWithSpaceDelimitedScope]", jwt.TokenIssuer2WithSpaceDelimitedScope, "/permission", true),
 				newTestCase(b, "[NoJWT]", "", "/tokenAny", false),
 				newTestCase(c, "[NoJWT]", "", "/somePath", true),
+
+				// Test condition "request.auth.principal" on path "/valid-jwt".
+				newTestCase(d, "[NoJWT]", "", "/valid-jwt", false),
+				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/valid-jwt", true),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/valid-jwt", true),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/valid-jwt", true),
+
+				// Test condition "request.auth.presenter" on suffix "/presenter".
+				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/presenter", false),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1, "/request/presenter", false),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter-x", false),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/presenter", true),
+
+				// Test condition "request.auth.audiences" on suffix "/audiences".
+				newTestCase(d, "[Token1]", jwt.TokenIssuer1, "/request/audiences", false),
+				newTestCase(d, "[Token1WithAzp]", jwt.TokenIssuer1WithAzp, "/request/audiences", false),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences-x", false),
+				newTestCase(d, "[Token1WithAud]", jwt.TokenIssuer1WithAud, "/request/audiences", true),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -648,6 +668,118 @@ func TestV1beta1_TCP(t *testing.T) {
 				newTestCase(c, d, "tcp", true),
 				newTestCase(x, a, "tcp", true),
 				newTestCase(x, d, "tcp", false),
+			}
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestV1beta1_Conditions tests v1beta1 authorization with conditions.
+func TestV1beta1_Conditions(t *testing.T) {
+	framework.NewTest(t).
+		RequiresEnvironment(environment.Kube).
+		Run(func(ctx framework.TestContext) {
+			nsA := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-conditions-a",
+				Inject: true,
+			})
+			nsB := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-conditions-b",
+				Inject: true,
+			})
+			nsC := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-conditions-c",
+				Inject: true,
+			})
+
+			portC := 8090
+			var a, b, c echo.Instance
+			echoboot.NewBuilderOrFail(t, ctx).
+				With(&a, util.EchoConfig("a", nsA, false, nil, g, p)).
+				With(&b, util.EchoConfig("b", nsB, false, nil, g, p)).
+				With(&c, echo.Config{
+					Service:   "c",
+					Namespace: nsC,
+					Ports: []echo.Port{
+						{
+							Name:         "http",
+							Protocol:     protocol.HTTP,
+							InstancePort: portC,
+						},
+					},
+					Galley: g,
+					Pilot:  p,
+				}).
+				BuildOrFail(t)
+
+			args := map[string]string{
+				"NamespaceA": nsA.Name(),
+				"NamespaceB": nsB.Name(),
+				"NamespaceC": nsC.Name(),
+				"IpA":        getWorkload(a, t).Address(),
+				"IpB":        getWorkload(b, t).Address(),
+				"IpC":        getWorkload(c, t).Address(),
+				"PortC":      fmt.Sprintf("%d", portC),
+			}
+			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/rbac/v1beta1-conditions.yaml.tmpl"))
+			g.ApplyConfigOrFail(t, nil, policies...)
+			defer g.DeleteConfigOrFail(t, nil, policies...)
+
+			newTestCase := func(from echo.Instance, path string, headers map[string]string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: from,
+						Options: echo.CallOptions{
+							Target:   c,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					Headers:       headers,
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase(a, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(b, "/request-headers", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(a, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+				newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
+				newTestCase(a, "/request-headers", nil, false),
+				newTestCase(b, "/request-headers", nil, false),
+
+				newTestCase(a, "/source-ip-a", nil, true),
+				newTestCase(b, "/source-ip-a", nil, false),
+				newTestCase(a, "/source-ip-b", nil, false),
+				newTestCase(b, "/source-ip-b", nil, true),
+
+				newTestCase(a, "/source-namespace-a", nil, true),
+				newTestCase(b, "/source-namespace-a", nil, false),
+				newTestCase(a, "/source-namespace-b", nil, false),
+				newTestCase(b, "/source-namespace-b", nil, true),
+
+				newTestCase(a, "/source-principal-a", nil, true),
+				newTestCase(b, "/source-principal-a", nil, false),
+				newTestCase(a, "/source-principal-b", nil, false),
+				newTestCase(b, "/source-principal-b", nil, true),
+
+				newTestCase(a, "/destination-ip-good", nil, true),
+				newTestCase(b, "/destination-ip-good", nil, true),
+				newTestCase(a, "/destination-ip-bad", nil, false),
+				newTestCase(b, "/destination-ip-bad", nil, false),
+
+				newTestCase(a, "/destination-port-good", nil, true),
+				newTestCase(b, "/destination-port-good", nil, true),
+				newTestCase(a, "/destination-port-bad", nil, false),
+				newTestCase(b, "/destination-port-bad", nil, false),
+
+				newTestCase(a, "/connection-sni-good", nil, true),
+				newTestCase(b, "/connection-sni-good", nil, true),
+				newTestCase(a, "/connection-sni-bad", nil, false),
+				newTestCase(b, "/connection-sni-bad", nil, false),
+
+				newTestCase(a, "/other", nil, false),
+				newTestCase(b, "/other", nil, false),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)

@@ -55,7 +55,7 @@ message CNIConfig {
 
   string hub = 2;
 
-  StringOrNumber tag = 3;
+  TypeInterface tag = 3;
 
   string image = 4;
 
@@ -74,6 +74,34 @@ message CNIConfig {
   string psp_cluster_role = 11;
 
   string logLevel = 12;
+
+  CNIRepairConfig repair = 13;
+
+  google.protobuf.BoolValue chained = 14;
+}
+
+message CNIRepairConfig {
+  // Controls whether repair behavior is enabled.
+  google.protobuf.BoolValue enabled = 1;
+
+  string hub = 2;
+
+  TypeInterface tag = 3;
+
+  string image = 4;
+
+  // Controls whether various repair behaviors are enabled.
+  bool labelPods = 5;
+
+  string createEvents = 6 [deprecated=true];
+
+  bool deletePods = 7;
+
+  string brokenPodLabelKey = 8;
+
+  string brokenPodLabelValue = 9;
+
+  string initContainerName = 10;
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
@@ -93,7 +121,7 @@ message CertManagerConfig {
   string hub = 2;
 
   // Image tag for the CertManager Deployment.
-  StringOrNumber tag = 3;
+  TypeInterface tag = 3;
 
   // Image name for the CertManager Deployment.
   string image = 4;
@@ -293,6 +321,7 @@ message EgressGatewayConfig {
   TypeSliceOfMapStringInterface additionalContainers = 24;
 }
 
+
 // EnvoyMetricsConfig is a set of configuration options for Envoy metrics.
 message EnvoyMetricsConfig {
   // Enables the Envoy Metrics Service.
@@ -311,7 +340,7 @@ message EnvoyMetricsConfig {
 
 // GalleyConfig is a set of Configuration for Galley.
 message GalleyConfig {
-  // Controls whether Galley is enabled.
+  // Controls whether Galley is enabled
   google.protobuf.BoolValue enabled = 1;
 
   // Image name used for Galley.
@@ -360,7 +389,7 @@ message GalleyConfig {
 
   string hub = 15;
 
-  StringOrNumber tag = 16;
+  TypeInterface tag = 16;
 }
 
 // GatewayLabelsConfig is a set of Configuration for gateway labels.
@@ -440,7 +469,7 @@ message GlobalConfig {
   string imagePullPolicy = 13;
   // ImagePullPolicy             v1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
 
-  TypeSliceOfMapStringInterface imagePullSecrets = 37;
+  repeated string imagePullSecrets = 37;
 
   // Specifies the default namespace for the Istio control plane components.
   string istioNamespace = 14;
@@ -560,7 +589,7 @@ message GlobalConfig {
   SDSConfig sds = 30;
 
   // Specifies the tag for the Istio docker images.
-  StringOrNumber tag = 31;
+  TypeInterface tag = 31;
 
   // Specifies the namespace for the telemetry component.
   string telemetryNamespace = 32;
@@ -602,13 +631,28 @@ message GlobalConfig {
   // Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   string jwtPolicy = 57;
 
-  // The next available key is 58
+  // Specifies the configuration for Security Token Service.
+  STSConfig sts = 58;
+
+  // Configures the revision this control plane is a part of
+  string revision = 59;
+
+  // Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.
+  google.protobuf.BoolValue mountMtlsCerts = 60;
+  // The next available key is 61
 }
 
+// Configuration for Security Token Service (STS) server.
+//
+// See https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16
+message STSConfig {
+  uint32 servicePort = 1;
+}
 
 message IstiodConfig {
   // If enabled, all control plane functionality will be handled by a single deployment.
-  google.protobuf.BoolValue enabled = 1;
+  // Deprecated. This field is always ignored and assumed true.
+  google.protobuf.BoolValue enabled = 1 [deprecated=true];
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.
@@ -936,7 +980,7 @@ message MixerPolicyConfig {
 
   string hub = 19;
 
-  StringOrNumber tag = 20;
+  TypeInterface tag = 20;
 }
 
 // Configuration for Mixer Telemetry.
@@ -1018,7 +1062,7 @@ message MixerTelemetryConfig {
 
   string hub = 23;
 
-  StringOrNumber tag = 24;
+  TypeInterface tag = 24;
 }
 
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
@@ -1064,7 +1108,7 @@ message NodeAgentConfig {
 
   string hub = 9;
 
-  StringOrNumber tag = 10;
+  TypeInterface tag = 10;
 }
 
 // OutboundTrafficPolicyConfig controls the default behavior of the sidecar for handling outbound traffic from the application.
@@ -1211,7 +1255,7 @@ message PilotConfig {
 
   string hub = 34;
 
-  StringOrNumber tag = 35;
+  TypeInterface tag = 35;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1324,7 +1368,7 @@ message PrometheusConfig {
 
   string hub = 4;
 
-  StringOrNumber tag = 5;
+  TypeInterface tag = 5;
 
   string retention = 6;
 
@@ -1360,6 +1404,13 @@ message PrometheusConfig {
   TypeMapStringInterface podAnnotations = 18 [deprecated=true];
 
   string image = 19 [deprecated=true];
+
+  // Configure whether provisions a certificate to Prometheus through Istio Agent.
+  // When this option is set as true, a sidecar is deployed along Prometheus to
+  // provision a certificate through Istio Agent to Prometheus. The provisioned certificate
+  // is shared with Prometheus through mounted files.
+  // When this option is set as false, this certificate provisioning mechanism is disabled.
+  google.protobuf.BoolValue  provisionPrometheusCert = 20;
 }
 
 // Configuration for Prometheus adapter in mixer.
@@ -1512,6 +1563,10 @@ message ProxyConfig {
   string connectTimeout = 30;
 
   google.protobuf.Duration parentShutdownDuration = 32;
+
+  string enableCoreDumpImage = 33 [deprecated=true];
+
+  string outlierLogPath = 34;
 }
 
 // Specifies which tracer to use.
@@ -1698,7 +1753,7 @@ message SidecarInjectorConfig {
 
   string hub = 4;
 
-  StringOrNumber tag = 5;
+  TypeInterface tag = 5;
 
   // K8s node selector. Each component can overwrite the default values by adding its node selector block in the relevant section and setting the desired values.
   //
@@ -1910,7 +1965,7 @@ message TracingOpencensusConfig {
   string hub = 1;
 
   // Image tag for Opencensus tracing deployment.
-  StringOrNumber tag = 2;
+  TypeInterface tag = 2;
 
   TracingOpencensusExportersConfig exporters  = 3;
   // K8s resources settings.
@@ -1945,7 +2000,7 @@ message TracingJaegerConfig {
   string hub = 1;
 
   // Image tag for Jaeger tracing deployment.
-  StringOrNumber tag = 2;
+  TypeInterface tag = 2;
 
   string image = 10;
 
@@ -1983,7 +2038,7 @@ message TracingZipkinConfig {
   string hub = 1;
 
   // Image tag for Zipkin tracing deployment.
-  StringOrNumber tag = 2;
+  TypeInterface tag = 2;
 
   string image = 9;
 
@@ -2064,7 +2119,7 @@ message KialiConfig {
   string hub = 3;
 
   // Image tag for kiali deployment.
-  StringOrNumber tag = 4;
+  TypeInterface tag = 4;
 
   // Number of replicas for Kiali.
   uint32 replicaCount = 5 [deprecated=true];
@@ -2124,6 +2179,8 @@ message KialiConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 17 [deprecated=true];
+
+  string prometheusAddr = 18 [deprecated=true];
 }
 
 message Values {
@@ -2143,7 +2200,7 @@ message Values {
 
   MixerConfig mixer = 8;
 
-  NodeAgentConfig nodeagent = 9;
+  NodeAgentConfig nodeagent = 9 [deprecated=true];
 
   PilotConfig pilot = 10;
 
@@ -2160,6 +2217,7 @@ message Values {
 
   KialiConfig kiali = 15;
 
+  // Deprecated.
   string version = 16;
 
   google.protobuf.BoolValue clusterResources = 17;
@@ -2169,6 +2227,9 @@ message Values {
   CNIConfig istio_cni = 19;
 
   google.protobuf.BoolValue kustomize = 20;
+
+  string revision = 21;
+
 }
 
 // GOTYPE: map[string]interface{}
@@ -2188,5 +2249,5 @@ message ZeroVPNConfig {
   string suffix = 2;
 }
 
-// GOTYPE: *json.Number
-message StringOrNumber {}
+// GOTYPE: interface{}
+message TypeInterface {}

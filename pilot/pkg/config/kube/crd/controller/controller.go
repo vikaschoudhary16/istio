@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"time"
 
+	"istio.io/pkg/ledger"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -265,6 +267,14 @@ func (c *controller) GetResourceAtVersion(version string, key string) (resourceV
 	return c.client.GetResourceAtVersion(version, key)
 }
 
+func (c *controller) GetLedger() ledger.Ledger {
+	return c.client.GetLedger()
+}
+
+func (c *controller) SetLedger(l ledger.Ledger) error {
+	return c.client.SetLedger(l)
+}
+
 func (c *controller) HasSynced() bool {
 	for kind, ctl := range c.kinds {
 		if !ctl.informer.HasSynced() {
@@ -366,7 +376,7 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 			// DO NOT RETURN ERROR: if a single object is bad, it'll be ignored (with a log message), but
 			// the rest should still be processed.
 			handleValidationFailure(item, err)
-		} else {
+		} else if c.client.objectInEnvironment(config) {
 			out = append(out, *config)
 		}
 	}

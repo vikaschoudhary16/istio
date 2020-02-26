@@ -11,9 +11,12 @@ spec:
       enabled: true
       namespace: istio-control
       k8s:
+        resources:
+          requests:
+            cpu: 123m
         overlays:
           - kind: Deployment
-            name: istio-pilot
+            name: istiod
             patches:
               - path: spec.template.spec.containers.[name:discovery].args.[30m]
                 value: "60m" # OVERRIDDEN

@@ -2,10 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: pilot
+    app: istiod
     istio: pilot
     release: istio
-  name: istio-pilot
+  name: istiod
   namespace: istio-control
 spec:
   selector:
@@ -20,7 +20,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
       labels:
-        app: pilot
+        app: istiod
         istio: pilot
     spec:
       affinity:
@@ -96,8 +96,10 @@ spec:
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "false"
+        - name: INJECTION_WEBHOOK_CONFIG_NAME
+          value: istio-sidecar-injector
         - name: ISTIOD_ADDR
-          value: istio-pilot.istio-control.svc:15012
+          value: istiod.istio-control.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
           value: "false"
         envFrom:
@@ -105,7 +107,6 @@ spec:
             name: istiod
             optional: true
         image: docker.io/istio/pilot:1.1.4
-        imagePullPolicy: IfNotPresent
         name: discovery
         ports:
         - containerPort: 8080
@@ -120,8 +121,15 @@ spec:
           timeoutSeconds: 5
         resources:
           requests:
-            cpu: 500m
-            memory: 2048Mi
+            cpu: 222m
+            memory: 333Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config
           name: config-volume
@@ -139,12 +147,9 @@ spec:
         - mountPath: /var/lib/istio/local
           name: istiod
           readOnly: true
-        - mountPath: /var/lib/istio/validation
-          name: validation
-          readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -169,13 +174,6 @@ spec:
           optional: true
         name: inject
       - configMap:
-          name: istio-validation
-          optional: true
-        name: validation
-      - configMap:
           name: istio
         name: config-volume
-      - configMap:
-          name: pilot-envoy-config
-        name: pilot-envoy-config
 ---

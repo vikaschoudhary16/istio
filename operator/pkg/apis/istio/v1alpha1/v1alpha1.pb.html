@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 92
+number_of_entries: 94
 ---
 <h2 id="AddonIngressConfig">AddonIngressConfig</h2>
 <section>
@@ -145,7 +145,7 @@ No
 </tr>
 <tr id="CNIConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -224,9 +224,136 @@ No
 No
 </td>
 </tr>
+<tr id="CNIConfig-repair">
+<td><code>repair</code></td>
+<td><code><a href="#CNIRepairConfig">CNIRepairConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIConfig-chained">
+<td><code>chained</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="CNIConfig-podAnnotations" class="deprecated ">
 <td><code>podAnnotations</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CNIRepairConfig">CNIRepairConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CNIRepairConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether repair behavior is enabled.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-hub">
+<td><code>hub</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-tag">
+<td><code>tag</code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-image">
+<td><code>image</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-labelPods">
+<td><code>labelPods</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Controls whether various repair behaviors are enabled.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-deletePods">
+<td><code>deletePods</code></td>
+<td><code>bool</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-brokenPodLabelKey">
+<td><code>brokenPodLabelKey</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-brokenPodLabelValue">
+<td><code>brokenPodLabelValue</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-initContainerName">
+<td><code>initContainerName</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="CNIRepairConfig-createEvents" class="deprecated ">
+<td><code>createEvents</code></td>
+<td><code>string</code></td>
 <td>
 </td>
 <td>
@@ -304,7 +431,7 @@ No
 </tr>
 <tr id="CertManagerConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 <p>Image tag for the CertManager Deployment.</p>
 
@@ -1174,7 +1301,7 @@ No
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>Controls whether Galley is enabled.</p>
+<p>Controls whether Galley is enabled</p>
 
 </td>
 <td>
@@ -1229,7 +1356,7 @@ No
 </tr>
 <tr id="GalleyConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -1583,7 +1710,7 @@ No
 </tr>
 <tr id="GlobalConfig-imagePullSecrets">
 <td><code>imagePullSecrets</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
+<td><code>string[]</code></td>
 <td>
 </td>
 <td>
@@ -1880,7 +2007,7 @@ No
 </tr>
 <tr id="GlobalConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 <p>Specifies the tag for the Istio docker images.</p>
 
@@ -2039,6 +2166,39 @@ No
 <td>
 <p>Configure the policy for validating JWT.
 Currently, two options are supported: &ldquo;third-party-jwt&rdquo; and &ldquo;first-party-jwt&rdquo;.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-sts">
+<td><code>sts</code></td>
+<td><code><a href="#STSConfig">STSConfig</a></code></td>
+<td>
+<p>Specifies the configuration for Security Token Service.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-revision">
+<td><code>revision</code></td>
+<td><code>string</code></td>
+<td>
+<p>Configures the revision this control plane is a part of</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="GlobalConfig-mountMtlsCerts">
+<td><code>mountMtlsCerts</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether the in-cluster MTLS key and certs are loaded from the secret volume mounts.</p>
 
 </td>
 <td>
@@ -2695,11 +2855,12 @@ No
 </tr>
 </thead>
 <tbody>
-<tr id="IstiodConfig-enabled">
+<tr id="IstiodConfig-enabled" class="deprecated ">
 <td><code>enabled</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>If enabled, all control plane functionality will be handled by a single deployment.</p>
+<p>If enabled, all control plane functionality will be handled by a single deployment.
+Deprecated. This field is always ignored and assumed true.</p>
 
 </td>
 <td>
@@ -2754,7 +2915,7 @@ No
 </tr>
 <tr id="KialiConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 <p>Image tag for kiali deployment.</p>
 
@@ -2914,6 +3075,15 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="KialiConfig-prometheusAddr" class="deprecated ">
+<td><code>prometheusAddr</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No
@@ -3527,7 +3697,7 @@ No
 </tr>
 <tr id="MixerPolicyConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -3871,7 +4041,7 @@ No
 </tr>
 <tr id="MixerTelemetryConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -4094,7 +4264,7 @@ No
 </tr>
 <tr id="NodeAgentConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -4501,7 +4671,7 @@ No
 </tr>
 <tr id="PilotConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -4842,7 +5012,7 @@ No
 </tr>
 <tr id="PrometheusConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -4898,6 +5068,21 @@ No
 <td><code>security</code></td>
 <td><code><a href="#PrometheusSecurityConfig">PrometheusSecurityConfig</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="PrometheusConfig-provisionPrometheusCert">
+<td><code>provisionPrometheusCert</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Configure whether provisions a certificate to Prometheus through Istio Agent.
+When this option is set as true, a sidecar is deployed along Prometheus to
+provision a certificate through Istio Agent to Prometheus. The provisioned certificate
+is shared with Prometheus through mounted files.
+When this option is set as false, this certificate provisioning mechanism is disabled.</p>
+
 </td>
 <td>
 No
@@ -5497,6 +5682,15 @@ No
 No
 </td>
 </tr>
+<tr id="ProxyConfig-outlierLogPath">
+<td><code>outlierLogPath</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="ProxyConfig-resources" class="deprecated ">
 <td><code>resources</code></td>
 <td><code><a href="#Resources">Resources</a></code></td>
@@ -5505,6 +5699,15 @@ No
 
 <p>See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container</p>
 
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="ProxyConfig-enableCoreDumpImage" class="deprecated ">
+<td><code>enableCoreDumpImage</code></td>
+<td><code>string</code></td>
+<td>
 </td>
 <td>
 No
@@ -5685,6 +5888,34 @@ No
 <tr id="SDSConfig-token" class="deprecated ">
 <td><code>token</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="STSConfig">STSConfig</h2>
+<section>
+<p>Configuration for Security Token Service (STS) server.</p>
+
+<p>See https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="STSConfig-servicePort">
+<td><code>servicePort</code></td>
+<td><code>uint32</code></td>
 <td>
 </td>
 <td>
@@ -6092,7 +6323,7 @@ No
 </tr>
 <tr id="SidecarInjectorConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 </td>
 <td>
@@ -6528,11 +6759,6 @@ No
 </tr>
 </tbody>
 </table>
-</section>
-<h2 id="StringOrNumber">StringOrNumber</h2>
-<section>
-<p>GOTYPE: *json.Number</p>
-
 </section>
 <h2 id="TelemetryConfig">TelemetryConfig</h2>
 <section>
@@ -7216,7 +7442,7 @@ No
 </tr>
 <tr id="TracingJaegerConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 <p>Image tag for Jaeger tracing deployment.</p>
 
@@ -7363,7 +7589,7 @@ No
 </tr>
 <tr id="TracingOpencensusConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 <p>Image tag for Opencensus tracing deployment.</p>
 
@@ -7461,7 +7687,7 @@ No
 </tr>
 <tr id="TracingZipkinConfig-tag">
 <td><code>tag</code></td>
-<td><code><a href="#StringOrNumber">StringOrNumber</a></code></td>
+<td><code><a href="#TypeInterface">TypeInterface</a></code></td>
 <td>
 <p>Image tag for Zipkin tracing deployment.</p>
 
@@ -7598,6 +7824,11 @@ No
 <p>GOTYPE: *IntOrStringForPB</p>
 
 </section>
+<h2 id="TypeInterface">TypeInterface</h2>
+<section>
+<p>GOTYPE: interface{}</p>
+
+</section>
 <h2 id="TypeMapStringInterface">TypeMapStringInterface</h2>
 <section>
 <p>GOTYPE: map[string]interface{}</p>
@@ -7692,15 +7923,6 @@ No
 No
 </td>
 </tr>
-<tr id="Values-nodeagent">
-<td><code>nodeagent</code></td>
-<td><code><a href="#NodeAgentConfig">NodeAgentConfig</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="Values-pilot">
 <td><code>pilot</code></td>
 <td><code><a href="#PilotConfig">PilotConfig</a></code></td>
@@ -7770,6 +7992,8 @@ No
 <td><code>version</code></td>
 <td><code>string</code></td>
 <td>
+<p>Deprecated.</p>
+
 </td>
 <td>
 No
@@ -7807,6 +8031,24 @@ No
 <tr id="Values-kustomize">
 <td><code>kustomize</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-revision">
+<td><code>revision</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="Values-nodeagent" class="deprecated ">
+<td><code>nodeagent</code></td>
+<td><code><a href="#NodeAgentConfig">NodeAgentConfig</a></code></td>
 <td>
 </td>
 <td>

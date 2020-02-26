@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/util"
 )
 
 const (
@@ -105,6 +104,7 @@ var (
 		{Group: "rbac.istio.io", Version: "v1alpha1", Kind: "ServiceRoleBinding"},
 		{Group: "security.istio.io", Version: "v1beta1", Kind: "AuthorizationPolicy"},
 		{Group: "security.istio.io", Version: "v1beta1", Kind: "RequestAuthentication"},
+		{Group: "security.istio.io", Version: "v1beta1", Kind: "PeerAuthentication"},
 	}
 
 	// ordered by which types should be deleted, first to last
@@ -126,8 +126,8 @@ func NewIstioPruningDetails(instance *v1alpha1.IstioOperator) helmreconciler.Pru
 	return &helmreconciler.SimplePruningDetails{
 		OwnerLabels: map[string]string{
 			OwnerNameKey:  name,
-			OwnerGroupKey: util.IstioOperatorGVK.Group,
-			OwnerKindKey:  util.IstioOperatorGVK.Kind,
+			OwnerGroupKey: v1alpha1.IstioOperatorGVK.Group,
+			OwnerKindKey:  v1alpha1.IstioOperatorGVK.Kind,
 		},
 		NamespacedResources:    namespacedResources,
 		NonNamespacedResources: nonNamespacedResources,

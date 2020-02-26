@@ -232,13 +232,16 @@ global:
         cpu: 10m
         memory: 10Mi
 
-  # imagePullPolicy is applied to istio control plane components.
-  # local tests require IfNotPresent, to avoid uploading to dockerhub.
-  imagePullPolicy: IfNotPresent
+  # Specify image pull policy if default behavior isn't desired.
+  # Default behavior: latest images will be Always else IfNotPresent.
+  imagePullPolicy: ""
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: true
+
+  # Use the user-specified, secret volume mounted key and certs for Pilot and workloads.
+  mountMtlsCerts: false
 
   # disablePolicyChecks disables mixer policy checks.
   # if mixer.policy.enabled==true then disablePolicyChecks has affect.
@@ -393,7 +396,7 @@ global:
 
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
-  useMCP: true
+  useMCP: false
 
   # The trust domain corresponds to the trust root of a system
   # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
@@ -469,6 +472,10 @@ global:
     token:
       aud: istio-ca
 
+  sts:
+    # The service port used by Security Token Service (STS) server to handle token exchange requests.
+    # Setting this port to a non-zero value enables STS server.
+    servicePort: 0
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   #
@@ -552,6 +559,8 @@ global:
 
   # Settings for remote cluster.
   createRemoteSvcEndpoints: false
+  
+  # configure remote pilot and istiod service and endpoint
   remotePilotCreateSvcEndpoint: false
   remotePolicyAddress: ""
   remotePilotAddress: ""
