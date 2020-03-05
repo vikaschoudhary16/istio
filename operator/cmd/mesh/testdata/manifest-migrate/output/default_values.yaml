@@ -648,12 +648,11 @@ spec:
     sidecarInjectorWebhook:
       alwaysInjectSelector: []
       enableNamespacesByDefault: false
-      image: sidecar_injector
       injectLabel: istio-injection
       neverInjectSelector: []
       podAntiAffinityLabelSelector: []
       podAntiAffinityTermLabelSelector: []
-      rewriteAppHTTPProbe: false
+      rewriteAppHTTPProbe: true
       selfSigned: false
     tracing:
       enabled: false
