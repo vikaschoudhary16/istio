@@ -1,0 +1,91 @@
+{{- if .Values.enabled }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: opentelemetry
+    component: otel-collector
+    chart: {{ template "opentelemetry.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  minReadySeconds: 5
+  progressDeadlineSeconds: 120
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: opentelemetry
+        component: otel-collector
+    spec:
+      serviceAccountName: opentelemetry
+      initContainers:
+      - name: override-config
+        image: {{ .Values.global.hub }}/envsubst:v1.0
+        command: ['/bin/sh']
+        args: ['-c', 'for file in $(ls -A /tmpl); do envsubst < /tmpl/$file > /config/$file; done']
+        volumeMounts:
+          - name: envoy-config-vol
+            mountPath: /tmpl
+          - name: authd-envoy-config-vol
+            mountPath: /config
+        {{- if .Values.token }}    
+        envFrom:
+        - secretRef:
+            name: otel-token
+        {{- end }}    
+      containers:
+      - name: otel-collector
+        image: "{{ .Values.hub }}/{{ .Values.image }}:{{ .Values.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        command:
+          - "/otelcol"
+          - "--config=/conf/otel-collector-config.yaml"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 500Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        ports:
+        - containerPort: 9091
+        volumeMounts:
+        - name: otel-collector-config-vol
+          mountPath: /conf
+      - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+        image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- end }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        command: [ "/usr/local/bin/envoy" ]
+        args:
+        - -c
+        - /etc/envoy/envoy.yaml
+        - --service-cluster
+        - envoy-proxy
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - mountPath: /etc/envoy/
+          name: authd-envoy-config-vol
+      volumes:
+        - name: otel-collector-config-vol
+          configMap:
+            name: otel-collector-conf
+            items:
+              - key: otel-collector-config
+                path: otel-collector-config.yaml
+        - name: envoy-config-vol
+          configMap:
+            name: otel-envoy-conf
+            items:
+              - key: envoy-config
+                path: envoy.yaml
+        - name: authd-envoy-config-vol
+          emptyDir: {}
+{{- end }}

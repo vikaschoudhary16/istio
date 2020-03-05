@@ -1,0 +1,8 @@
+enabled: true
+hub: docker.io/omnition
+image: opentelemetry-collector
+tag: v0.2.3
+
+scrapeInterval: 15s
+
+token: ""

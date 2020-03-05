@@ -1,0 +1,19 @@
+{{- if .Values.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opentelemetry-{{ .Release.Namespace }}
+  labels:
+    app: opentelemetry
+    chart: {{ template "opentelemetry.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opentelemetry-{{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: opentelemetry
+  namespace: {{ .Release.Namespace }}
+{{- end }}

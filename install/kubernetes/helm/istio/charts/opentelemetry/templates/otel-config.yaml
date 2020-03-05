@@ -1,0 +1,150 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-conf
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: opentelemetry
+    component: otel-collector-conf
+    chart: {{ template "opentelemetry.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+data:
+  otel-collector-config: |
+    service:
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          exporters: [prometheus,opencensus]
+
+    exporters:
+      prometheus:
+        endpoint: 0.0.0.0:9091
+      opencensus:
+        endpoint: 0.0.0.0:9090
+        reconnection_delay: 60s
+        headers:
+          tcc-route-target: otel-collector
+        secure: false
+
+    # Processors aren't yet supported for metric pipelines, enable this when they are.
+    # Remember to remove the prometheus scrape relabels as well!
+    processors:
+      attributes/insert:
+        actions:
+          - key: "cluster"
+            value: {{ .Values.global.tcc.cluster }}
+            action: insert
+
+    receivers:
+      prometheus:
+        config:
+          global:
+            scrape_interval: {{ .Values.scrapeInterval }}
+          scrape_configs:
+          - job_name: 'pilot'
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - {{ .Release.Namespace }}
+
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+              action: keep
+              regex: istio-pilot;http-monitoring
+            - source_labels: []
+              target_label: cluster
+              replacement: {{ .Values.global.tcc.cluster }}
+
+          - job_name: 'citadel'
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - {{ .Release.Namespace }}
+
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+              action: keep
+              regex: istio-citadel;http-monitoring
+            - source_labels: []
+              target_label: cluster
+              replacement: {{ .Values.global.tcc.cluster }}
+
+          - job_name: 'sidecar-injector'
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - {{ .Release.Namespace }}
+
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+              action: keep
+              regex: istio-sidecar-injector;http-monitoring
+            - source_labels: []
+              target_label: cluster
+              replacement: {{ .Values.global.tcc.cluster }}
+
+          - job_name: 'tsbd'
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - {{ .Release.Namespace }}
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+              action: keep
+              regex: tsbd;http-monitoring   
+            - source_labels: []
+              target_label: cluster
+              replacement: {{ .Values.global.tcc.cluster }}
+
+          - job_name: 'oap'
+            metrics_path: '/'
+
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - {{ .Release.Namespace }}
+
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+              action: keep
+              regex: oap;http-monitoring
+            - source_labels: []
+              target_label: cluster
+              replacement: {{ .Values.global.tcc.cluster }}
+
+          - job_name: 'zipkin'
+            metrics_path: '/prometheus'
+
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - {{ .Release.Namespace }}
+
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+              action: keep
+              regex: tracing;http-query
+            - source_labels: []
+              target_label: cluster
+              replacement: {{ .Values.global.tcc.cluster }}
+            - source_labels: [__name__]
+              regex: '^status_(\d+)_(.*)$'
+              replacement: '${1}'
+              target_label: status
+            - source_labels: [__name__]
+              regex: '^status_(\d+)_(.*)$'
+              replacement: '${2}'
+              target_label: path
+            - source_labels: [__name__]
+              regex: '^status_(\d+)_(.*)$'
+              replacement: 'http_requests_total'
+              target_label: __name__
+{{- end }}
