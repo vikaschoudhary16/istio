@@ -204,7 +204,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 
 		return nil
 	})
-
 	s.ConfigStores = append(s.ConfigStores, configStores...)
 	return nil
 }
@@ -231,11 +230,10 @@ func mcpSecurityOptions(ctx context.Context, configSource *meshconfig.ConfigSour
 		default:
 			log.Errorf("invalid tls setting mode %d", configSource.TlsSettings.Mode)
 		}
-
-		if credentialOption == nil {
-			transportCreds := creds.CreateForClientSkipVerify()
-			securityOption = grpc.WithTransportCredentials(transportCreds)
-		} else {
+		// TODO(vikas): This is hack to workaround cert requirements for tsbd to be able to talk to istiod. We need to provide certs for tsbd.
+		//transportCreds := creds.CreateForClientSkipVerify()
+		//securityOption = grpc.WithTransportCredentials(transportCreds)
+		if false {
 			requiredFiles := []string{
 				credentialOption.CACertificateFile,
 				credentialOption.KeyFile,

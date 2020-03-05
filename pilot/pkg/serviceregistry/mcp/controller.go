@@ -215,7 +215,9 @@ func (c *controller) HasSynced() bool {
 	c.syncedMu.Lock()
 	for messageName, synced := range c.synced {
 		if !synced {
-			notReady = append(notReady, messageName)
+			// Remove this dirty hack once we have removed mcp server from tsbd.
+			//notReady = append(notReady, messageName)
+			log.Warnf("collection %q not synced", messageName)
 		}
 	}
 	c.syncedMu.Unlock()

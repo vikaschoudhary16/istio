@@ -34,7 +34,7 @@ spec:
           - --environment={{ .Values.global.tcc.environment }}
           - --jwt-file=/etc/iam/token
           - --meshConfigFile=/etc/mesh-config/mesh
-          - --insecure=false
+          - --insecure=true
           - --resyncPeriod=1s
           - --log-output-level=default:info
           - --feature-disable-internal-rbac={{ .Values.disableauthz }}
@@ -45,9 +45,6 @@ spec:
             mountPath: /etc/iam
           - name: mesh-config
             mountPath: /etc/mesh-config
-            readOnly: true
-          - name: certs
-            mountPath: /etc/certs
             readOnly: true
           ports:
           - containerPort: 9443
@@ -70,6 +67,3 @@ spec:
       - name: mesh-config
         configMap:
           name: istio
-      - name: certs
-        secret:
-          secretName: istio.tsbd-service-account

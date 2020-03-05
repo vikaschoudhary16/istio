@@ -44,6 +44,7 @@
 // charts/gateways/istio-ingress/templates/serviceaccount.yaml
 // charts/gateways/istio-ingress/templates/sidecar.yaml
 // charts/gateways/istio-ingress/values.yaml
+// charts/gateways/istio-ingress/values.yaml_bk
 // charts/istio-cni/Chart.yaml
 // charts/istio-cni/templates/clusterrole.yaml
 // charts/istio-cni/templates/clusterrolebinding.yaml
@@ -209,6 +210,7 @@
 // profiles/preview.yaml
 // profiles/remote.yaml
 // profiles/separate.yaml
+// profiles/tsb.yaml
 // translateConfig/names-1.5.yaml
 // translateConfig/names-1.6.yaml
 // translateConfig/reverseTranslateConfig-1.4.yaml
@@ -14361,15 +14363,16 @@ func chartsGatewaysIstioIngressTemplatesCertificateYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioIngressTemplatesDeploymentYaml = []byte(`{{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
+var _chartsGatewaysIstioIngressTemplatesDeploymentYaml = []byte(`{{- range $key, $gateway := .Values.gateways }}
+{{- if $gateway.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: istio-ingressgateway
-  namespace: {{ .Release.Namespace }}
+  name: {{ $key }}
+  namespace: {{ $.Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
-    release: {{ .Release.Name }}
+    release: {{ $.Release.Name }}
 spec:
 {{- if not $gateway.autoscaleEnabled }}
 {{- if $gateway.replicaCount }}
@@ -14387,14 +14390,14 @@ spec:
     metadata:
       labels:
 {{ $gateway.labels | toYaml | indent 8 }}
-{{- if eq .Release.Namespace "istio-system"}}
+{{- if eq $.Release.Namespace "istio-system"}}
         heritage: Tiller
         release: istio
         chart: gateways
 {{- end }}
         service.istio.io/canonical-name: istio-ingressgateway
-        {{- if not (eq .Values.revision "") }}
-        service.istio.io/canonical-revision: {{ .Values.revision }}
+        {{- if not (eq $.Values.revision "") }}
+        service.istio.io/canonical-revision: {{ $.Values.revision }}
         {{- else}}
         service.istio.io/canonical-revision: latest
         {{- end }}
@@ -14405,19 +14408,19 @@ spec:
 {{ end }}
     spec:
       serviceAccountName: istio-ingressgateway-service-account
-{{- if .Values.global.priorityClassName }}
+{{- if $.Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
-{{- if .Values.global.proxy.enableCoreDump }}
+{{- if $.Values.global.proxy.enableCoreDump }}
       initContainers:
         - name: enable-core-dump
-{{- if contains "/" .Values.global.proxy.image }}
+{{- if contains "/" $.Values.global.proxy.image }}
           image: "{{ .Values.global.proxy.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ $.Values.global.tag }}"
 {{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- if $.Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
 {{- end }}
           command:
             - /bin/sh
@@ -14429,13 +14432,13 @@ spec:
 {{- end }}
       containers:
         - name: istio-proxy
-{{- if contains "/" .Values.global.proxy.image }}
-          image: "{{ .Values.global.proxy.image }}"
+{{- if contains "/" $.Values.global.proxy.image }}
+          image: "{{ $.Values.global.proxy.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+          image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image | default "proxyv2" }}:{{ $.Values.global.tag }}"
 {{- end }}
-{{- if .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- if $.Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
 {{- end }}
           ports:
             {{- range $key, $val := $gateway.ports }}
@@ -14443,6 +14446,9 @@ spec:
             {{- end }}
             {{- range $key, $val := $gateway.meshExpansionPorts }}
             - containerPort: {{ $val.port }}
+              {{- if $val.hostPort }}
+              hostPort: {{ $val.hostPort }}
+              {{- end }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -14451,17 +14457,17 @@ spec:
           - proxy
           - router
           - --domain
-          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-        {{- if .Values.global.proxy.logLevel }}
-          - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
+          - $(POD_NAMESPACE).svc.{{ $.Values.global.proxy.clusterDomain }}
+        {{- if $.Values.global.proxy.logLevel }}
+          - --proxyLogLevel={{ $.Values.global.proxy.logLevel }}
         {{- end}}
-        {{- if .Values.global.proxy.componentLogLevel }}
-          - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
+        {{- if $.Values.global.proxy.componentLogLevel }}
+          - --proxyComponentLogLevel={{ $.Values.global.proxy.componentLogLevel }}
         {{- end}}
-        {{- if .Values.global.logging.level }}
-          - --log_output_level={{ .Values.global.logging.level }}
+        {{- if $.Values.global.logging.level }}
+          - --log_output_level={{ $.Values.global.logging.level }}
         {{- end}}
-        {{- if .Values.global.logAsJson }}
+        {{- if $.Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
           - --drainDuration
@@ -14471,12 +14477,12 @@ spec:
           - --connectTimeout
           - '10s' #connectTimeout
           - --serviceCluster
-          - istio-ingressgateway
+          - {{ $key }}-{{ $.Release.Namespace }}
           - --zipkinAddress
-        {{- if .Values.global.tracer.zipkin.address }}
-          - {{ .Values.global.tracer.zipkin.address }}
-        {{- else if .Values.global.telemetryNamespace }}
-          - zipkin.{{ .Values.global.telemetryNamespace }}:9411
+        {{- if $.Values.global.tracer.zipkin.address }}
+          - {{ $.Values.global.tracer.zipkin.address }}
+        {{- else if $.Values.global.telemetryNamespace }}
+          - zipkin.{{ $.Values.global.telemetryNamespace }}:9411
         {{- else }}
           - zipkin:9411
         {{- end }}
@@ -14496,19 +14502,19 @@ spec:
           - "15000"
           - --statusPort
           - "15020"
-        {{- if .Values.global.sts.servicePort }}
-          - --stsPort={{ .Values.global.sts.servicePort }}
+        {{- if $.Values.global.sts.servicePort }}
+          - --stsPort={{ $.Values.global.sts.servicePort }}
         {{- end }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          {{- if .Values.global.configNamespace }}
-          - istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
+          {{- if $.Values.global.configNamespace }}
+          - istiod.{{ $.Values.global.configNamespace }}.svc:15012
           {{- else }}
-          - istio-pilot.istio-system.svc:15012
+          - istiod.istio-system.svc:15012
           {{- end }}
-        {{- if .Values.global.trustDomain }}
-          - --trust-domain={{ .Values.global.trustDomain }}
+        {{- if $.Values.global.trustDomain }}
+          - --trust-domain={{ $.Values.global.trustDomain }}
         {{- end }}
           readinessProbe:
             failureThreshold: 30
@@ -14524,20 +14530,20 @@ spec:
 {{- if $gateway.resources }}
 {{ toYaml $gateway.resources | indent 12 }}
 {{- else }}
-{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{ toYaml $.Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
           - name: JWT_POLICY
-            value: {{ .Values.global.jwtPolicy }}
+            value: {{ $.Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
-            value: {{ .Values.global.pilotCertProvider }}
+            value: {{ $.Values.global.pilotCertProvider }}
           - name: "ISTIO_META_USER_SDS"
             value: "true"
           - name: CA_ADDR
-          {{- if .Values.global.caAddress }}
-            value: {{ .Values.global.caAddress }}
-          {{- else if .Values.global.configNamespace }}
-            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          {{- if $.Values.global.caAddress }}
+            value: {{ $.Values.global.caAddress }}
+          {{- else if $.Values.global.configNamespace }}
+            value: istiod.{{ $.Values.global.configNamespace }}.svc:15012
           {{- else }}
             value: istiod.istio-system.svc:15012
           {{- end }}
@@ -14573,7 +14579,7 @@ spec:
           - name: ISTIO_META_WORKLOAD_NAME
             value: istio-ingressgateway
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/istio-ingressgateway
+            value: kubernetes://apis/apps/v1/namespaces/{{ $.Release.Namespace }}/deployments/istio-ingressgateway
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"
@@ -14590,6 +14596,14 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.name
+          {{- if $.Values.global.tcc.enabled }}
+          - name: ISTIO_META_TSB_TENANT
+            value: {{ $.Values.global.tcc.tenant }}
+          - name: ISTIO_META_TSB_CLUSTER
+            value: {{ $.Values.global.tcc.cluster }}
+          - name: ISTIO_META_TSB_ENVIRONMENT
+            value: {{ $.Values.global.tcc.environment }}
+          {{- end }}      
           - name: ISTIO_META_CONFIG_NAMESPACE
             valueFrom:
               fieldRef:
@@ -14599,9 +14613,9 @@ spec:
             value: {{ $val }}
           {{- end }}
           {{ $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
-          {{- if and (not $network_set) .Values.global.network }}
+          {{- if and (not $network_set) $.Values.global.network }}
           - name: ISTIO_META_NETWORK
-            value: {{ .Values.global.network }}
+            value: {{ $.Values.global.network }}
           {{- end }}
 {{- if $gateway.podAnnotations }}
           - name: "ISTIO_METAJSON_ANNOTATIONS"
@@ -14613,18 +14627,18 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-{{- if eq .Values.global.pilotCertProvider "istiod" }}
+{{- if eq $.Values.global.pilotCertProvider "istiod" }}
           - mountPath: /var/run/secrets/istio
             name: istiod-ca-cert
 {{- end }}
-{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+{{- if eq $.Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
 {{- end }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
-          {{- if .Values.global.mountMtlsCerts }}
+          {{- if $.Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
             mountPath: /etc/certs
@@ -14641,7 +14655,7 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-{{- if eq .Values.global.pilotCertProvider "istiod" }}
+{{- if eq $.Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
@@ -14657,16 +14671,16 @@ spec:
                 fieldPath: metadata.annotations
       - name: ingressgatewaysdsudspath
         emptyDir: {}
-{{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+{{- if eq $.Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
           sources:
           - serviceAccountToken:
               path: istio-token
               expirationSeconds: 43200
-              audience: {{ .Values.global.sds.token.aud }}
+              audience: {{ $.Values.global.sds.token.aud }}
 {{- end }}
-      {{- if .Values.global.mountMtlsCerts }}
+      {{- if $.Values.global.mountMtlsCerts }}
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
@@ -14675,7 +14689,7 @@ spec:
       {{- end }}
       - name: config-volume
         configMap:
-          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          name: istio{{- if not (eq $.Values.revision "") }}-{{ $.Values.revision }}{{- end }}
           optional: true
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
@@ -14690,14 +14704,17 @@ spec:
           optional: true
       {{- end }}
       affinity:
-      {{- include "nodeaffinity" (dict "global" .Values.global "nodeSelector" $gateway.nodeSelector) | indent 6 }}
+      {{- include "nodeaffinity" (dict "global" $.Values.global "nodeSelector" $gateway.nodeSelector) | indent 6 }}
       {{- include "podAntiAffinity" $gateway | indent 6 }}
 {{- if $gateway.tolerations }}
       tolerations:
 {{ toYaml $gateway.tolerations | indent 6 }}
-{{- else if .Values.global.defaultTolerations }}
+{{- else if $.Values.global.defaultTolerations }}
       tolerations:
-{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{ toYaml $.Values.global.defaultTolerations | indent 6 }}
+{{- end }}
+---
+{{- end }}
 {{- end }}
 `)
 
@@ -15139,20 +15156,29 @@ func chartsGatewaysIstioIngressTemplatesRolebindingsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _chartsGatewaysIstioIngressTemplatesServiceYaml = []byte(`{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
+var _chartsGatewaysIstioIngressTemplatesServiceYaml = []byte(`{{- range $key, $gateway := .Values.gateways }}
+{{- if $gateway.enabled }}
 {{- if not $gateway.customService }}
 apiVersion: v1
 kind: Service
 metadata:
+{{- if eq $key "tsb-gateway" }}
+{{- if index $.Values "gateways" "tsb-gateway" "tier1" }}
+  name: {{ $key }}-tier1-{{ $.Release.Namespace }}
+{{- else }}
+  name: {{ $key }}-{{ $.Release.Namespace }}
+{{- end }}
+{{- else }}
   name: istio-ingressgateway
-  namespace: {{ .Release.Namespace }}
+{{- end }}      
+  namespace: {{ $.Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
-    release: {{ .Release.Name }}
+    release: {{ $.Release.Name }}
 spec:
 {{- if $gateway.loadBalancerIP }}
   loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
@@ -15180,7 +15206,9 @@ spec:
     {{- range $key, $val := $gateway.meshExpansionPorts }}
     -
       {{- range $pkey, $pval := $val }}
+      {{- if ne $pkey "hostPort" }}
       {{ $pkey}}: {{ $pval }}
+      {{- end }}
       {{- end }}
     {{- end }}
     {{- end }}
@@ -15190,6 +15218,8 @@ spec:
       name: {{ $app.name }}
   {{- end }}
 ---
+{{ end }}
+{{ end }}
 {{ end }}
 `)
 
@@ -15272,7 +15302,60 @@ var _chartsGatewaysIstioIngressValuesYaml = []byte(`# A-la-carte istio ingress g
 # Must be installed in a separate namespace, to minimize access to secrets.
 
 gateways:
+  vmgateway:
+    enabled: false
+    type: LoadBalancer
+    labels:
+      app: vmgateway
+      tcc: vmgateway
+    env:
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
+      ISTIO_META_NETWORK: "Kubernetes"
+    ports:
+    - port: 15443
+      targetPort: 15443
+      name: tls-k8s-services
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grpc
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc
+    - port: 11800
+      targetPort: 11800
+      name: tcp-oap-grpc
+    - port: 9411
+      targetPort: 9411
+      name: tcp-tracing-grpc
+
+  tsb-gateway:
+    enabled: false
+    customService: false
+    tier1: false
+    labels:
+      app: __UNIQUENAME__
+      tcc: gateway
+    env:
+      ISTIO_META_ROUTER_MODE: "standard"
+      ISTIO_META_NETWORK: "Kubernetes"
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: {}
+    externalIPs: []
+    serviceAnnotations: {}
+    podAnnotations: {}
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
+    ports:
+    - port: 80 # DO NOT CHANGE
+      # hostPort: 8080
+      name: http2
+    - port: 443 # DO NOT CHANGE
+      name: https
+      # hostPort: 8443
+    secretVolumes: {}
+
   istio-ingressgateway:
+    enabled: false
     labels:
       app: istio-ingressgateway
       istio: ingressgateway
@@ -15466,6 +15549,235 @@ func chartsGatewaysIstioIngressValuesYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/gateways/istio-ingress/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsGatewaysIstioIngressValuesYaml_bk = []byte(`# A-la-carte istio ingress gateway.
+# Must be installed in a separate namespace, to minimize access to secrets.
+
+gateways:
+  tsb-gateway:
+    enabled: false
+    customService: false
+    tier1: false
+    labels:
+      app: __UNIQUENAME__
+      tcc: gateway
+    env:
+      ISTIO_META_ROUTER_MODE: "standard"
+      ISTIO_META_NETWORK: "Kubernetes"
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: {}
+    externalIPs: []
+    serviceAnnotations: {}
+    podAnnotations: {}
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
+    ports:
+    - port: 80 # DO NOT CHANGE
+      # hostPort: 8080
+      name: http2
+    - port: 443 # DO NOT CHANGE
+      name: https
+      # hostPort: 8443
+    secretVolumes: {}
+
+  istio-ingressgateway:
+    enabled: true
+    labels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+    ports:
+    ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
+    # Note that AWS ELB will by default perform health checks on the first port
+    # on this list. Setting this to the health check port will ensure that health
+    # checks always work. https://github.com/istio/istio/issues/12503
+    - port: 15020
+      targetPort: 15020
+      name: status-port
+    - port: 80
+      targetPort: 8080
+      name: http2
+    - port: 443
+      targetPort: 8443
+      name: https
+    - port: 15029
+      targetPort: 15029
+      name: kiali
+    - port: 15030
+      targetPort: 15030
+      name: prometheus
+    - port: 15031
+      targetPort: 15031
+      name: grafana
+    - port: 15032
+      targetPort: 15032
+      name: tracing
+      # This is the port where sni routing happens
+    - port: 15443
+      targetPort: 15443
+      name: tls
+
+    # Scalability tunning
+    # replicaCount: 1
+    rollingMaxSurge: 100%
+    rollingMaxUnavailable: 25%
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+
+    cpu:
+      targetAverageUtilization: 80
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+
+    # Debug level for envoy. Can be set to 'debug'
+    debug: info
+
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    externalIPs: []
+    serviceAnnotations: {}
+
+    domain: ""
+
+    # Enable cross-cluster access using SNI matching
+    zvpn:
+      enabled: false
+      suffix: global
+
+    # To generate an internal load balancer:
+    # --set serviceAnnotations.cloud.google.com/load-balancer-type=internal
+    #serviceAnnotations:
+    #    cloud.google.com/load-balancer-type: "internal"
+
+    podAnnotations: {}
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+
+    #### MESH EXPANSION PORTS  ########
+    # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
+    # to pilot/citadel if global.meshExpansion settings are enabled.
+    # Delete these ports if mesh expansion is not enabled, to avoid
+    # exposing unnecessary ports on the web.
+    # You can remove these ports if you are not using mesh expansion
+    meshExpansionPorts:
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grpc-tls
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
+    - port: 853
+      targetPort: 853
+      name: tcp-dns-tls
+    ####### end MESH EXPANSION PORTS ######
+
+    ##############
+    secretVolumes:
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingressgateway-ca-certs
+      mountPath: /etc/istio/ingressgateway-ca-certs
+
+    # Domain name for telemetry addons
+    telemetry_domain_name: ""
+
+    customService: false
+    externalTrafficPolicy: ""
+
+    ingressPorts: []
+    hosts: []
+    additionalContainers: []
+    configVolumes: []
+    certificates: false
+    tls: false
+
+    # Telemetry addon gateways example config
+    telemetry_addon_gateways:
+      tracing_gateway:
+        name: tracing
+        port: 15032
+        desPort: 80
+        enabled: false
+        tls: false
+      kiali_gateway:
+        name: kiali
+        port: 15029
+        desPort: 20001
+        enabled: false
+        tls: false
+      grafana_gateway:
+        name: grafana
+        port: 15031
+        desPort: 3000
+        enabled: false
+        tls: false
+      prometheus_gateway:
+        name: prometheus
+        port: 15030
+        desPort: 9090
+        enabled: false
+        tls: false
+
+    # For Certmanager Issuer and Certificate generation
+    # certificates: {}
+    # email: ""
+
+    ### Advanced options ############
+    env:
+      # A gateway with this mode ensures that pilot generates an additional
+      # set of clusters for internal services but without Istio mTLS, to
+      # enable cross cluster routing.
+      ISTIO_META_ROUTER_MODE: "sni-dnat"
+
+    nodeSelector: {}
+    tolerations: []
+
+    # Specify the pod anti-affinity that allows you to constrain which nodes
+    # your pod is eligible to be scheduled based on labels on pods that are
+    # already running on the node rather than based on labels on nodes.
+    # There are currently two types of anti-affinity:
+    #    "requiredDuringSchedulingIgnoredDuringExecution"
+    #    "preferredDuringSchedulingIgnoredDuringExecution"
+    # which denote "hard" vs. "soft" requirements, you can define your values
+    # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
+    # correspondingly.
+    # For example:
+    # podAntiAffinityLabelSelector:
+    # - key: security
+    #   operator: In
+    #   values: S1,S2
+    #   topologyKey: "kubernetes.io/hostname"
+    # This pod anti-affinity rule says that the pod requires not to be scheduled
+    # onto a node if that node is already running a pod with label having key
+    # "security" and value "S1".
+    podAntiAffinityLabelSelector: []
+    podAntiAffinityTermLabelSelector: []
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
+`)
+
+func chartsGatewaysIstioIngressValuesYaml_bkBytes() ([]byte, error) {
+	return _chartsGatewaysIstioIngressValuesYaml_bk, nil
+}
+
+func chartsGatewaysIstioIngressValuesYaml_bk() (*asset, error) {
+	bytes, err := chartsGatewaysIstioIngressValuesYaml_bkBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/gateways/istio-ingress/values.yaml_bk", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -19696,7 +20008,10 @@ data:
     {{- if .Values.global.useMCP }}
     configSources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
-    - address: localhost:15019
+    #- address: localhost:15019
+    - address: tsbd.istio-system.svc:9901
+      tlsSettings:
+        mode: ISTIO_MUTUAL
     {{- else }}
     - address: istio-galley.{{ .Values.global.configNamespace }}:9901
     {{- end }}
@@ -47087,9 +47402,9 @@ spec:
   values:
     telemetry:
       v1:
-        enabled: true
-      v2:
         enabled: false
+      v2:
+        enabled: true
     global:
       pilotCertProvider: kubernetes
       istiod:
@@ -47107,6 +47422,132 @@ func profilesSeparateYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "profiles/separate.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _profilesTsbYaml = []byte(`apiVersion: operator.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    egressGateways:
+    - name: istio-egressgateway
+      enabled: false
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+
+    policy:
+      enabled: false
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
+
+    telemetry:
+      k8s:
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+
+    pilot:
+      k8s:
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: GODEBUG
+            value: gctrace=1
+          - name: PILOT_TRACE_SAMPLING
+            value: "100"
+          - name: CONFIG_NAMESPACE
+            value: istio-config
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
+
+  addonComponents:
+    kiali:
+      enabled: false
+    grafana:
+      enabled: true
+    tracing:
+      enabled: true
+
+  values:
+    global:
+      useMCP: true      
+      disablePolicyChecks: false
+      proxy:
+        accessLogFile: /dev/stdout
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+
+    pilot:
+      autoscaleEnabled: false
+
+    mixer:
+      adapters:
+        useAdapterCRDs: false
+        kubernetesenv:
+          enabled: true
+        prometheus:
+          enabled: true
+          metricsExpiryDuration: 10m
+        stackdriver:
+          enabled: false
+        stdio:
+          enabled: true
+          outputAsJson: false
+      policy:
+        autoscaleEnabled: false
+      telemetry:
+        autoscaleEnabled: false
+
+    gateways:
+      istio-egressgateway:
+        autoscaleEnabled: false
+      istio-ingressgateway:
+        autoscaleEnabled: false
+
+    kiali:
+      createDemoSecret: false
+`)
+
+func profilesTsbYamlBytes() ([]byte, error) {
+	return _profilesTsbYaml, nil
+}
+
+func profilesTsbYaml() (*asset, error) {
+	bytes, err := profilesTsbYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "profiles/tsb.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -48321,6 +48762,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/gateways/istio-ingress/templates/serviceaccount.yaml":                            chartsGatewaysIstioIngressTemplatesServiceaccountYaml,
 	"charts/gateways/istio-ingress/templates/sidecar.yaml":                                   chartsGatewaysIstioIngressTemplatesSidecarYaml,
 	"charts/gateways/istio-ingress/values.yaml":                                              chartsGatewaysIstioIngressValuesYaml,
+	"charts/gateways/istio-ingress/values.yaml_bk":                                           chartsGatewaysIstioIngressValuesYaml_bk,
 	"charts/istio-cni/Chart.yaml":                                                            chartsIstioCniChartYaml,
 	"charts/istio-cni/templates/clusterrole.yaml":                                            chartsIstioCniTemplatesClusterroleYaml,
 	"charts/istio-cni/templates/clusterrolebinding.yaml":                                     chartsIstioCniTemplatesClusterrolebindingYaml,
@@ -48486,6 +48928,7 @@ var _bindata = map[string]func() (*asset, error){
 	"profiles/preview.yaml":                                                                  profilesPreviewYaml,
 	"profiles/remote.yaml":                                                                   profilesRemoteYaml,
 	"profiles/separate.yaml":                                                                 profilesSeparateYaml,
+	"profiles/tsb.yaml":                                                                      profilesTsbYaml,
 	"translateConfig/names-1.5.yaml":                                                         translateconfigNames15Yaml,
 	"translateConfig/names-1.6.yaml":                                                         translateconfigNames16Yaml,
 	"translateConfig/reverseTranslateConfig-1.4.yaml":                                        translateconfigReversetranslateconfig14Yaml,
@@ -48599,7 +49042,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"serviceaccount.yaml":      &bintree{chartsGatewaysIstioIngressTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"sidecar.yaml":             &bintree{chartsGatewaysIstioIngressTemplatesSidecarYaml, map[string]*bintree{}},
 				}},
-				"values.yaml": &bintree{chartsGatewaysIstioIngressValuesYaml, map[string]*bintree{}},
+				"values.yaml":    &bintree{chartsGatewaysIstioIngressValuesYaml, map[string]*bintree{}},
+				"values.yaml_bk": &bintree{chartsGatewaysIstioIngressValuesYaml_bk, map[string]*bintree{}},
 			}},
 		}},
 		"istio-cni": &bintree{nil, map[string]*bintree{
@@ -48845,6 +49289,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"preview.yaml":  &bintree{profilesPreviewYaml, map[string]*bintree{}},
 		"remote.yaml":   &bintree{profilesRemoteYaml, map[string]*bintree{}},
 		"separate.yaml": &bintree{profilesSeparateYaml, map[string]*bintree{}},
+		"tsb.yaml":      &bintree{profilesTsbYaml, map[string]*bintree{}},
 	}},
 	"translateConfig": &bintree{nil, map[string]*bintree{
 		"names-1.5.yaml":                  &bintree{translateconfigNames15Yaml, map[string]*bintree{}},

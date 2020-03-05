@@ -1,87 +1,7 @@
-pilot:
-  traceSampling: 100.0
-  enabled: true
-  env:
-    PILOT_PUSH_THROTTLE: 100
-    HTTP10: "true"
-    PILOT_ENABLE_MYSQL_FILTER: "false"
-    PILOT_SCOPE_GATEWAY_TO_NAMESPACE: "true"
-    #PILOT_FILTER_GATEWAY_CLUSTER_CONFIG: "true"
-
-gateways:
-  enabled: true
-
-  istio-ingressgateway:
-    enabled: false
-
-  # VM gateway to service external VM workloads
-  vmgateway:
-    enabled: true
-    type: LoadBalancer
-    labels:
-      app: vmgateway
-      tcc: vmgateway
-    sds:
-      enabled: true
-      image: node-agent-k8s
-    env:
-      ISTIO_META_ROUTER_MODE: "sni-dnat"
-      ISTIO_META_NETWORK: "Kubernetes"
-    ports:
-    - port: 15443
-      targetPort: 15443
-      name: tls-k8s-services
-    - port: 15011
-      targetPort: 15011
-      name: tcp-pilot-grpc
-    - port: 8060
-      targetPort: 8060
-      name: tcp-citadel-grpc
-    - port: 11800
-      targetPort: 11800
-      name: tcp-oap-grpc
-    - port: 9411
-      targetPort: 9411
-      name: tcp-tracing-grpc
-
-security:
-  enabled: true
-  createMeshPolicy: false
-
-sidecarInjectorWebhook:
-  enabled: true
-
-galley:
-  enabled: false
-
 tsbd:
   enabled: true
   tag: "__TCC__"
   disableauthz: false
-
-mixer:
-  policy:
-    enabled: false
-  telemetry:
-    enabled: false
-
-prometheus:
-  enabled: false
-
-tracing:
-  enabled: true
-  elasticsearch:
-    host: "__HOST__"
-    port: 8443
-  zipkin:
-    #token: ""
-    env:
-      STORAGE_TYPE: "elasticsearch"
-      # Zipkin sends to local envoy which forwards to TCC elastic search.
-      ES_HOSTS: "http://127.0.0.1:9200"
-
-zipkin:
-  hub: "__HUB__"
 
 oap:
   enabled: true
@@ -113,14 +33,6 @@ oap:
     webhook:
       uri: ""
 
-# nodeagent: # for sds
-#   enabled: false
-#   image: node-agent-k8s
-#   env:
-#     CA_PROVIDER: "Citadel"
-#     CA_ADDR: "istio-citadel:8060"
-#     VALID_TOKEN: true
-
 global:
   tcc:
     enabled: true
@@ -138,64 +50,6 @@ global:
   configValidation: false
   defaultPodDisruptionBudget:
     enabled: false
-
-  proxy:
-    envoyAccessLogService:
-      enabled: true
-      host: oap.istio-system
-      port: 11800
-  #proxy_init:
-    # Base name for the istio-init container, used to configure iptables.
-    # FIXME: due to a bug in latest proxyv2 image, this code segfaults on circleci
-    # so sticking to an old image as we just use the iptables. We need to add this to
-    # the release if the bug is not fixed on time
-    # https://github.com/istio/istio/issues/19380
-    #image: tetrate/proxy_init:0.6.6-istio-90c06491b
-
-  # set this to false to disable the post install jobs
-  # this setting does not control mTLS. TCC does.
-  mtls:
-    enabled: false
-    auto: true
-
-  # sds:
-  #   enabled: false
-  #   udsPath: "unix:/var/run/sds/uds_path"
-  #   token:
-  #     aud: "istio-ca"
-
-  outboundTrafficPolicy:
-    mode: ALLOW_ANY
-
-  configRootNamespace: istio-config
-  defaultConfigVisibilitySettings:
-  - '*'
-
-  # Configure the mesh networks to be used by the Split Horizon EDS.
-  # All K8S pods fall into the K8S network and the VMs fall into the
-  # VM network.  By default we assume that K8S worker nodes and VMs
-  # are in the same subnet with direct connectivity.  As a result, K8S
-  # pods can directly talk to VMs. However, VMs can only talk to K8S
-  # via the Gateways using the nodePorts or the Gateway LB IPs.
-  #
-  # In this topology, when Pilot sends EDS to Envoys on K8S, it sends
-  # all the VM IPs that belong to a VM service. When it sends eds to
-  # an Envoy on VM (say for productpage.ns1.svc.cluster.local), it
-  # sends only the Gateway IP that is configured here. The Gateway in
-  # turn will forward traffic to productpage.ns1.
-  meshNetworks:
-    Kubernetes:
-      endpoints:
-        # VODOO value. DO NOT CHANGE THIS
-      - fromRegistry: Kubernetes
-      gateways:
-      - registryServiceName: vmgateway-istio-system.istio-system.svc.cluster.local
-        port: 15443
-    vm: {}
-
-  # Network defines the network this cluster belong to. This name
-  # corresponds to the networks in the map of mesh networks.
-  network: "Kubernetes"
 
   elasticsearch:
     user: ""

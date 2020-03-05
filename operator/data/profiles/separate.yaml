@@ -15,9 +15,9 @@ spec:
   values:
     telemetry:
       v1:
-        enabled: true
-      v2:
         enabled: false
+      v2:
+        enabled: true
     global:
       pilotCertProvider: kubernetes
       istiod:
