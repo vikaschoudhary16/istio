@@ -577,7 +577,7 @@ global:
   # Currently, two providers are supported: "kubernetes" and "citadel".
   # As some platforms may not have k8s signing APIs,
   # set Citadel as the default provider for Pilot certificate.
-  pilotCertProvider: "citadel"
+  pilotCertProvider: "istiod"
 
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
