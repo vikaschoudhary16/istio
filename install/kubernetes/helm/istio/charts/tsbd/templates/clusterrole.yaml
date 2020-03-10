@@ -23,18 +23,16 @@ rules:
 - apiGroups: ["*"]
   resources: ["namespaces"]
   verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
 - apiGroups: [  
   "authentication.istio.io",
   "config.istio.io",
   "networking.istio.io",
   "rbac.istio.io",
-  "security.istio.io"]
+  "security.istio.io",
+  "install.istio.io" ]
   resources: ["*"]
-  verbs: ["get", "list", "watch"]
-  # For updating Istio resource statuses
+  verbs: ["*"]
+# delete me
 - apiGroups: [
   "authentication.istio.io",
   "config.istio.io",
@@ -43,6 +41,7 @@ rules:
   "security.istio.io"]
   resources: ["*/status"]
   verbs: ["update"]
+# delete me
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["validatingwebhookconfigurations"]
   verbs: ["*"]
@@ -55,6 +54,7 @@ rules:
 - apiGroups: ["extensions"]
   resources: ["ingresses"]
   verbs: ["get", "list", "watch"]
+# delete me
 - apiGroups: ["extensions"]
   resources: ["deployments/finalizers"]
   resourceNames: ["istio-galley"]
