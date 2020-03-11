@@ -31,7 +31,7 @@ rules:
   "security.istio.io",
   "install.istio.io" ]
   resources: ["*"]
-  verbs: ["*"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 # delete me
 - apiGroups: [
   "authentication.istio.io",
