@@ -33,9 +33,7 @@ spec:
           - --tenant={{ .Values.global.tcc.tenant }}
           - --environment={{ .Values.global.tcc.environment }}
           - --jwt-file=/etc/iam/token
-          - --meshConfigFile=/etc/mesh-config/mesh
           - --insecure=true
-          - --resyncPeriod=1s
           - --log-output-level=default:info
           - --feature-disable-internal-rbac={{ .Values.disableauthz }}
           volumeMounts:
@@ -43,13 +41,7 @@ spec:
             mountPath: /etc/tsbd/
           - name: jwt-token
             mountPath: /etc/iam
-          - name: mesh-config
-            mountPath: /etc/mesh-config
-            readOnly: true
           ports:
-          - containerPort: 9443
-          - containerPort: 42422
-          - containerPort: 9901
           - containerPort: 9080
           resources:
 {{- if .Values.resources }}
@@ -59,8 +51,7 @@ spec:
 {{- end }}
       volumes:
       - name: tsbd-dir
-        persistentVolumeClaim:
-          claimName: configsink-data
+        emptyDir: {}
       - name: jwt-token
         secret:
           secretName: tsbd-jwt-token
