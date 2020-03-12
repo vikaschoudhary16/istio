@@ -9,5 +9,7 @@ spec:
   ports:
   - port: 9080
     name: grpc-regsource
+  - port: 42422
+    name: http-monitoring
   selector:
     app: tsbd

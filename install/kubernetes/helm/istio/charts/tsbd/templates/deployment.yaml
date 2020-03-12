@@ -43,6 +43,7 @@ spec:
             mountPath: /etc/iam
           ports:
           - containerPort: 9080
+          - containerPort: 42422
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
