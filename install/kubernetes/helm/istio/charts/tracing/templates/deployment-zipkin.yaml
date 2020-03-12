@@ -1,0 +1,131 @@
+{{ if eq .Values.provider "zipkin" }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-tracing
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: zipkin
+    chart: {{ template "tracing.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: zipkin
+  template:
+    metadata:
+      labels:
+        app: zipkin
+        chart: {{ template "tracing.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+{{- if .Values.zipkin.podAnnotations }}
+{{ toYaml .Values.zipkin.podAnnotations | indent 8 }}
+{{- end }}
+    spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
+      initContainers:
+      - name: override-config
+        image: {{ .Values.global.hub }}/envsubst:v1.0
+        command: ['/bin/sh']
+        args: ['-c', 'for file in $(ls -A /tmpl); do envsubst < /tmpl/$file > /config/$file; done']
+        volumeMounts:
+          - name: tmpl
+            mountPath: /tmpl
+          - name: config
+            mountPath: /config
+        {{- if .Values.zipkin.token }}    
+        envFrom:
+        - secretRef:
+            name: tracing-token
+        {{- end }}    
+      containers:
+        - name: zipkin
+          image: "{{ .Values.zipkin.hub }}/{{ .Values.zipkin.image }}:{{ .Values.zipkin.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.zipkin.queryPort }}
+          livenessProbe:
+            initialDelaySeconds: {{ .Values.zipkin.probeStartupDelay }}
+            tcpSocket:
+              port: {{ .Values.zipkin.queryPort }}
+          readinessProbe:
+            initialDelaySeconds: {{ .Values.zipkin.probeStartupDelay }}
+            httpGet:
+              path: /api/v2/autocompleteKeys
+              port: {{ .Values.zipkin.queryPort }}
+          resources:
+{{- if .Values.zipkin.resources }}
+{{ toYaml .Values.zipkin.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            {{- if .Values.global.elasticsearch.user }}
+            - name: ES_USERNAME
+              value: "{{ .Values.global.elasticsearch.user }}"
+            {{- end }}
+            {{- if .Values.global.elasticsearch.password }}
+            - name: ES_PASSWORD
+              value: "{{ .Values.global.elasticsearch.password }}"
+            {{- end }}
+            {{- if .Values.zipkin.env }}
+            {{- range $key, $val := .Values.zipkin.env }}
+            - name: {{ $key }}
+              value: "{{ $val }}"
+            {{- end }}
+            {{- end }}
+        - name: istio-proxy
+          {{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+          {{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [ "/usr/local/bin/envoy" ]
+          args:
+            - -c
+            - /etc/envoy/envoy.yaml
+            - --service-cluster
+            - envoy-proxy
+          ports:
+            - containerPort: 50001
+            - containerPort: 9200
+          volumeMounts:
+            - mountPath: /etc/envoy/
+              name: config
+      volumes:
+        - name: tmpl
+          configMap:
+            name: tracing-config
+        - name: config
+          emptyDir: {}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 6 }}
+      {{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+      {{- end }}
+{{ end }}
