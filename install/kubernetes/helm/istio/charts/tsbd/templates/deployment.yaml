@@ -33,7 +33,6 @@ spec:
           - --tenant={{ .Values.global.tcc.tenant }}
           - --environment={{ .Values.global.tcc.environment }}
           - --jwt-file=/etc/iam/token
-          - --insecure=true
           - --log-output-level=default:info
           - --feature-disable-internal-rbac={{ .Values.disableauthz }}
           volumeMounts:
