@@ -27,6 +27,8 @@ jobs:
     working_directory: /home/circleci/istio
     machine:
       image: ubuntu-1604:201903-01
+    environment:
+      GOPATH: /home/circleci/go_workspace      
     steps:
       - run:
           name: setup ssh
@@ -44,7 +46,9 @@ jobs:
             sudo tar xz -C $GOROOT --strip-components=1
       - checkout
       - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
-      - run: BUILD_WITH_CONTAINER=1 VERSION=${VERSION} make init docker.all push
+      - run:
+          no_output_timeout: 20m
+          command: BUILD_WITH_CONTAINER=0 DOCKER_BUILD_VARIANTS="default distroless" VERSION=${VERSION} make init docker.all push
   # dockerpush:
   #   <<: *defaults
   #   resource_class: xlarge
