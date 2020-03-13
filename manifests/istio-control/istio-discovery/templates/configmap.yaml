@@ -151,10 +151,7 @@ data:
     {{- if .Values.global.useMCP }}
     configSources:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
-    #- address: localhost:15019
-    - address: tsbd.istio-system.svc:9901
-      tlsSettings:
-        mode: ISTIO_MUTUAL
+    - address: localhost:15019
     {{- else }}
     - address: istio-galley.{{ .Values.global.configNamespace }}:9901
     {{- end }}
