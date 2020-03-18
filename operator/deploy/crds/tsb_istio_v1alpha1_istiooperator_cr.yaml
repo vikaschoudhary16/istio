@@ -9,6 +9,7 @@ spec:
     global:
       hub: __HUB__
       tag: __TAG__
+      network: Kubernetes
       useMCP: false
       controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
