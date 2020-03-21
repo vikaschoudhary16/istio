@@ -3,6 +3,10 @@ tsbd:
   tag: "__TCC__"
   disableauthz: false
 
+opentelemetry:
+  enabled: true
+  tag: "__OTELCOL__"
+
 oap:
   enabled: true
   # Set by bash scripts in deploy folder of tetrate repo 
