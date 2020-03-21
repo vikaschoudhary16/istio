@@ -197,12 +197,11 @@ gateways:
     - port: 15443
       targetPort: 15443
       name: tls-k8s-services
-    - port: 15011
-      targetPort: 15011
-      name: tcp-pilot-grpc
-    - port: 8060
-      targetPort: 8060
-      name: tcp-citadel-grpc
+    # This port is being used for exposing both "istio-pilot.istio-system.svc" and
+    # "istiod.istio-system.svc".
+    - port: 15012
+      targetPort: 15012
+      name: tcp-istiod-grpc
     - port: 11800
       targetPort: 11800
       name: tcp-oap-grpc
