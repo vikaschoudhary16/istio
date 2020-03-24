@@ -201,7 +201,7 @@ gateways:
     # "istiod.istio-system.svc".
     - port: 15012
       targetPort: 15012
-      name: tcp-istiod-grpc
+      name: tcp-istiod
     - port: 11800
       targetPort: 11800
       name: tcp-oap-grpc

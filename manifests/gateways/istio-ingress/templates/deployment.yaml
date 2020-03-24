@@ -219,7 +219,7 @@ spec:
             value: {{ $.Values.global.tcc.cluster }}
           - name: ISTIO_META_TSB_ENVIRONMENT
             value: {{ $.Values.global.tcc.environment }}
-          {{- end }}      
+          {{- end }}
           - name: ISTIO_META_CONFIG_NAMESPACE
             valueFrom:
               fieldRef:

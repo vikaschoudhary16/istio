@@ -11,8 +11,8 @@ metadata:
   name: {{ $key }}-{{ $.Release.Namespace }}
 {{- end }}
 {{- else }}
-  name: istio-ingressgateway
-{{- end }}      
+  name: {{ $gateway.name | default "istio-ingressgateway" }}
+{{- end }}
   namespace: {{ $.Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
