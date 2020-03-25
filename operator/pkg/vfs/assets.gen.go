@@ -13897,6 +13897,14 @@ spec:
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
+          {{- if $.Values.global.tcc.enabled }}
+          - name: ISTIO_META_TSB_TENANT
+            value: {{ $.Values.global.tcc.tenant }}
+          - name: ISTIO_META_TSB_CLUSTER
+            value: {{ $.Values.global.tcc.cluster }}
+          - name: ISTIO_META_TSB_ENVIRONMENT
+            value: {{ $.Values.global.tcc.environment }}
+          {{- end }}
           {{ $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
           {{- if and (not $network_set) .Values.global.network }}
           - name: ISTIO_META_NETWORK
@@ -14473,6 +14481,12 @@ gateways:
     - port: 853
       targetPort: 853
       name: tcp-dns-tls
+    - port: 11800
+      targetPort: 11800
+      name: tcp-oap-grpc
+    - port: 9411
+      targetPort: 9411
+      name: tcp-tracing-grpc
     ####### end MESH EXPANSION PORTS ######
 
     ##############

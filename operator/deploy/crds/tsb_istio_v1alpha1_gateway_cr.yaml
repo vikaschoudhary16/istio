@@ -1,0 +1,30 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  components:
+    ingressGateways:
+    - name: tsb-gateway
+      enabled: true
+      namespace: bookinfo
+  values:
+    gateways:
+      istio-ingressgateway:
+        name: tsb-gateway
+        ports:
+        - port: 80
+          name: http2
+        - port: 443
+          name: https
+        # clear default meshExpansionPorts
+        meshExpansionPorts:
+        -
+        labels:
+          app: tsb-gateway-bookinfo
+          istio: ingressgateway
+        env:
+          ISTIO_META_ROUTER_MODE: standard
+          ISTIO_META_NETWORK: Kubernetes
+        # clear default secret volumnes
+        secretVolumes:
+        -      

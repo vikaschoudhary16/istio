@@ -13,6 +13,11 @@ spec:
       useMCP: false
       controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
+      tcc:
+        enabled: true
+        tenant: __TENANT__
+        cluster: __CLUSTER__
+        environment: __ENV__
       proxy:
         accessLogFile: /dev/stdout
         envoyAccessLogService:
@@ -32,6 +37,28 @@ spec:
           port: 15443
         vm: {}
 
+    gateways:
+      istio-ingressgateway:
+        labels:
+          app: __APP__
+          istio: ingressgateway
+        env:
+          ISTIO_META_ROUTER_MODE: sni-dnat
+          
+        ports:
+        - port: 15443
+          name: tls-k8s-services
+        meshExpansionPorts:
+        - port: 15012
+          targetPort: 15012
+          name: tcp-istiod
+        - port: 11800
+          targetPort: 11800
+          name: tcp-oap-grpc
+        - port: 9411
+          targetPort: 9411
+          name: tcp-tracing-grpc    
+            
     pilot:
       autoscaleEnabled: false
 
@@ -43,8 +70,9 @@ spec:
     - name: istio-egressgateway
       enabled: false
     ingressGateways:
-    - name: istio-ingressgateway
-      enabled: false
+    - name: vmgateway
+      enabled: true
+      namespace: istio-system
     policy:
       enabled: false
     telemetry:
