@@ -24,8 +24,8 @@ spec:
       serviceAccountName: tsbd-service-account
       containers:
         - name: tsbd
-          image: {{ .Values.global.hub }}/tsbd-server:{{ .Values.tag }}
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.hub | default .Values.global.hub }}/tsbd-server:{{ .Values.tag }}
+          imagePullPolicy: {{ .Values.imagePullPolicy | default .Values.global.imagePullPolicy | default "IfNotPresent"  }}
           command:
           - /usr/local/bin/tsbd-server
           - --tcc-host={{ .Values.global.tcc.host }}:{{ .Values.global.tcc.port }}
