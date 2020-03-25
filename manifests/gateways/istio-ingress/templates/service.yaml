@@ -1,26 +1,17 @@
-{{- range $key, $gateway := .Values.gateways }}
-{{- if $gateway.enabled }}
+{{ $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if not $gateway.customService }}
 apiVersion: v1
 kind: Service
 metadata:
-{{- if eq $key "tsb-gateway" }}
-{{- if index $.Values "gateways" "tsb-gateway" "tier1" }}
-  name: {{ $key }}-tier1-{{ $.Release.Namespace }}
-{{- else }}
-  name: {{ $key }}-{{ $.Release.Namespace }}
-{{- end }}
-{{- else }}
   name: {{ $gateway.name | default "istio-ingressgateway" }}
-{{- end }}
-  namespace: {{ $.Release.Namespace }}
+  namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
-    release: {{ $.Release.Name }}
+    release: {{ .Release.Name }}
 spec:
 {{- if $gateway.loadBalancerIP }}
   loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
@@ -48,9 +39,7 @@ spec:
     {{- range $key, $val := $gateway.meshExpansionPorts }}
     -
       {{- range $pkey, $pval := $val }}
-      {{- if ne $pkey "hostPort" }}
       {{ $pkey}}: {{ $pval }}
-      {{- end }}
       {{- end }}
     {{- end }}
     {{- end }}
@@ -60,6 +49,4 @@ spec:
       name: {{ $app.name }}
   {{- end }}
 ---
-{{ end }}
-{{ end }}
 {{ end }}

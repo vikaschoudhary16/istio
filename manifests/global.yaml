@@ -13,6 +13,13 @@
 # This doesn't match istio defaults, which are more geared towards tests and bookinfo.
 
 global:
+  tcc:
+    enabled: true
+    host: "__HOST__"
+    port: 8443
+    tenant: "__TENANT__"
+    cluster: "__CLUSTER__"
+    environment: "__ENV__"
   # Used to locate istio-pilot.
   # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
   # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
@@ -36,10 +43,10 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Dev builds from prow are on gcr.io
-  hub: gcr.io/istio-testing
+  hub: "__HUB__"
 
   # Default tag for Istio images.
-  tag: latest
+  tag: "__TAG__"
 
   # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
   # The control plane has different scopes depending on component, but can configure default log level across all components
@@ -101,17 +108,9 @@ global:
 
     # Configure envoy gRPC access log service.
     envoyAccessLogService:
-      enabled: false
-      host: # example: accesslog-service.istio-system
-      port: # example: 15000
-      tlsSettings:
-        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
-        clientCertificate: # example: /etc/istio/als/cert-chain.pem
-        privateKey:        # example: /etc/istio/als/key.pem
-        caCertificates:    # example: /etc/istio/als/root-cert.pem
-        sni:               # example: als.somedomain
-        subjectAltNames: []
-        # - als.somedomain
+      enabled: true
+      host: oap.istio-system
+      port: 11800
       tcpKeepalive:
         probes: 3
         time: 10s
