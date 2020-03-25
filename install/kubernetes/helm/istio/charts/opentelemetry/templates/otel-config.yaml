@@ -57,6 +57,12 @@ data:
             - source_labels: []
               target_label: cluster
               replacement: {{ .Values.global.tcc.cluster }}
+            - source_labels: []
+              target_label: plane
+              replacement: control
+            - source_labels: []
+              target_label: component
+              replacement: istiod
 
           - job_name: 'tsbd'
             kubernetes_sd_configs:
@@ -64,6 +70,7 @@ data:
               namespaces:
                 names:
                 - {{ .Release.Namespace }}
+
             relabel_configs:
             - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
               action: keep
@@ -71,6 +78,12 @@ data:
             - source_labels: []
               target_label: cluster
               replacement: {{ .Values.global.tcc.cluster }}
+            - source_labels: []
+              target_label: plane
+              replacement: control
+            - source_labels: []
+              target_label: component
+              replacement: tsbd
 
           - job_name: 'oap'
             metrics_path: '/'
@@ -88,6 +101,18 @@ data:
             - source_labels: []
               target_label: cluster
               replacement: {{ .Values.global.tcc.cluster }}
+            - source_labels: []
+              target_label: plane
+              replacement: control
+            - source_labels: []
+              target_label: component
+              replacement: oap
+
+            metric_relabel_configs:
+            # Dropped due to conflicts with metric of the same name causing errors in Prometheus code.
+            - source_labels: [__name__]
+              regex: 'process_start_time_seconds'
+              action: drop
 
           - job_name: 'zipkin'
             metrics_path: '/prometheus'
@@ -103,8 +128,15 @@ data:
               action: keep
               regex: tracing;http-query
             - source_labels: []
+              target_label: plane
+              replacement: control
+            - source_labels: []
               target_label: cluster
               replacement: {{ .Values.global.tcc.cluster }}
+            - source_labels: []
+              target_label: component
+              replacement: zipkin
+
             - source_labels: [__name__]
               regex: '^status_(\d+)_(.*)$'
               replacement: '${1}'
@@ -117,4 +149,10 @@ data:
               regex: '^status_(\d+)_(.*)$'
               replacement: 'http_requests_total'
               target_label: __name__
+
+            metric_relabel_configs:
+            # Dropped due to conflicts with metric of the same name causing errors in Prometheus code.
+            - source_labels: [__name__]
+              regex: 'process_start_time_seconds'
+              action: drop
 {{- end }}
