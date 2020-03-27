@@ -20,6 +20,7 @@ oap:
   elasticsearch:
     host: "__HOST__"
     port: 8443
+    secretFile: ""
   analysis: reg-agent-mesh
   logLevel: WARN
   enabledPackedDownsampling: false
