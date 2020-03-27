@@ -1,15 +1,19 @@
 # Please keep this file updated.
-commit 2ae3f1a12d1dc727afc0830b81ce88fbf36de1a3 (istio/master, upstream-istio)
 Author: John Howard <howardjohn@google.com>
-Date:   Fri Mar 13 03:12:45 2020 -0700
+Date:   Wed Mar 25 10:38:21 2020 -0700
 
-    Fix Istiod CSR on Kubernetes 1.18 (#22084)
-    
-    Ref https://github.com/kubernetes/kubernetes/pull/86933, a breaking
-    change to the API was made. There is a new RBAC rule required to sign
-    permissions.
-    
-    We also should add signer name, but we need to update our k8s client
-    library, tracked in https://github.com/istio/istio/issues/22081
-    
-    Fixes https://github.com/istio/istio/issues/22063
+    Move extra istio revision out of main test (#22336)
+
+    * Move extra istio revision out of main test
+
+    This applies istio inside of the revision test, instead of for every
+    pilot test. This gives us more flexibility. The reason this wasn't done
+    before is the cleanup was broken
+
+    * wip
+
+    * fix build
+
+    * Save during apply
+
+    * Fix nil
