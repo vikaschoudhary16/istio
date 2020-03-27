@@ -28,8 +28,8 @@ data:
                     value: elasticsearch
                 {{- if .Values.token }}
                 - header:
-                    key: Authorization
-                    value: "Bearer $token"
+                    key: x-tetrate-token
+                    value: "$token"
                 {{- end }}
                 virtual_hosts:
                 - name: local_service
@@ -53,8 +53,8 @@ data:
                 request_headers_to_add:
                 {{- if .Values.token }}
                 - header:
-                    key: Authorization
-                    value: "Bearer $token"
+                    key: x-tetrate-token
+                    value: "$token"
                 {{- end }}
                 virtual_hosts:
                 - name: local_service
@@ -77,9 +77,11 @@ data:
               route_config:
                 name: local_route
                 request_headers_to_add:
+                {{- if .Values.token }}
                 - header:
-                    key: Authorization
-                    value: "Bearer $token"
+                    key: x-tetrate-token
+                    value: "$token"
+                {{- end }}
                 virtual_hosts:
                 - name: local_service
                   domains: ['*']
@@ -102,9 +104,11 @@ data:
               route_config:
                 name: local_route
                 request_headers_to_add:
+                {{- if .Values.token }}
                 - header:
-                    key: Authorization
-                    value: "Bearer $token"
+                    key: x-tetrate-token
+                    value: "$token"
+                {{- end }}
                 virtual_hosts:
                 - name: local_service
                   domains: ['*']

@@ -29,8 +29,8 @@ data:
                     value: elasticsearch
                 {{- if .Values.zipkin.token }}
                 - header:
-                    key: Authorization
-                    value: "Bearer $token"
+                    key: x-tetrate-token
+                    value: "$token"
                 {{- end }}
                 virtual_hosts:
                 - name: local_service
