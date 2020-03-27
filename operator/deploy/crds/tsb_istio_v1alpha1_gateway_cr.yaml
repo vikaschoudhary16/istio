@@ -6,7 +6,7 @@ spec:
     ingressGateways:
     - name: tsb-gateway
       enabled: true
-      namespace: bookinfo
+      namespace: __APPNS__
   values:
     gateways:
       istio-ingressgateway:
@@ -20,7 +20,7 @@ spec:
         meshExpansionPorts:
         -
         labels:
-          app: tsb-gateway-bookinfo
+          app: __APP__
           istio: ingressgateway
         env:
           ISTIO_META_ROUTER_MODE: standard

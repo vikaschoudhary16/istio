@@ -194,6 +194,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	installSettings := []string{
 		"-f", defaultsIOPFile,
 		"-f", iopFile,
+		"--force",
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 	}
 	// If control plane values set, assume this includes the full set of values, and .Values is
