@@ -19,13 +19,6 @@ spec:
     spec:
       serviceAccountName: oap-service-account
       initContainers:
-      - name: copy-raw-config
-        image: {{ .Values.global.hub }}/spm-user:{{ .Values.tag }}
-        command: ['/bin/sh']
-        args: ['-c', 'cp /skywalking/config/* /config']
-        volumeMounts:
-          - name: config
-            mountPath: /config
       - name: override-config
         image: {{ .Values.global.hub }}/envsubst:v1.0
         command: ['/bin/sh']
@@ -58,8 +51,58 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.uid
+        - name: SW_CLUSTER_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SW_EXPORTER_GRPC_HOST
+          value: localhost
+        - name: SW_EXPORTER_GRPC_PORT
+          value: "21800"
+        - name: SW_ENVOY_METRIC_ALS_HTTP_ANALYSIS
+          value: {{ .Values.analysis }}
+        - name: SW_SPM_CLUSTER_NAME
+          value: {{ .Values.global.tcc.cluster }}
+        - name: SW_SPM_ENV_NAME
+          value: {{ .Values.global.tcc.environment }}
+        - name: SW_ENVOY_METRIC_ALS_REG_AGENT_HOST
+          value: tsbd
+        - name: SW_ENVOY_METRIC_ALS_REG_AGENT_PORT
+          value: "9080"
+        {{- if .Values.externalServices.metadata.enabled }}
+        - name: SW_STORAGE
+          value: tsb-es
+        - name: SW_TSB_HOST
+          value: localhost
+        - name: SW_TSB_PORT
+          value: "9080"
+        {{- end }}
+        - name: SW_STORAGE_ES_CLUSTER_NODES
+          value: localhost:9200
+        - name: SW_ES_USER
+          value: {{ .Values.global.elasticsearch.user }}
+        - name: SW_ES_PASSWORD
+          value: {{ .Values.global.elasticsearch.password }}
+        - name: SW_ES_SECRETS_MANAGEMENT_FILE
+          value: {{ .Values.elasticsearch.secretFile }}
+        - name: SW_STORAGE_ENABLE_PACKED_DOWNSAMPLING
+          value: "{{ .Values.enabledPackedDownsampling }}"
+        - name: SW_STORAGE_DAY_STEP
+          value: "{{ .Values.dayStep }}"
+        {{- if .Values.externalServices.configuration.enabled }}
+        - name: SW_CONFIGURATION
+          value: grpc
+        - name: SW_CONFIGURATION_GRPC_HOST
+          value: localhost
+        - name: SW_CONFIGURATION_GRPC_PORT
+          value: "9081"
+        - name: SW_CONFIGURATION_GRPC_PERIOD
+          value: "{{ .Values.externalServices.configuration.period }}"
+        - name: SW_CONFIGURATION_GRPC_CLUSTER_NAME
+          value: "{{ .Values.externalServices.configuration.clusterName }}"
+        {{- end }}
         volumeMounts:
-        - mountPath: /skywalking/config
+        - mountPath: /skywalking/ext-config
           name: config
       - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
