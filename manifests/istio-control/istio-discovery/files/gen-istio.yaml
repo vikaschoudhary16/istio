@@ -46,7 +46,7 @@ data:
     cpu:
       targetAverageUtilization: 80
     deploymentLabels: {}
-    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForInbound: true
     enableProtocolSniffingForOutbound: true
     env: {}
     hub: ""
@@ -228,6 +228,7 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
@@ -399,6 +400,7 @@ data:
         "trustDomainAliases": [],
         "useMCP": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -578,9 +580,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -946,12 +948,14 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-            value: "false"
+            value: "true"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
             value: istio-sidecar-injector
           - name: ISTIOD_ADDR
             value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
+            value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"

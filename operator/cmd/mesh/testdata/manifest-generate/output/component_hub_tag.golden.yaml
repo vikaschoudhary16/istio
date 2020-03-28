@@ -80,14 +80,6 @@ spec:
         volumeMounts:
         - mountPath: /data/grafana
           name: data
-        - mountPath: /var/lib/grafana/dashboards/istio/citadel-dashboard.json
-          name: dashboards-istio-citadel-dashboard
-          readOnly: true
-          subPath: citadel-dashboard.json
-        - mountPath: /var/lib/grafana/dashboards/istio/galley-dashboard.json
-          name: dashboards-istio-galley-dashboard
-          readOnly: true
-          subPath: galley-dashboard.json
         - mountPath: /var/lib/grafana/dashboards/istio/istio-mesh-dashboard.json
           name: dashboards-istio-istio-mesh-dashboard
           readOnly: true
@@ -127,12 +119,6 @@ spec:
         name: config
       - emptyDir: {}
         name: data
-      - configMap:
-          name: istio-grafana-configuration-dashboards-citadel-dashboard
-        name: dashboards-istio-citadel-dashboard
-      - configMap:
-          name: istio-grafana-configuration-dashboards-galley-dashboard
-        name: dashboards-istio-galley-dashboard
       - configMap:
           name: istio-grafana-configuration-dashboards-istio-mesh-dashboard
         name: dashboards-istio-istio-mesh-dashboard
@@ -464,12 +450,14 @@ spec:
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "false"
+          value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istiod.istio-system.svc:15012
         - name: PILOT_EXTERNAL_GALLEY
+          value: "false"
+        - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
@@ -621,7 +609,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: docker.io/testing/kiali:v1.14
+        image: docker.io/testing/kiali:v1.15
         livenessProbe:
           httpGet:
             path: /kiali/healthz

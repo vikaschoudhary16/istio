@@ -151,6 +151,8 @@ spec:
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
+            value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           resources:
@@ -212,7 +214,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: istio-sidecar-injector
+          name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
       - name: config-volume
         configMap:

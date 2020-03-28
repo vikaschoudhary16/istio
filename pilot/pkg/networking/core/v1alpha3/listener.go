@@ -100,6 +100,9 @@ const (
 	// VirtualInboundListenerName is the name for traffic capture listener
 	VirtualInboundListenerName = "virtualInbound"
 
+	// virtualInboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
+	virtualInboundCatchAllHTTPFilterChainName = "virtualInbound-catchall-http"
+
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 
@@ -330,6 +333,11 @@ var (
 		},
 	}
 
+	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
+	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
+
+	tracingConfig = buildTracingConfig()
+
 	lmutex          sync.RWMutex
 	cachedAccessLog *accesslog.AccessLog
 )
@@ -393,6 +401,28 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 	}
 	return cachedAccessLog
+}
+
+func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
+	fl := &accesslogconfig.HttpGrpcAccessLogConfig{
+		CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
+			LogName: httpEnvoyAccessLogFriendlyName,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: EnvoyAccessLogCluster,
+					},
+				},
+			},
+		},
+	}
+
+	fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
+
+	return &accesslog.AccessLog{
+		Name:       wellknown.HTTPGRPCAccessLog,
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+	}
 }
 
 var (
@@ -1868,8 +1898,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 		filters = append(filters, &http_conn.HttpFilter{Name: wellknown.GRPCWeb})
 	}
 
-	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		pluginParams.ServiceInstance != nil &&
+	if pluginParams.ServiceInstance != nil &&
 		pluginParams.ServiceInstance.ServicePort != nil &&
 		pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPC {
 		filters = append(filters, &http_conn.HttpFilter{
@@ -1883,8 +1912,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if util.IsIstioVersionGE14(pluginParams.Node) &&
-		(pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND) {
+	if pluginParams.ListenerCategory == networking.EnvoyFilter_SIDECAR_OUTBOUND {
 		filters = append(filters, &http_conn.HttpFilter{
 			Name: AlpnFilterName,
 			ConfigType: &http_conn.HttpFilter_TypedConfig{
@@ -1936,12 +1964,8 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	idleTimeout, err := time.ParseDuration(pluginParams.Node.Metadata.IdleTimeout)
 	if idleTimeout > 0 && err == nil {
-		if util.IsIstioVersionGE14(pluginParams.Node) {
-			connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-				IdleTimeout: ptypes.DurationProto(idleTimeout),
-			}
-		} else {
-			connectionManager.IdleTimeout = ptypes.DurationProto(idleTimeout)
+		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+			IdleTimeout: ptypes.DurationProto(idleTimeout),
 		}
 	}
 
@@ -1970,48 +1994,30 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if pluginParams.Push.Mesh.EnableEnvoyAccessLogService {
-		fl := &accesslogconfig.HttpGrpcAccessLogConfig{
-			CommonConfig: &accesslogconfig.CommonGrpcAccessLogConfig{
-				LogName: httpEnvoyAccessLogFriendlyName,
-				GrpcService: &core.GrpcService{
-					TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-							ClusterName: EnvoyAccessLogCluster,
-						},
-					},
-				},
-			},
-		}
-
-		if util.IsIstioVersionGE14(pluginParams.Node) {
-			fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
-		}
-
-		acc := &accesslog.AccessLog{
-			Name:       wellknown.HTTPGRPCAccessLog,
-			ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
-		}
-
-		connectionManager.AccessLog = append(connectionManager.AccessLog, acc)
+		connectionManager.AccessLog = append(connectionManager.AccessLog, httpGrpcAccessLog)
 	}
 
 	if pluginParams.Push.Mesh.EnableTracing {
-		tc := authn_model.GetTraceConfig()
-		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
-			ClientSampling: &envoy_type.Percent{
-				Value: tc.ClientSampling,
-			},
-			RandomSampling: &envoy_type.Percent{
-				Value: tc.RandomSampling,
-			},
-			OverallSampling: &envoy_type.Percent{
-				Value: tc.OverallSampling,
-			},
-		}
+		connectionManager.Tracing = tracingConfig
 		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
+}
+
+func buildTracingConfig() *http_conn.HttpConnectionManager_Tracing {
+	tc := authn_model.GetTraceConfig()
+	return &http_conn.HttpConnectionManager_Tracing{
+		ClientSampling: &envoy_type.Percent{
+			Value: tc.ClientSampling,
+		},
+		RandomSampling: &envoy_type.Percent{
+			Value: tc.RandomSampling,
+		},
+		OverallSampling: &envoy_type.Percent{
+			Value: tc.OverallSampling,
+		},
+	}
 }
 
 func buildThriftRatelimit(domain string, thriftconfig *meshconfig.MeshConfig_ThriftConfig) *thrift_ratelimit.RateLimit {

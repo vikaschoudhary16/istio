@@ -23,7 +23,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time" // For kubeclient GCP auth
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
@@ -41,11 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-
-	"istio.io/istio/pilot/pkg/model"
-
-	// For GCP auth functionality.
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // for GCP auth
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	kubectlutil "k8s.io/kubectl/pkg/util/deployment"
@@ -60,6 +56,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	binversion "istio.io/istio/operator/version"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
 )
 
@@ -278,6 +275,19 @@ func ApplyAll(manifests name.ManifestMap, version pkgversion.Version, revision s
 	return applyRecursive(manifests, version, revision, opts)
 }
 
+// Apply applies all given manifest using kubectl client.
+func Apply(manifest string, opts *kubectlcmd.Options) error {
+	if _, err := InitK8SRestClient(opts.Kubeconfig, opts.Context); err != nil {
+		return err
+	}
+
+	stdoutApply, stderrApply, err := kubectl.Apply(manifest, opts)
+	if err != nil {
+		return fmt.Errorf("%s\n%s\n%s", err, stdoutApply, stderrApply)
+	}
+	return nil
+}
+
 func applyRecursive(manifests name.ManifestMap, version pkgversion.Version, revision string, opts *kubectlcmd.Options) (CompositeOutput, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -350,8 +360,11 @@ func ApplyManifest(componentName name.ComponentName, manifestStr, version, revis
 	// TODO: remove this when `kubectl --prune` supports empty objects
 	//  (https://github.com/kubernetes/kubernetes/issues/40635)
 	// Delete all resources for a disabled component
-	// We should not prune if revision is set, as we may prune other revisions
-	if len(objects) == 0 && !opts.DryRun && revision == "" {
+	if len(objects) == 0 && !opts.DryRun {
+		if revision != "" {
+			// We should not prune if revision is set, as we may prune other revisions
+			return &ComponentApplyOutput{}, nil
+		}
 		getOpts := opts
 		getOpts.Output = "yaml"
 		getOpts.ExtraArgs = []string{"--all-namespaces", "--selector", componentLabel}

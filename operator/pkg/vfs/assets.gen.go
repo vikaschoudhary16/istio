@@ -4,6 +4,7 @@
 // charts/base/NOTES.txt
 // charts/base/files/crd-all.gen.yaml
 // charts/base/files/crd-mixer.yaml
+// charts/base/files/crd-operator.yaml
 // charts/base/files/gen-istio-cluster.yaml
 // charts/base/kustomization.yaml
 // charts/base/templates/clusterrole.yaml
@@ -82,6 +83,15 @@
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml
 // charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml
 // charts/istio-control/istio-discovery/values.yaml
+// charts/istio-operator/Chart.yaml
+// charts/istio-operator/templates/clusterrole.yaml
+// charts/istio-operator/templates/clusterrole_binding.yaml
+// charts/istio-operator/templates/crd-operator.yaml
+// charts/istio-operator/templates/deployment.yaml
+// charts/istio-operator/templates/namespace.yaml
+// charts/istio-operator/templates/service.yaml
+// charts/istio-operator/templates/service_account.yaml
+// charts/istio-operator/values.yaml
 // charts/istio-policy/Chart.yaml
 // charts/istio-policy/templates/_affinity.tpl
 // charts/istio-policy/templates/_helpers.tpl
@@ -95,8 +105,6 @@
 // charts/istio-policy/templates/serviceaccount.yaml
 // charts/istio-policy/values.yaml
 // charts/istio-telemetry/grafana/Chart.yaml
-// charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json
-// charts/istio-telemetry/grafana/dashboards/galley-dashboard.json
 // charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json
 // charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json
 // charts/istio-telemetry/grafana/dashboards/istio-service-dashboard.json
@@ -142,7 +150,6 @@
 // charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml
 // charts/istio-telemetry/prometheus/templates/configmap.yaml
 // charts/istio-telemetry/prometheus/templates/deployment.yaml
-// charts/istio-telemetry/prometheus/templates/ingress.yaml
 // charts/istio-telemetry/prometheus/templates/service.yaml
 // charts/istio-telemetry/prometheus/templates/serviceaccount.yaml
 // charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml
@@ -176,14 +183,6 @@
 // examples/user-gateway/ingress-gateway-only.yaml
 // examples/vm/values-istio-meshexpansion-gateways.yaml
 // examples/vm/values-istio-meshexpansion.yaml
-// operator-chart/Chart.yaml
-// operator-chart/templates/clusterrole.yaml
-// operator-chart/templates/clusterrole_binding.yaml
-// operator-chart/templates/crd.yaml
-// operator-chart/templates/deployment.yaml
-// operator-chart/templates/namespace.yaml
-// operator-chart/templates/service.yaml
-// operator-chart/templates/service_account.yaml
 // profiles/default.yaml
 // profiles/demo.yaml
 // profiles/empty.yaml
@@ -330,8 +329,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -388,6 +386,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -419,6 +427,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -450,6 +468,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -481,6 +509,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -517,6 +555,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -548,6 +596,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -579,6 +637,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -610,6 +678,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -648,6 +726,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -702,6 +788,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -733,6 +829,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -764,6 +870,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -795,6 +911,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -831,6 +957,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -862,6 +998,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -893,6 +1039,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -924,6 +1080,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -987,6 +1153,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -1037,8 +1209,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -1095,6 +1266,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1126,6 +1307,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1157,6 +1348,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1188,6 +1389,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1224,6 +1435,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1255,6 +1476,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1286,6 +1517,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1317,6 +1558,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1355,6 +1606,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -1409,6 +1668,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1440,6 +1709,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1471,6 +1750,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1502,6 +1791,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1538,6 +1837,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1569,6 +1878,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1600,6 +1919,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1631,6 +1960,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -1694,6 +2033,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -1748,6 +2093,14 @@ spec:
             api_keys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1771,6 +2124,14 @@ spec:
             apiKeys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -1796,6 +2157,24 @@ spec:
                 attributes:
                   additionalProperties:
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - stringValue
+                        - required:
+                          - int64Value
+                        - required:
+                          - doubleValue
+                        - required:
+                          - boolValue
+                        - required:
+                          - bytesValue
+                        - required:
+                          - timestampValue
+                        - required:
+                          - durationValue
+                        - required:
+                          - stringMapValue
                     - required:
                       - stringValue
                     - required:
@@ -1849,6 +2228,12 @@ spec:
               description: List of HTTP patterns to match.
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - uriTemplate
+                    - required:
+                      - regex
                 - required:
                   - uriTemplate
                 - required:
@@ -1859,6 +2244,24 @@ spec:
                       attributes:
                         additionalProperties:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - stringValue
+                              - required:
+                                - int64Value
+                              - required:
+                                - doubleValue
+                              - required:
+                                - boolValue
+                              - required:
+                                - bytesValue
+                              - required:
+                                - timestampValue
+                              - required:
+                                - durationValue
+                              - required:
+                                - stringMapValue
                           - required:
                             - stringValue
                           - required:
@@ -2061,6 +2464,14 @@ spec:
                         clause:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -2322,11 +2733,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -2514,11 +2962,48 @@ spec:
                               description: Settings controlling the load balancer
                                 algorithms.
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - simple
+                                  - properties:
+                                      consistentHash:
+                                        oneOf:
+                                        - not:
+                                            anyOf:
+                                            - required:
+                                              - httpHeaderName
+                                            - required:
+                                              - httpCookie
+                                            - required:
+                                              - useSourceIp
+                                            - required:
+                                              - httpQueryParameterName
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
+                                    required:
+                                    - consistentHash
                               - required:
                                 - simple
                               - properties:
                                   consistentHash:
                                     oneOf:
+                                    - not:
+                                        anyOf:
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
                                     - required:
                                       - httpHeaderName
                                     - required:
@@ -2778,11 +3263,48 @@ spec:
                 loadBalancer:
                   description: Settings controlling the load balancer algorithms.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - required:
+                        - simple
+                      - properties:
+                          consistentHash:
+                            oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - httpHeaderName
+                                - required:
+                                  - httpCookie
+                                - required:
+                                  - useSourceIp
+                                - required:
+                                  - httpQueryParameterName
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
+                        required:
+                        - consistentHash
                   - required:
                     - simple
                   - properties:
                       consistentHash:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
                         - required:
                           - httpHeaderName
                         - required:
@@ -2967,11 +3489,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -3223,6 +3782,14 @@ spec:
                   match:
                     description: Match on listener/route configuration/cluster.
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - listener
+                        - required:
+                          - routeConfiguration
+                        - required:
+                          - cluster
                     - required:
                       - listener
                     - required:
@@ -3636,6 +4203,9 @@ spec:
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
+                  serviceAccount:
+                    format: string
+                    type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
                     type: integer
@@ -3687,6 +4257,15 @@ spec:
                 format: string
                 type: string
               type: array
+            workloadSelector:
+              description: Applicable only for MESH_INTERNAL services.
+              properties:
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
           type: object
       type: object
   versions:
@@ -3941,6 +4520,14 @@ spec:
                         description: String patterns that match allowed origins.
                         items:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -3974,6 +4561,14 @@ spec:
                     properties:
                       abort:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpStatus
+                            - required:
+                              - grpcStatus
+                            - required:
+                              - http2Error
                         - required:
                           - httpStatus
                         - required:
@@ -4003,13 +4598,15 @@ spec:
                         type: object
                       delay:
                         oneOf:
-                        - properties:
-                            percent: {}
-                          required:
+                        - not:
+                            anyOf:
+                            - required:
+                              - fixedDelay
+                            - required:
+                              - exponentialDelay
+                        - required:
                           - fixedDelay
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - exponentialDelay
                         properties:
                           exponentialDelay:
@@ -4076,6 +4673,14 @@ spec:
                       properties:
                         authority:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4104,6 +4709,14 @@ spec:
                         headers:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4129,6 +4742,14 @@ spec:
                           type: boolean
                         method:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4158,6 +4779,14 @@ spec:
                         queryParams:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4180,6 +4809,14 @@ spec:
                           type: object
                         scheme:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4210,6 +4847,14 @@ spec:
                           type: string
                         uri:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -4231,6 +4876,14 @@ spec:
                         withoutHeaders:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -4572,6 +5225,90 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: workloadentries.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  - JSONPath: .spec.address
+    description: Address associated with the network endpoint.
+    name: Address
+    type: string
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: WorkloadEntry
+    listKind: WorkloadEntryList
+    plural: workloadentries
+    shortNames:
+    - we
+    singular: workloadentry
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Configuration affecting VMs onboarded into the mesh. See more
+            details at: https://istio.io/docs/reference/config/networking/workload-entry.html'
+          properties:
+            address:
+              format: string
+              type: string
+            labels:
+              additionalProperties:
+                format: string
+                type: string
+              description: One or more labels associated with the endpoint.
+              type: object
+            locality:
+              description: The locality associated with the endpoint.
+              format: string
+              type: string
+            network:
+              format: string
+              type: string
+            ports:
+              additionalProperties:
+                type: integer
+              description: Set of ports associated with the endpoint.
+              type: object
+            serviceAccount:
+              format: string
+              type: string
+            weight:
+              description: The load balancing weight associated with the endpoint.
+              type: integer
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+  - name: v1beta1
+    served: true
+    storage: false
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
     app: mixer
     chart: istio
     heritage: Tiller
@@ -4693,15 +5430,58 @@ spec:
                 authentication:
                   description: Auth config for the connection to the backend.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - properties:
+                          tls:
+                            allOf:
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - tokenPath
+                                  - required:
+                                    - oauth
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - authHeader
+                                  - required:
+                                    - customHeader
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
+                        required:
+                        - tls
+                      - required:
+                        - mutual
                   - properties:
                       tls:
                         allOf:
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
                           - required:
                             - tokenPath
                           - required:
                             - oauth
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
                           - required:
                             - authHeader
                           - required:
@@ -5052,8 +5832,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5140,8 +5919,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -5228,8 +6006,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             rules:
               description: The set of access rules (permissions) that the role has.
@@ -5352,8 +6129,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             actions:
               items:
@@ -5989,6 +6765,69 @@ func chartsBaseFilesCrdMixerYaml() (*asset, error) {
 	return a, nil
 }
 
+var _chartsBaseFilesCrdOperatorYaml = []byte(`# SYNC WITH manifests/istio-operator/templates
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+`)
+
+func chartsBaseFilesCrdOperatorYamlBytes() ([]byte, error) {
+	return _chartsBaseFilesCrdOperatorYaml, nil
+}
+
+func chartsBaseFilesCrdOperatorYaml() (*asset, error) {
+	bytes, err := chartsBaseFilesCrdOperatorYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/base/files/crd-operator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _chartsBaseFilesGenIstioClusterYaml = []byte(`---
 # Source: base/templates/namespaces.yaml
 apiVersion: v1
@@ -6051,8 +6890,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -6109,6 +6947,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6140,6 +6988,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6171,6 +7029,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6202,6 +7070,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6238,6 +7116,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6269,6 +7157,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6300,6 +7198,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6331,6 +7239,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6369,6 +7287,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -6423,6 +7349,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6454,6 +7390,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6485,6 +7431,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6516,6 +7472,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6552,6 +7518,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6583,6 +7559,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6614,6 +7600,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6645,6 +7641,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6708,6 +7714,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -6758,8 +7770,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Authentication policy for Istio services. See more details
-            at: https://istio.io/docs/reference/config/security/istio.authentication.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             originIsOptional:
               description: Deprecated.
@@ -6816,6 +7827,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6847,6 +7868,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6878,6 +7909,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6909,6 +7950,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6945,6 +7996,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -6976,6 +8037,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7007,6 +8078,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7038,6 +8119,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7076,6 +8167,14 @@ spec:
             peers:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - mtls
+                    - properties:
+                        jwt: {}
+                      required:
+                      - jwt
                 - required:
                   - mtls
                 - properties:
@@ -7130,6 +8229,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7161,6 +8270,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7192,6 +8311,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7223,6 +8352,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7259,6 +8398,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7290,6 +8439,16 @@ spec:
                               description: List of paths to be excluded from the request.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7321,6 +8480,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7352,6 +8521,16 @@ spec:
                               description: List of paths that the request must include.
                               items:
                                 oneOf:
+                                - not:
+                                    anyOf:
+                                    - required:
+                                      - exact
+                                    - required:
+                                      - prefix
+                                    - required:
+                                      - suffix
+                                    - required:
+                                      - regex
                                 - required:
                                   - exact
                                 - required:
@@ -7415,6 +8594,12 @@ spec:
                     description: Specifies the ports.
                     items:
                       oneOf:
+                      - not:
+                          anyOf:
+                          - required:
+                            - number
+                          - required:
+                            - name
                       - required:
                         - number
                       - required:
@@ -7469,6 +8654,14 @@ spec:
             api_keys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -7492,6 +8685,14 @@ spec:
             apiKeys:
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - query
+                    - required:
+                      - header
+                    - required:
+                      - cookie
                 - required:
                   - query
                 - required:
@@ -7517,6 +8718,24 @@ spec:
                 attributes:
                   additionalProperties:
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - stringValue
+                        - required:
+                          - int64Value
+                        - required:
+                          - doubleValue
+                        - required:
+                          - boolValue
+                        - required:
+                          - bytesValue
+                        - required:
+                          - timestampValue
+                        - required:
+                          - durationValue
+                        - required:
+                          - stringMapValue
                     - required:
                       - stringValue
                     - required:
@@ -7570,6 +8789,12 @@ spec:
               description: List of HTTP patterns to match.
               items:
                 oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - uriTemplate
+                    - required:
+                      - regex
                 - required:
                   - uriTemplate
                 - required:
@@ -7580,6 +8805,24 @@ spec:
                       attributes:
                         additionalProperties:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - stringValue
+                              - required:
+                                - int64Value
+                              - required:
+                                - doubleValue
+                              - required:
+                                - boolValue
+                              - required:
+                                - bytesValue
+                              - required:
+                                - timestampValue
+                              - required:
+                                - durationValue
+                              - required:
+                                - stringMapValue
                           - required:
                             - stringValue
                           - required:
@@ -7782,6 +9025,14 @@ spec:
                         clause:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -8043,11 +9294,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -8235,11 +9523,48 @@ spec:
                               description: Settings controlling the load balancer
                                 algorithms.
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - simple
+                                  - properties:
+                                      consistentHash:
+                                        oneOf:
+                                        - not:
+                                            anyOf:
+                                            - required:
+                                              - httpHeaderName
+                                            - required:
+                                              - httpCookie
+                                            - required:
+                                              - useSourceIp
+                                            - required:
+                                              - httpQueryParameterName
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
+                                    required:
+                                    - consistentHash
                               - required:
                                 - simple
                               - properties:
                                   consistentHash:
                                     oneOf:
+                                    - not:
+                                        anyOf:
+                                        - required:
+                                          - httpHeaderName
+                                        - required:
+                                          - httpCookie
+                                        - required:
+                                          - useSourceIp
+                                        - required:
+                                          - httpQueryParameterName
                                     - required:
                                       - httpHeaderName
                                     - required:
@@ -8499,11 +9824,48 @@ spec:
                 loadBalancer:
                   description: Settings controlling the load balancer algorithms.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - required:
+                        - simple
+                      - properties:
+                          consistentHash:
+                            oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - httpHeaderName
+                                - required:
+                                  - httpCookie
+                                - required:
+                                  - useSourceIp
+                                - required:
+                                  - httpQueryParameterName
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
+                        required:
+                        - consistentHash
                   - required:
                     - simple
                   - properties:
                       consistentHash:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpHeaderName
+                            - required:
+                              - httpCookie
+                            - required:
+                              - useSourceIp
+                            - required:
+                              - httpQueryParameterName
                         - required:
                           - httpHeaderName
                         - required:
@@ -8688,11 +10050,48 @@ spec:
                       loadBalancer:
                         description: Settings controlling the load balancer algorithms.
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - simple
+                            - properties:
+                                consistentHash:
+                                  oneOf:
+                                  - not:
+                                      anyOf:
+                                      - required:
+                                        - httpHeaderName
+                                      - required:
+                                        - httpCookie
+                                      - required:
+                                        - useSourceIp
+                                      - required:
+                                        - httpQueryParameterName
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
+                              required:
+                              - consistentHash
                         - required:
                           - simple
                         - properties:
                             consistentHash:
                               oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - httpHeaderName
+                                  - required:
+                                    - httpCookie
+                                  - required:
+                                    - useSourceIp
+                                  - required:
+                                    - httpQueryParameterName
                               - required:
                                 - httpHeaderName
                               - required:
@@ -8944,6 +10343,14 @@ spec:
                   match:
                     description: Match on listener/route configuration/cluster.
                     oneOf:
+                    - not:
+                        anyOf:
+                        - required:
+                          - listener
+                        - required:
+                          - routeConfiguration
+                        - required:
+                          - cluster
                     - required:
                       - listener
                     - required:
@@ -9357,6 +10764,9 @@ spec:
                       type: integer
                     description: Set of ports associated with the endpoint.
                     type: object
+                  serviceAccount:
+                    format: string
+                    type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
                     type: integer
@@ -9408,6 +10818,15 @@ spec:
                 format: string
                 type: string
               type: array
+            workloadSelector:
+              description: Applicable only for MESH_INTERNAL services.
+              properties:
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
           type: object
       type: object
   versions:
@@ -9662,6 +11081,14 @@ spec:
                         description: String patterns that match allowed origins.
                         items:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -9695,6 +11122,14 @@ spec:
                     properties:
                       abort:
                         oneOf:
+                        - not:
+                            anyOf:
+                            - required:
+                              - httpStatus
+                            - required:
+                              - grpcStatus
+                            - required:
+                              - http2Error
                         - required:
                           - httpStatus
                         - required:
@@ -9724,13 +11159,15 @@ spec:
                         type: object
                       delay:
                         oneOf:
-                        - properties:
-                            percent: {}
-                          required:
+                        - not:
+                            anyOf:
+                            - required:
+                              - fixedDelay
+                            - required:
+                              - exponentialDelay
+                        - required:
                           - fixedDelay
-                        - properties:
-                            percent: {}
-                          required:
+                        - required:
                           - exponentialDelay
                         properties:
                           exponentialDelay:
@@ -9797,6 +11234,14 @@ spec:
                       properties:
                         authority:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -9825,6 +11270,14 @@ spec:
                         headers:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -9850,6 +11303,14 @@ spec:
                           type: boolean
                         method:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -9879,6 +11340,14 @@ spec:
                         queryParams:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -9901,6 +11370,14 @@ spec:
                           type: object
                         scheme:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -9931,6 +11408,14 @@ spec:
                           type: string
                         uri:
                           oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - exact
+                              - required:
+                                - prefix
+                              - required:
+                                - regex
                           - required:
                             - exact
                           - required:
@@ -9952,6 +11437,14 @@ spec:
                         withoutHeaders:
                           additionalProperties:
                             oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - exact
+                                - required:
+                                  - prefix
+                                - required:
+                                  - regex
                             - required:
                               - exact
                             - required:
@@ -10293,6 +11786,90 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
+  name: workloadentries.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  - JSONPath: .spec.address
+    description: Address associated with the network endpoint.
+    name: Address
+    type: string
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: WorkloadEntry
+    listKind: WorkloadEntryList
+    plural: workloadentries
+    shortNames:
+    - we
+    singular: workloadentry
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Configuration affecting VMs onboarded into the mesh. See more
+            details at: https://istio.io/docs/reference/config/networking/workload-entry.html'
+          properties:
+            address:
+              format: string
+              type: string
+            labels:
+              additionalProperties:
+                format: string
+                type: string
+              description: One or more labels associated with the endpoint.
+              type: object
+            locality:
+              description: The locality associated with the endpoint.
+              format: string
+              type: string
+            network:
+              format: string
+              type: string
+            ports:
+              additionalProperties:
+                type: integer
+              description: Set of ports associated with the endpoint.
+              type: object
+            serviceAccount:
+              format: string
+              type: string
+            weight:
+              description: The load balancing weight associated with the endpoint.
+              type: integer
+          type: object
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+  - name: v1beta1
+    served: true
+    storage: false
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
     app: mixer
     chart: istio
     heritage: Tiller
@@ -10414,15 +11991,58 @@ spec:
                 authentication:
                   description: Auth config for the connection to the backend.
                   oneOf:
+                  - not:
+                      anyOf:
+                      - properties:
+                          tls:
+                            allOf:
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - tokenPath
+                                  - required:
+                                    - oauth
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
+                            - oneOf:
+                              - not:
+                                  anyOf:
+                                  - required:
+                                    - authHeader
+                                  - required:
+                                    - customHeader
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
+                        required:
+                        - tls
+                      - required:
+                        - mutual
                   - properties:
                       tls:
                         allOf:
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - tokenPath
+                              - required:
+                                - oauth
                           - required:
                             - tokenPath
                           - required:
                             - oauth
                         - oneOf:
+                          - not:
+                              anyOf:
+                              - required:
+                                - authHeader
+                              - required:
+                                - customHeader
                           - required:
                             - authHeader
                           - required:
@@ -10773,8 +12393,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -10861,8 +12480,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             enforcementMode:
               enum:
@@ -10949,8 +12567,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             rules:
               description: The set of access rules (permissions) that the role has.
@@ -11073,8 +12690,7 @@ spec:
     openAPIV3Schema:
       properties:
         spec:
-          description: 'Configuration for Role Based Access Control. See more details
-            at: https://istio.io/docs/reference/config/security/istio.rbac.v1alpha1.html'
+          description: 'See more details at:'
           properties:
             actions:
               items:
@@ -11678,6 +13294,53 @@ spec:
       storage: true
 ---
 
+# SYNC WITH manifests/istio-operator/templates
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+
 
 ---
 # Source: base/templates/clusterrole.yaml
@@ -11990,8 +13653,20 @@ metadata:
     release: {{ .Release.Name }}
 rules:
 - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+{{- if .Values.global.istiod.enableAnalysis }}
+  verbs: ["get", "watch", "list", "update"]
+{{- else }}
   verbs: ["get", "watch", "list"]
+{{- end }}
   resources: ["*"]
+{{- if .Values.global.istiod.enableAnalysis }}
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses/status"]
+    verbs: ["*"]
+{{- end}}
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["get", "watch", "list"]
@@ -12044,7 +13719,12 @@ rules:
 
   # istio configuration
   - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+
+{{- if .Values.global.istiod.enableAnalysis }}
+    verbs: ["get", "watch", "list", "update"]
+{{- else }}
     verbs: ["get", "watch", "list"]
+{{- end }}
     resources: ["*"]
 
   # auto-detect installed CRD definitions
@@ -12064,6 +13744,14 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # ingress controller
+{{- if .Values.global.istiod.enableAnalysis }}
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses/status"]
+    verbs: ["*"]
+{{- end}}
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch"]
@@ -12216,6 +13904,7 @@ func chartsBaseTemplatesClusterrolebindingYaml() (*asset, error) {
 
 var _chartsBaseTemplatesCrdsYaml = []byte(`{{ .Files.Get "files/crd-all.gen.yaml" }}
 {{ .Files.Get "files/crd-mixer.yaml" }}
+{{ .Files.Get "files/crd-operator.yaml" }}
 `)
 
 func chartsBaseTemplatesCrdsYamlBytes() ([]byte, error) {
@@ -12546,7 +14235,9 @@ var _chartsBaseValuesYaml = []byte(`global:
   # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
   # used (citadel generating the secrets).
   istioNamespace: istio-system
-`)
+
+  istiod:
+    enableAnalysis: false`)
 
 func chartsBaseValuesYamlBytes() ([]byte, error) {
 	return _chartsBaseValuesYaml, nil
@@ -13849,9 +15540,9 @@ spec:
           {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
           {{- else if .Values.global.configNamespace }}
-            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-            value: istiod.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
           {{- end }}
           - name: NODE_NAME
             valueFrom:
@@ -15712,9 +17403,9 @@ spec:
             {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
             {{- else if .Values.global.configNamespace }}
-            value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
             {{- else }}
-            value: istiod.istio-system.svc:15012
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
             {{- end }}
           resources:
 {{- if .Values.global.proxy.resources }}
@@ -16003,6 +17694,8 @@ var _chartsIstioControlIstioConfigValuesYaml = []byte(`galley:
 
   # Enable analysis and status update in Galley
   enableAnalysis: false
+
+revision: ""
 `)
 
 func chartsIstioControlIstioConfigValuesYamlBytes() ([]byte, error) {
@@ -16119,7 +17812,7 @@ data:
     cpu:
       targetAverageUtilization: 80
     deploymentLabels: {}
-    enableProtocolSniffingForInbound: false
+    enableProtocolSniffingForInbound: true
     enableProtocolSniffingForOutbound: true
     env: {}
     hub: ""
@@ -16301,6 +17994,7 @@ data:
         "imagePullSecrets": [],
         "istioNamespace": "istio-system",
         "istiod": {
+          "enableAnalysis": false,
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
@@ -16472,6 +18166,7 @@ data:
         "trustDomainAliases": [],
         "useMCP": false
       },
+      "revision": "",
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
@@ -16651,9 +18346,9 @@ data:
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
         {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -17019,12 +18714,14 @@ spec:
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
             value: "true"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-            value: "false"
+            value: "true"
           - name: INJECTION_WEBHOOK_CONFIG_NAME
             value: istio-sidecar-injector
           - name: ISTIOD_ADDR
             value: istiod.istio-system.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
+            value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
@@ -18055,9 +19752,9 @@ template: |
     {{- if .Values.global.caAddress }}
       value: {{ .Values.global.caAddress }}
     {{- else if .Values.global.configNamespace }}
-      value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
     {{- else }}
-      value: istiod.istio-system.svc:15012
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -19000,6 +20697,8 @@ spec:
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_EXTERNAL_GALLEY
             value: "false"
+          - name: PILOT_ENABLE_ANALYSIS
+            value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `+"`"+`Kubernetes`+"`"+` }}"
           resources:
@@ -19061,7 +20760,7 @@ spec:
       # Optional - image should have
       - name: inject
         configMap:
-          name: istio-sidecar-injector
+          name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
           optional: true
       - name: config-volume
         configMap:
@@ -19110,7 +20809,7 @@ metadata:
 data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
-{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" | toPrettyJson | indent 4 }}
+{{ pick .Values "global" "istio_cni" "sidecarInjectorWebhook" "revision" | toPrettyJson | indent 4 }}
 
   # To disable injection: use omitSidecarInjectorConfigMap, which disables the webhook patching
   # and istiod webhook functionality.
@@ -20581,7 +22280,7 @@ pilot:
   # if protocol sniffing is enabled for outbound
   enableProtocolSniffingForOutbound: true
   # if protocol sniffing is enabled for inbound
-  enableProtocolSniffingForInbound: false
+  enableProtocolSniffingForInbound: true
 
   nodeSelector: {}
   tolerations: []
@@ -20758,6 +22457,418 @@ func chartsIstioControlIstioDiscoveryValuesYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-control/istio-discovery/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorChartYaml = []byte(`apiVersion: v1
+name: istio-operator
+version: 1.6.0
+tillerVersion: ">=2.7.2"
+description: Helm chart for deploying Istio operator
+keywords:
+  - istio
+  - operator
+sources:
+  - http://github.com/istio/istio/operator
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png
+`)
+
+func chartsIstioOperatorChartYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorChartYaml, nil
+}
+
+func chartsIstioOperatorChartYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorChartYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: istio-operator
+rules:
+# istio groups
+- apiGroups:
+  - authentication.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - config.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - install.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - security.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+# k8s groups
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions.apiextensions.k8s.io
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/finalizers
+  - ingresses
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - roles
+  - rolebindings
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - namespaces
+  - pods
+  - persistentvolumeclaims
+  - secrets
+  - services
+  - serviceaccounts
+  verbs:
+  - '*'
+---
+`)
+
+func chartsIstioOperatorTemplatesClusterroleYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesClusterroleYaml, nil
+}
+
+func chartsIstioOperatorTemplatesClusterroleYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesClusterroleYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: istio-operator
+subjects:
+- kind: ServiceAccount
+  name: istio-operator
+  namespace: {{.Values.operatorNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+`)
+
+func chartsIstioOperatorTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesClusterrole_bindingYaml, nil
+}
+
+func chartsIstioOperatorTemplatesClusterrole_bindingYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesClusterrole_bindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesCrdOperatorYaml = []byte(`# SYNC WITH manifests/base/files
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+spec:
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        spec:
+          description: 'Specification of the desired state of the istio control plane resource.
+            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+        status:
+          description: 'Status describes each of istio control plane component status at the current time.
+            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+          type: object
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+---
+`)
+
+func chartsIstioOperatorTemplatesCrdOperatorYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesCrdOperatorYaml, nil
+}
+
+func chartsIstioOperatorTemplatesCrdOperatorYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesCrdOperatorYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/crd-operator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: istio-operator
+  template:
+    metadata:
+      labels:
+        name: istio-operator
+    spec:
+      serviceAccountName: istio-operator
+      containers:
+        - name: istio-operator
+          image: {{.Values.hub}}/operator:{{.Values.tag}}
+          command:
+          - operator
+          - server
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          env:
+            - name: WATCH_NAMESPACE
+              value: {{.Values.istioNamespace}}
+            - name: LEADER_ELECTION_NAMESPACE
+              value: {{.Values.operatorNamespace}}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: {{.Values.operatorNamespace}}
+---
+`)
+
+func chartsIstioOperatorTemplatesDeploymentYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesDeploymentYaml, nil
+}
+
+func chartsIstioOperatorTemplatesDeploymentYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesDeploymentYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesNamespaceYaml = []byte(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-operator
+  labels:
+    istio-operator-managed: Reconcile
+    istio-injection: disabled
+---
+`)
+
+func chartsIstioOperatorTemplatesNamespaceYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesNamespaceYaml, nil
+}
+
+func chartsIstioOperatorTemplatesNamespaceYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesNamespaceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesServiceYaml = []byte(`apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  labels:
+    name: istio-operator
+  name: istio-operator
+spec:
+  ports:
+  - name: http-metrics
+    port: 8383
+    targetPort: 8383
+  selector:
+    name: istio-operator
+---
+`)
+
+func chartsIstioOperatorTemplatesServiceYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesServiceYaml, nil
+}
+
+func chartsIstioOperatorTemplatesServiceYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesServiceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorTemplatesService_accountYaml = []byte(`apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: {{.Values.operatorNamespace}}
+  name: istio-operator
+---
+`)
+
+func chartsIstioOperatorTemplatesService_accountYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorTemplatesService_accountYaml, nil
+}
+
+func chartsIstioOperatorTemplatesService_accountYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorTemplatesService_accountYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _chartsIstioOperatorValuesYaml = []byte(`hub: gcr.io/istio-testing
+tag: 1.6-dev
+operatorNamespace: istio-operator
+istioNamespace: istio-system
+`)
+
+func chartsIstioOperatorValuesYamlBytes() ([]byte, error) {
+	return _chartsIstioOperatorValuesYaml, nil
+}
+
+func chartsIstioOperatorValuesYaml() (*asset, error) {
+	bytes, err := chartsIstioOperatorValuesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "charts/istio-operator/values.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -21885,2873 +23996,6 @@ func chartsIstioTelemetryGrafanaChartYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-telemetry/grafana/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson = []byte(`{
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": "-- Grafana --",
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
-  },
-  "description": "",
-  "editable": true,
-  "gnetId": null,
-  "graphTooltip": 0,
-  "links": [],
-  "panels": [
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 8,
-      "panels": [],
-      "title": "Performance",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "CPU usage across Citadel instances.",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 1
-      },
-      "id": 10,
-      "legend": {
-        "alignAsTable": false,
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"citadel\", pod=~\"istio-citadel-.*\"}[1m]))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Citadel CPU usage rate",
-          "refId": "A"
-        },
-        {
-          "expr": "irate(process_cpu_seconds_total{job=\"citadel\"}[1m])",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Citadel CPU usage irate",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CPU",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "Citadel process memory statistics.",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 1
-      },
-      "id": 12,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "process_virtual_memory_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Virtual Memory",
-          "refId": "A"
-        },
-        {
-          "expr": "process_resident_memory_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Resident Memory",
-          "refId": "B"
-        },
-        {
-          "expr": "go_memstats_heap_sys_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Heap Memory Total",
-          "refId": "C"
-        },
-        {
-          "expr": "go_memstats_alloc_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Heap Memory Allocated",
-          "refId": "E"
-        },
-        {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Heap Inuse",
-          "refId": "F"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Memory",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 1
-      },
-      "id": 14,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "go_goroutines{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Goroutines",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Goroutines",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 7
-      },
-      "id": 28,
-      "panels": [],
-      "title": "General",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "Total number of CSR requests made to Citadel.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "id": 30,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_server_csr_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "CSR Request Count",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CSR Requests",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "The number of certificates issuances that have succeeded.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "id": 32,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_server_success_cert_issuance_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Certificates Issued",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Certificates Issued",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 13
-      },
-      "id": 23,
-      "panels": [],
-      "title": "Errors",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "The number of errors occurred when creating the CSR.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 0,
-        "y": 14
-      },
-      "id": 20,
-      "legend": {
-        "alignAsTable": false,
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_secret_controller_csr_err_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "CSR Creation Error Count",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CSR Creation Errors",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 8,
-        "y": 14
-      },
-      "id": 24,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_server_csr_parsing_err_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "CSR Parse Error Count",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CSR Parse Errors",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "The number of authentication failures.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 16,
-        "y": 14
-      },
-      "id": 26,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "citadel_server_authentication_failure_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Authentication Failure Count",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Authentication Failures",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 19
-      },
-      "id": 4,
-      "panels": [],
-      "title": "Secret Controller",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "The number of certificates created due to service account creation.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 0,
-        "y": 20
-      },
-      "id": 2,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": true,
-      "targets": [
-        {
-          "expr": "citadel_secret_controller_svc_acc_created_cert_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "SA Secrets Created",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Service Account Secrets Created (due to SA creation)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "decimals": null,
-          "format": "short",
-          "label": "Certs Created",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "The number of certificates deleted due to service account deletion.",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 8,
-        "y": 20
-      },
-      "id": 16,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": true,
-      "targets": [
-        {
-          "expr": "citadel_secret_controller_svc_acc_deleted_cert_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "SA Secrets Deleted",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Service Account Secrets Deleted (due to SA deletion)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "decimals": null,
-          "format": "short",
-          "label": "Certs Created",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "description": "The number of certificates recreated due to secret deletion (service account still exists).",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 16,
-        "y": 20
-      },
-      "id": 6,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": true,
-      "targets": [
-        {
-          "expr": "citadel_secret_controller_secret_deleted_cert_count{job=\"citadel\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "SA Secrets Recreated",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Service Account Secrets Recreated (due to errant deletion)",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "decimals": null,
-          "format": "short",
-          "label": "Certs Created",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    }
-  ],
-  "refresh": "5s",
-  "schemaVersion": 18,
-  "style": "dark",
-  "tags": [],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-5m",
-    "to": "now"
-  },
-  "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "30m",
-      "1h",
-      "2h",
-      "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
-    ]
-  },
-  "timezone": "",
-  "title": "Istio Citadel Dashboard",
-  "uid": "OOyOqb4Wz",
-  "version": 1
-}`)
-
-func chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJsonBytes() ([]byte, error) {
-	return _chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, nil
-}
-
-func chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson() (*asset, error) {
-	bytes, err := chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJsonBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson = []byte(`{
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": "-- Grafana --",
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
-  },
-  "editable": false,
-  "gnetId": null,
-  "graphTooltip": 0,
-  "links": [],
-  "panels": [
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 5,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 46,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(istio_build{component=\"galley\"}) by (tag)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ tag }}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Galley Versions",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 5
-      },
-      "id": 40,
-      "panels": [],
-      "title": "Resource Usage",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 0,
-        "y": 6
-      },
-      "id": 36,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "process_virtual_memory_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Virtual Memory",
-          "refId": "A"
-        },
-        {
-          "expr": "process_resident_memory_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Resident Memory",
-          "refId": "B"
-        },
-        {
-          "expr": "go_memstats_heap_sys_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "heap sys",
-          "refId": "C"
-        },
-        {
-          "expr": "go_memstats_heap_alloc_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "heap alloc",
-          "refId": "D"
-        },
-        {
-          "expr": "go_memstats_alloc_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Alloc",
-          "refId": "F"
-        },
-        {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Heap in-use",
-          "refId": "G"
-        },
-        {
-          "expr": "go_memstats_stack_inuse_bytes{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Stack in-use",
-          "refId": "H"
-        },
-        {
-          "expr": "sum(container_memory_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"galley\", pod=~\"istio-galley-.*\"})",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Total (kis)",
-          "refId": "E"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Memory",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 6,
-        "y": 6
-      },
-      "id": 38,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"galley\", pod=~\"istio-galley-.*\"}[1m]))",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Total (k8s)",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{job=\"kubernetes-cadvisor\",container=~\"galley\", pod=~\"istio-galley-.*\"}[1m])) by (container)",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "{{ container }} (k8s)",
-          "refId": "B"
-        },
-        {
-          "expr": "irate(process_cpu_seconds_total{job=\"galley\"}[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "galley (self-reported)",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "CPU",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 6
-      },
-      "id": 42,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "process_open_fds{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Open FDs (galley)",
-          "refId": "A"
-        },
-        {
-          "expr": "container_fs_usage_bytes{job=\"kubernetes-cadvisor\",container=~\"galley\", pod=~\"istio-galley-.*\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "{{ container }} ",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Disk",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 6
-      },
-      "id": 44,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "go_goroutines{job=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "goroutines_total",
-          "refId": "A"
-        },
-        {
-          "expr": "istio_mcp_clients_total{component=\"galley\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "clients_total",
-          "refId": "B"
-        },
-        {
-          "expr": "go_goroutines{job=\"galley\"}/sum(istio_mcp_clients_total{component=\"galley\"}) without (component)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "avg_goroutines_per_client",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Goroutines",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 14
-      },
-      "id": 10,
-      "panels": [],
-      "title": "Runtime",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 15
-      },
-      "id": 2,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(rate(galley_runtime_strategy_on_change_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Strategy Change Events",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(rate(galley_runtime_processor_events_processed_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Processed Events",
-          "refId": "B"
-        },
-        {
-          "expr": "sum(rate(galley_runtime_processor_snapshots_published_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Snapshot Published",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Event Rates",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Events/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": "",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 15
-      },
-      "id": 4,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(rate(galley_runtime_strategy_timer_max_time_reached_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Max Time Reached",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(rate(galley_runtime_strategy_timer_quiesce_reached_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Quiesce Reached",
-          "refId": "B"
-        },
-        {
-          "expr": "sum(rate(galley_runtime_strategy_timer_resets_total[1m])) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Timer Resets",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Timer Rates",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Events/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 15
-      },
-      "id": 8,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 3,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": true,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum by (le) (galley_runtime_processor_snapshot_events_total_bucket))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "P50",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.90, sum by (le) (galley_runtime_processor_snapshot_events_total_bucket))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "P90",
-          "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum by (le) (galley_runtime_processor_snapshot_events_total_bucket))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "P95",
-          "refId": "C"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum by (le) (galley_runtime_processor_snapshot_events_total_bucket))",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "P99",
-          "refId": "D"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Events Per Snapshot",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 21
-      },
-      "id": 6,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum by (collection) (galley_runtime_state_type_instances_total)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ collection }}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "State Type Instances",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Count",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 27
-      },
-      "id": 34,
-      "panels": [],
-      "title": "Validation",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 28
-      },
-      "id": 28,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "galley_validation_cert_key_updates{}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Key Updates",
-          "refId": "A"
-        },
-        {
-          "expr": "galley_validation_cert_key_update_errors{}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Key Update Errors: {{ error }}",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Validation Webhook Certificate",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 28
-      },
-      "id": 30,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(galley_validation_passed{}) by (group, version, resource)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Passed: {{ group }}/{{ version }}/{{resource}}",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(galley_validation_failed{}) by (group, version, resource, reason)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Failed: {{ group }}/{{ version }}/{{resource}} ({{ reason}})",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Resource Validation",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 28
-      },
-      "id": 32,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(galley_validation_http_error{}) by (status)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "{{ status }}",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Validation HTTP Errors",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 34
-      },
-      "id": 12,
-      "panels": [],
-      "title": "Kubernetes Source",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 35
-      },
-      "id": 14,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(galley_source_kube_event_success_total[1m]) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Success",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(galley_source_kube_event_error_total[1m]) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Error",
-          "refId": "B"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Source Event Rate",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Events/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 35
-      },
-      "id": 24,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(galley_source_kube_dynamic_converter_failure_total[1m]) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Error",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Kubernetes Object Conversion Failures",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Failures/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 41
-      },
-      "id": 18,
-      "panels": [],
-      "title": "Mesh Configuration Protocol",
-      "type": "row"
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 42
-      },
-      "id": 20,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(istio_mcp_clients_total{component=\"galley\"})",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "Clients",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Connected Clients",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 42
-      },
-      "id": 22,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum by(collection)(irate(istio_mcp_request_acks_total{component=\"galley\"}[1m]) * 60)",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Request ACKs",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "ACKs/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 42
-      },
-      "id": 26,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(istio_mcp_request_nacks_total{component=\"galley\"}[1m]) * 60",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Request NACKs",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "NACKs/min",
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    }
-  ],
-  "refresh": "5s",
-  "schemaVersion": 16,
-  "style": "dark",
-  "tags": [],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-5m",
-    "to": "now"
-  },
-  "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "30m",
-      "1h",
-      "2h",
-      "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
-    ]
-  },
-  "timezone": "",
-  "title": "Istio Galley Dashboard",
-  "uid": "TSEY6jLmk",
-  "version": 1
-}
-`)
-
-func chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJsonBytes() ([]byte, error) {
-	return _chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson, nil
-}
-
-func chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson() (*asset, error) {
-	bytes, err := chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJsonBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/grafana/dashboards/galley-dashboard.json", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -36157,6 +35401,212 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "id": 626,
+      "panels": [],
+      "title": "Webhooks",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      },
+      "hiddenSeries": false,
+      "id": 629,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "hideEmpty": false,
+        "hideZero": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(rate(galley_validation_passed[1m]))",
+          "interval": "",
+          "legendFormat": "Validations (Success)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(galley_validation_failed[1m]))",
+          "interval": "",
+          "legendFormat": "Validation (Failure)",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Configuration Validation",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "description": "",
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      },
+      "hiddenSeries": false,
+      "id": 630,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "hideZero": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(rate(sidecar_injection_success_total[1m]))",
+          "interval": "",
+          "legendFormat": "Injections (Success)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(sidecar_injection_success_total[1m]))",
+          "interval": "",
+          "legendFormat": "Injections (Failure)",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Sidecar Injection",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
   "refresh": "5s",
@@ -36196,7 +35646,7 @@ var _chartsIstioTelemetryGrafanaDashboardsPilotDashboardJson = []byte(`{
     ]
   },
   "timezone": "browser",
-  "title": "Istio Pilot Dashboard",
+  "title": "Istio Control Plane Dashboard",
   "uid": "3--MLVZZk",
   "version": 11
 }`)
@@ -36638,6 +36088,7 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: istio-grafana-pvc
+  namespace: {{ .Release.Namespace }}
   labels:
     app: grafana
     release: {{ .Release.Name }}
@@ -36904,8 +36355,8 @@ func chartsIstioTelemetryGrafanaValuesYaml() (*asset, error) {
 var _chartsIstioTelemetryKialiChartYaml = []byte(`apiVersion: v1
 description: Kiali is an open source project for service mesh observability, refer to https://www.kiali.io for details.
 name: kiali
-version: 1.14.0
-appVersion: 1.14.0
+version: 1.15.0
+appVersion: 1.15.0
 tillerVersion: ">=2.7.2"
 keywords:
   - istio-addon
@@ -37259,6 +36710,8 @@ data:
 {{- end }}
     deployment:
       accessible_namespaces: ['**']
+    login_token:
+      signing_key: {{ randAlphaNum 10 | quote }}
     server:
       port: 20001
 {{- if .Values.kiali.contextPath }}
@@ -37274,11 +36727,15 @@ data:
         url: {{ .Values.kiali.dashboard.grafanaURL }}
         in_cluster_url: {{ .Values.kiali.dashboard.grafanaInClusterURL }}
       prometheus:
+{{- if .Values.kiali.prometheusAddr}}
+        url: {{ .Values.kiali.prometheusAddr}}
+{{- else }}
 {{- if .Values.global.prometheusNamespace }}
         url: http://prometheus.{{ .Values.global.prometheusNamespace }}:9090
 {{ else }}
         url: http://prometheus:9090
 {{- end }}
+{{- end}}
 {{- if .Values.kiali.security.enabled }}
     identity:
       cert_file: {{ .Values.kiali.security.cert_file }}
@@ -37368,7 +36825,7 @@ spec:
       containers:
       - image: "{{ .Values.kiali.hub }}/{{ .Values.kiali.image }}:{{ .Values.kiali.tag }}"
 {{- if .Values.global.imagePullPolicy }}
-      imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
 {{- end }}
         name: kiali
         command:
@@ -37525,7 +36982,7 @@ kiali:
   enabled: false # Note that if using the demo or demo-auth yaml when installing via Helm, this default will be `+"`"+`true`+"`"+`.
   replicaCount: 1
   hub: quay.io/kiali
-  tag: v1.14
+  tag: v1.15
   image: kiali
   contextPath: /kiali # The root context path to access the Kiali UI.
   nodeSelector: {}
@@ -37602,6 +37059,7 @@ kiali:
 
   createDemoSecret: true # When true, a secret will be created with a default username and password. Useful for demos.
 
+  prometheusAddr: ""
   resources: {}
   security:
     enabled: false
@@ -39464,9 +38922,9 @@ spec:
           {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
           {{- else if .Values.global.configNamespace }}
-          value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-          value: istiod.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
       {{- end }}
         resources:
 {{- if .Values.global.proxy.resources }}
@@ -41342,9 +40800,9 @@ spec:
               {{- if .Values.global.caAddress }}
               value: {{ .Values.global.caAddress }}
               {{- else if .Values.global.configNamespace }}
-              value: istiod.{{ .Values.global.configNamespace }}.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
               {{- else }}
-              value: istiod.istio-system.svc:15012
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
               {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -41481,61 +40939,6 @@ func chartsIstioTelemetryPrometheusTemplatesDeploymentYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _chartsIstioTelemetryPrometheusTemplatesIngressYaml = []byte(`{{- if .Values.prometheus.ingress.enabled -}}
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: prometheus
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: prometheus
-    release: {{ .Release.Name }}
-  annotations:
-    {{- range $key, $value := .Values.prometheus.ingress.annotations }}
-      {{ $key }}: {{ $value | quote }}
-    {{- end }}
-spec:
-  rules:
-{{- if .Values.prometheus.ingress.hosts }}
-    {{- range $host := .Values.prometheus.ingress.hosts }}
-    - host: {{ $host }}
-      http:
-        paths:
-          - path: {{ if $.Values.prometheus.contextPath }} {{ $.Values.prometheus.contextPath }} {{ else }} / {{ end }}
-            backend:
-              serviceName: prometheus
-              servicePort: 9090
-    {{- end -}}
-{{- else }}
-    - http:
-        paths:
-          - path: {{ if .Values.prometheus.contextPath }} {{ .Values.prometheus.contextPath }} {{ else }} / {{ end }}
-            backend:
-              serviceName: prometheus
-              servicePort: 9090
-{{- end }}
-  {{- if .Values.prometheus.ingress.tls }}
-  tls:
-{{ toYaml .Values.prometheus.ingress.tls | indent 4 }}
-  {{- end -}}
-{{- end -}}
-`)
-
-func chartsIstioTelemetryPrometheusTemplatesIngressYamlBytes() ([]byte, error) {
-	return _chartsIstioTelemetryPrometheusTemplatesIngressYaml, nil
-}
-
-func chartsIstioTelemetryPrometheusTemplatesIngressYaml() (*asset, error) {
-	bytes, err := chartsIstioTelemetryPrometheusTemplatesIngressYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "charts/istio-telemetry/prometheus/templates/ingress.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -43986,396 +43389,6 @@ func examplesVmValuesIstioMeshexpansionYaml() (*asset, error) {
 	return a, nil
 }
 
-var _operatorChartChartYaml = []byte(`apiVersion: v1
-name: operator
-version: 1.5.0
-tillerVersion: ">=2.7.2"
-description: Helm chart for deploying Istio operator
-keywords:
-  - istio
-  - operator
-sources:
-  - http://github.com/istio/operator
-engine: gotpl
-icon: https://istio.io/favicons/android-192x192.png
-`)
-
-func operatorChartChartYamlBytes() ([]byte, error) {
-	return _operatorChartChartYaml, nil
-}
-
-func operatorChartChartYaml() (*asset, error) {
-	bytes, err := operatorChartChartYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/Chart.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  creationTimestamp: null
-  name: istio-operator
-rules:
-# istio groups
-- apiGroups:
-  - authentication.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - config.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - install.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - networking.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - rbac.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - security.istio.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-# k8s groups
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
-  verbs:
-  - '*'
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions.apiextensions.k8s.io
-  - customresourcedefinitions
-  verbs:
-  - '*'
-- apiGroups:
-  - apps
-  - extensions
-  resources:
-  - daemonsets
-  - deployments
-  - deployments/finalizers
-  - ingresses
-  - replicasets
-  - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - autoscaling
-  resources:
-  - horizontalpodautoscalers
-  verbs:
-  - '*'
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - get
-  - create
-- apiGroups:
-  - policy
-  resources:
-  - poddisruptionbudgets
-  verbs:
-  - '*'
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  - clusterroles
-  - roles
-  - rolebindings
-  verbs:
-  - '*'
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - endpoints
-  - events
-  - namespaces
-  - pods
-  - persistentvolumeclaims
-  - secrets
-  - services
-  - serviceaccounts
-  verbs:
-  - '*'
----
-`)
-
-func operatorChartTemplatesClusterroleYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesClusterroleYaml, nil
-}
-
-func operatorChartTemplatesClusterroleYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesClusterroleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesClusterrole_bindingYaml = []byte(`kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: istio-operator
-subjects:
-- kind: ServiceAccount
-  name: istio-operator
-  namespace: {{.Values.operatorNamespace}}
-roleRef:
-  kind: ClusterRole
-  name: istio-operator
-  apiGroup: rbac.authorization.k8s.io
----
-`)
-
-func operatorChartTemplatesClusterrole_bindingYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesClusterrole_bindingYaml, nil
-}
-
-func operatorChartTemplatesClusterrole_bindingYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesClusterrole_bindingYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/clusterrole_binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesCrdYaml = []byte(`apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  name: istiooperators.install.istio.io
-spec:
-  group: install.istio.io
-  names:
-    kind: IstioOperator
-    plural: istiooperators
-    singular: istiooperator
-    shortNames:
-    - iop
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        spec:
-          description: 'Specification of the desired state of the istio control plane resource.
-            More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
-          type: object
-        status:
-          description: 'Status describes each of istio control plane component status at the current time.
-            0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
-            More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
-            https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
-          type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
----
-`)
-
-func operatorChartTemplatesCrdYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesCrdYaml, nil
-}
-
-func operatorChartTemplatesCrdYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesCrdYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/crd.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesDeploymentYaml = []byte(`apiVersion: apps/v1
-kind: Deployment
-metadata:
-  namespace: {{.Values.operatorNamespace}}
-  name: istio-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: istio-operator
-  template:
-    metadata:
-      labels:
-        name: istio-operator
-    spec:
-      serviceAccountName: istio-operator
-      containers:
-        - name: istio-operator
-          image: {{.Values.hub}}/operator:{{.Values.tag}}
-          command:
-          - operator
-          - server
-          imagePullPolicy: IfNotPresent
-          resources:
-            limits:
-              cpu: 200m
-              memory: 256Mi
-            requests:
-              cpu: 50m
-              memory: 128Mi
-          env:
-            - name: WATCH_NAMESPACE
-              value: {{.Values.istioNamespace}}
-            - name: LEADER_ELECTION_NAMESPACE
-              value: {{.Values.operatorNamespace}}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: OPERATOR_NAME
-              value: {{.Values.operatorNamespace}}
----
-`)
-
-func operatorChartTemplatesDeploymentYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesDeploymentYaml, nil
-}
-
-func operatorChartTemplatesDeploymentYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesDeploymentYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesNamespaceYaml = []byte(`apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-operator
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-`)
-
-func operatorChartTemplatesNamespaceYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesNamespaceYaml, nil
-}
-
-func operatorChartTemplatesNamespaceYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesNamespaceYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/namespace.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesServiceYaml = []byte(`apiVersion: v1
-kind: Service
-metadata:
-  namespace: {{.Values.operatorNamespace}}
-  labels:
-    name: istio-operator
-  name: istio-operator
-spec:
-  ports:
-  - name: http-metrics
-    port: 8383
-    targetPort: 8383
-  selector:
-    name: istio-operator
----
-`)
-
-func operatorChartTemplatesServiceYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesServiceYaml, nil
-}
-
-func operatorChartTemplatesServiceYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesServiceYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _operatorChartTemplatesService_accountYaml = []byte(`apiVersion: v1
-kind: ServiceAccount
-metadata:
-  namespace: {{.Values.operatorNamespace}}
-  name: istio-operator
----
-`)
-
-func operatorChartTemplatesService_accountYamlBytes() ([]byte, error) {
-	return _operatorChartTemplatesService_accountYaml, nil
-}
-
-func operatorChartTemplatesService_accountYaml() (*asset, error) {
-	bytes, err := operatorChartTemplatesService_accountYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "operator-chart/templates/service_account.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _profilesDefaultYaml = []byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
@@ -44633,6 +43646,7 @@ spec:
       istioNamespace: istio-system
       istiod:
         enabled: true
+        enableAnalysis: false
       logging:
         level: "default:info"
       logAsJson: false
@@ -44787,7 +43801,7 @@ spec:
       podAntiAffinityTermLabelSelector: []
       keepaliveMaxServerConnectionAge: 30m
       enableProtocolSniffingForOutbound: true
-      enableProtocolSniffingForInbound: false
+      enableProtocolSniffingForInbound: true
       deploymentLabels:
       meshNetworks:
         networks: {}
@@ -45048,7 +44062,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.14
+      tag: v1.15
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
@@ -46566,6 +45580,7 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/base/NOTES.txt":                                                                chartsBaseNotesTxt,
 	"charts/base/files/crd-all.gen.yaml":                                                   chartsBaseFilesCrdAllGenYaml,
 	"charts/base/files/crd-mixer.yaml":                                                     chartsBaseFilesCrdMixerYaml,
+	"charts/base/files/crd-operator.yaml":                                                  chartsBaseFilesCrdOperatorYaml,
 	"charts/base/files/gen-istio-cluster.yaml":                                             chartsBaseFilesGenIstioClusterYaml,
 	"charts/base/kustomization.yaml":                                                       chartsBaseKustomizationYaml,
 	"charts/base/templates/clusterrole.yaml":                                               chartsBaseTemplatesClusterroleYaml,
@@ -46644,6 +45659,15 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.5.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_15Yaml,
 	"charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml":                  chartsIstioControlIstioDiscoveryTemplatesTelemetryv2_16Yaml,
 	"charts/istio-control/istio-discovery/values.yaml":                                     chartsIstioControlIstioDiscoveryValuesYaml,
+	"charts/istio-operator/Chart.yaml":                                                     chartsIstioOperatorChartYaml,
+	"charts/istio-operator/templates/clusterrole.yaml":                                     chartsIstioOperatorTemplatesClusterroleYaml,
+	"charts/istio-operator/templates/clusterrole_binding.yaml":                             chartsIstioOperatorTemplatesClusterrole_bindingYaml,
+	"charts/istio-operator/templates/crd-operator.yaml":                                    chartsIstioOperatorTemplatesCrdOperatorYaml,
+	"charts/istio-operator/templates/deployment.yaml":                                      chartsIstioOperatorTemplatesDeploymentYaml,
+	"charts/istio-operator/templates/namespace.yaml":                                       chartsIstioOperatorTemplatesNamespaceYaml,
+	"charts/istio-operator/templates/service.yaml":                                         chartsIstioOperatorTemplatesServiceYaml,
+	"charts/istio-operator/templates/service_account.yaml":                                 chartsIstioOperatorTemplatesService_accountYaml,
+	"charts/istio-operator/values.yaml":                                                    chartsIstioOperatorValuesYaml,
 	"charts/istio-policy/Chart.yaml":                                                       chartsIstioPolicyChartYaml,
 	"charts/istio-policy/templates/_affinity.tpl":                                          chartsIstioPolicyTemplates_affinityTpl,
 	"charts/istio-policy/templates/_helpers.tpl":                                           chartsIstioPolicyTemplates_helpersTpl,
@@ -46657,8 +45681,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-policy/templates/serviceaccount.yaml":                                    chartsIstioPolicyTemplatesServiceaccountYaml,
 	"charts/istio-policy/values.yaml":                                                      chartsIstioPolicyValuesYaml,
 	"charts/istio-telemetry/grafana/Chart.yaml":                                            chartsIstioTelemetryGrafanaChartYaml,
-	"charts/istio-telemetry/grafana/dashboards/citadel-dashboard.json":                     chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson,
-	"charts/istio-telemetry/grafana/dashboards/galley-dashboard.json":                      chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson,
 	"charts/istio-telemetry/grafana/dashboards/istio-mesh-dashboard.json":                  chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson,
 	"charts/istio-telemetry/grafana/dashboards/istio-performance-dashboard.json":           chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson,
 	"charts/istio-telemetry/grafana/dashboards/istio-service-dashboard.json":               chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson,
@@ -46704,7 +45726,6 @@ var _bindata = map[string]func() (*asset, error){
 	"charts/istio-telemetry/prometheus/templates/clusterrolebindings.yaml":                 chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml,
 	"charts/istio-telemetry/prometheus/templates/configmap.yaml":                           chartsIstioTelemetryPrometheusTemplatesConfigmapYaml,
 	"charts/istio-telemetry/prometheus/templates/deployment.yaml":                          chartsIstioTelemetryPrometheusTemplatesDeploymentYaml,
-	"charts/istio-telemetry/prometheus/templates/ingress.yaml":                             chartsIstioTelemetryPrometheusTemplatesIngressYaml,
 	"charts/istio-telemetry/prometheus/templates/service.yaml":                             chartsIstioTelemetryPrometheusTemplatesServiceYaml,
 	"charts/istio-telemetry/prometheus/templates/serviceaccount.yaml":                      chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml,
 	"charts/istio-telemetry/prometheus/templates/tests/test-prometheus-connection.yaml":    chartsIstioTelemetryPrometheusTemplatesTestsTestPrometheusConnectionYaml,
@@ -46738,14 +45759,6 @@ var _bindata = map[string]func() (*asset, error){
 	"examples/user-gateway/ingress-gateway-only.yaml":                                      examplesUserGatewayIngressGatewayOnlyYaml,
 	"examples/vm/values-istio-meshexpansion-gateways.yaml":                                 examplesVmValuesIstioMeshexpansionGatewaysYaml,
 	"examples/vm/values-istio-meshexpansion.yaml":                                          examplesVmValuesIstioMeshexpansionYaml,
-	"operator-chart/Chart.yaml":                                                            operatorChartChartYaml,
-	"operator-chart/templates/clusterrole.yaml":                                            operatorChartTemplatesClusterroleYaml,
-	"operator-chart/templates/clusterrole_binding.yaml":                                    operatorChartTemplatesClusterrole_bindingYaml,
-	"operator-chart/templates/crd.yaml":                                                    operatorChartTemplatesCrdYaml,
-	"operator-chart/templates/deployment.yaml":                                             operatorChartTemplatesDeploymentYaml,
-	"operator-chart/templates/namespace.yaml":                                              operatorChartTemplatesNamespaceYaml,
-	"operator-chart/templates/service.yaml":                                                operatorChartTemplatesServiceYaml,
-	"operator-chart/templates/service_account.yaml":                                        operatorChartTemplatesService_accountYaml,
 	"profiles/default.yaml":                                                                profilesDefaultYaml,
 	"profiles/demo.yaml":                                                                   profilesDemoYaml,
 	"profiles/empty.yaml":                                                                  profilesEmptyYaml,
@@ -46815,6 +45828,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"files": &bintree{nil, map[string]*bintree{
 				"crd-all.gen.yaml":       &bintree{chartsBaseFilesCrdAllGenYaml, map[string]*bintree{}},
 				"crd-mixer.yaml":         &bintree{chartsBaseFilesCrdMixerYaml, map[string]*bintree{}},
+				"crd-operator.yaml":      &bintree{chartsBaseFilesCrdOperatorYaml, map[string]*bintree{}},
 				"gen-istio-cluster.yaml": &bintree{chartsBaseFilesGenIstioClusterYaml, map[string]*bintree{}},
 			}},
 			"kustomization.yaml": &bintree{chartsBaseKustomizationYaml, map[string]*bintree{}},
@@ -46923,6 +45937,19 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"values.yaml": &bintree{chartsIstioControlIstioDiscoveryValuesYaml, map[string]*bintree{}},
 			}},
 		}},
+		"istio-operator": &bintree{nil, map[string]*bintree{
+			"Chart.yaml": &bintree{chartsIstioOperatorChartYaml, map[string]*bintree{}},
+			"templates": &bintree{nil, map[string]*bintree{
+				"clusterrole.yaml":         &bintree{chartsIstioOperatorTemplatesClusterroleYaml, map[string]*bintree{}},
+				"clusterrole_binding.yaml": &bintree{chartsIstioOperatorTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
+				"crd-operator.yaml":        &bintree{chartsIstioOperatorTemplatesCrdOperatorYaml, map[string]*bintree{}},
+				"deployment.yaml":          &bintree{chartsIstioOperatorTemplatesDeploymentYaml, map[string]*bintree{}},
+				"namespace.yaml":           &bintree{chartsIstioOperatorTemplatesNamespaceYaml, map[string]*bintree{}},
+				"service.yaml":             &bintree{chartsIstioOperatorTemplatesServiceYaml, map[string]*bintree{}},
+				"service_account.yaml":     &bintree{chartsIstioOperatorTemplatesService_accountYaml, map[string]*bintree{}},
+			}},
+			"values.yaml": &bintree{chartsIstioOperatorValuesYaml, map[string]*bintree{}},
+		}},
 		"istio-policy": &bintree{nil, map[string]*bintree{
 			"Chart.yaml": &bintree{chartsIstioPolicyChartYaml, map[string]*bintree{}},
 			"templates": &bintree{nil, map[string]*bintree{
@@ -46943,8 +45970,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"grafana": &bintree{nil, map[string]*bintree{
 				"Chart.yaml": &bintree{chartsIstioTelemetryGrafanaChartYaml, map[string]*bintree{}},
 				"dashboards": &bintree{nil, map[string]*bintree{
-					"citadel-dashboard.json":           &bintree{chartsIstioTelemetryGrafanaDashboardsCitadelDashboardJson, map[string]*bintree{}},
-					"galley-dashboard.json":            &bintree{chartsIstioTelemetryGrafanaDashboardsGalleyDashboardJson, map[string]*bintree{}},
 					"istio-mesh-dashboard.json":        &bintree{chartsIstioTelemetryGrafanaDashboardsIstioMeshDashboardJson, map[string]*bintree{}},
 					"istio-performance-dashboard.json": &bintree{chartsIstioTelemetryGrafanaDashboardsIstioPerformanceDashboardJson, map[string]*bintree{}},
 					"istio-service-dashboard.json":     &bintree{chartsIstioTelemetryGrafanaDashboardsIstioServiceDashboardJson, map[string]*bintree{}},
@@ -47006,7 +46031,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"clusterrolebindings.yaml": &bintree{chartsIstioTelemetryPrometheusTemplatesClusterrolebindingsYaml, map[string]*bintree{}},
 					"configmap.yaml":           &bintree{chartsIstioTelemetryPrometheusTemplatesConfigmapYaml, map[string]*bintree{}},
 					"deployment.yaml":          &bintree{chartsIstioTelemetryPrometheusTemplatesDeploymentYaml, map[string]*bintree{}},
-					"ingress.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesIngressYaml, map[string]*bintree{}},
 					"service.yaml":             &bintree{chartsIstioTelemetryPrometheusTemplatesServiceYaml, map[string]*bintree{}},
 					"serviceaccount.yaml":      &bintree{chartsIstioTelemetryPrometheusTemplatesServiceaccountYaml, map[string]*bintree{}},
 					"tests": &bintree{nil, map[string]*bintree{
@@ -47066,18 +46090,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"vm": &bintree{nil, map[string]*bintree{
 			"values-istio-meshexpansion-gateways.yaml": &bintree{examplesVmValuesIstioMeshexpansionGatewaysYaml, map[string]*bintree{}},
 			"values-istio-meshexpansion.yaml":          &bintree{examplesVmValuesIstioMeshexpansionYaml, map[string]*bintree{}},
-		}},
-	}},
-	"operator-chart": &bintree{nil, map[string]*bintree{
-		"Chart.yaml": &bintree{operatorChartChartYaml, map[string]*bintree{}},
-		"templates": &bintree{nil, map[string]*bintree{
-			"clusterrole.yaml":         &bintree{operatorChartTemplatesClusterroleYaml, map[string]*bintree{}},
-			"clusterrole_binding.yaml": &bintree{operatorChartTemplatesClusterrole_bindingYaml, map[string]*bintree{}},
-			"crd.yaml":                 &bintree{operatorChartTemplatesCrdYaml, map[string]*bintree{}},
-			"deployment.yaml":          &bintree{operatorChartTemplatesDeploymentYaml, map[string]*bintree{}},
-			"namespace.yaml":           &bintree{operatorChartTemplatesNamespaceYaml, map[string]*bintree{}},
-			"service.yaml":             &bintree{operatorChartTemplatesServiceYaml, map[string]*bintree{}},
-			"service_account.yaml":     &bintree{operatorChartTemplatesService_accountYaml, map[string]*bintree{}},
 		}},
 	}},
 	"profiles": &bintree{nil, map[string]*bintree{

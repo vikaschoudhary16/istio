@@ -49,7 +49,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
-	github.com/envoyproxy/go-control-plane v0.9.5-0.20200316225419-d560923b20a0
+	github.com/envoyproxy/go-control-plane v0.9.5-0.20200326174812-e8bd2869ff56
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fluent/fluent-logger-golang v1.3.0
 	github.com/frankban/quicktest v1.4.1 // indirect
@@ -67,7 +67,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/golang/protobuf v1.3.5
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
-	github.com/google/cel-go v0.2.0
+	github.com/google/cel-go v0.4.1
 	github.com/google/go-cmp v0.3.1
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gax-go v2.0.2+incompatible
@@ -147,7 +147,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.2.7
-	istio.io/api v0.0.0-20200324155120-32b3c4255353
+	istio.io/api v0.0.0-20200325202443-3f88ef9cac2e
 	istio.io/gogo-genproto v0.0.0-20200227125611-d2e4aa9d5634
 	istio.io/pkg v0.0.0-20200227125209-63966175aa01
 	k8s.io/api v0.17.2

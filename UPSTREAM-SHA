@@ -1,19 +1,8 @@
 # Please keep this file updated.
-Author: John Howard <howardjohn@google.com>
-Date:   Wed Mar 25 10:38:21 2020 -0700
+commit f8c0850b43cfcd76e2439ccf42aa836265340aca (origin/upstream-istio, istio/master, upstream-istio)
+Author: Nino Kodabande <nkodabande@suse.com>
+Date:   Fri Mar 27 20:07:30 2020 -0700
 
-    Move extra istio revision out of main test (#22336)
+    Remove unnecessary field useInboundFilterChain (#22556)
 
-    * Move extra istio revision out of main test
-
-    This applies istio inside of the revision test, instead of for every
-    pilot test. This gives us more flexibility. The reason this wasn't done
-    before is the cleanup was broken
-
-    * wip
-
-    * fix build
-
-    * Save during apply
-
-    * Fix nil
+    - This field is always set to true and seems redundant
