@@ -13,11 +13,6 @@ spec:
       useMCP: false
       controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
-      tcc:
-        enabled: true
-        tenant: __TENANT__
-        cluster: __CLUSTER__
-        environment: __ENV__
       proxy:
         accessLogFile: /dev/stdout
         envoyAccessLogService:
@@ -40,7 +35,7 @@ spec:
     gateways:
       istio-ingressgateway:
         labels:
-          app: __APP__
+          app: vmgateway
           istio: ingressgateway
         env:
           ISTIO_META_ROUTER_MODE: sni-dnat
@@ -64,6 +59,14 @@ spec:
 
     tracing:
       enabled: false
+
+  unvalidatedValues:
+    global:
+      tcc:
+        enabled: true
+        tenant: __TENANT__
+        cluster: __CLUSTER__
+        environment: __ENV__
 
   components:
     egressGateways:

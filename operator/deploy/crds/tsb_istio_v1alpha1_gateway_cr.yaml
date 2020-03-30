@@ -6,11 +6,11 @@ spec:
     ingressGateways:
     - name: tsb-gateway
       enabled: true
-      namespace: __APPNS__
   values:
     gateways:
       istio-ingressgateway:
         name: tsb-gateway
+        type: __SERVICE_TYPE__
         ports:
         - port: 80
           name: http2
@@ -28,3 +28,11 @@ spec:
         # clear default secret volumnes
         secretVolumes:
         -      
+  unvalidatedValues:
+    global:
+      tcc:
+        enabled: true
+        hub: __HUB__
+        tag: __TAG__
+        tenant: __TCC_TENANT__
+        cluster: __TCC_CLUSTER__
