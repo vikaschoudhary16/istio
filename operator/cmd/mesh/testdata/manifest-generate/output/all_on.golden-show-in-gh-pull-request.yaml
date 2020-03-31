@@ -767,43 +767,6 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-rules:
-- apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
-  verbs: ["get", "watch", "list"]
-  resources: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses/status"]
-  verbs: ["*"]
-  # TODO: remove, too broad permission, should be namespace only
-- apiGroups: [""]
-  resources: ["configmaps"]
-  # Create and update needed for ingress election
-  verbs: ["get", "list", "watch", "create", "update"]
-- apiGroups: [""]
-  resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["get", "list", "watch"]
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: istiod-istio-system
   labels:
     app: istiod
@@ -932,24 +895,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: istio-system
----
-
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-pilot-istio-system
-  labels:
-    app: pilot
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-pilot-service-account
     namespace: istio-system
 ---
 
@@ -5006,6 +4951,74 @@ spec:
                       format: string
                       type: string
                     type: array
+                  localhostServerTls:
+                    properties:
+                      caCertificates:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      cipherSuites:
+                        description: 'Optional: If specified, only support the specified
+                          cipher list.'
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      credentialName:
+                        format: string
+                        type: string
+                      httpsRedirect:
+                        type: boolean
+                      maxProtocolVersion:
+                        description: 'Optional: Maximum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      minProtocolVersion:
+                        description: 'Optional: Minimum TLS protocol version.'
+                        enum:
+                        - TLS_AUTO
+                        - TLSV1_0
+                        - TLSV1_1
+                        - TLSV1_2
+                        - TLSV1_3
+                        type: string
+                      mode:
+                        enum:
+                        - PASSTHROUGH
+                        - SIMPLE
+                        - MUTUAL
+                        - AUTO_PASSTHROUGH
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      serverCertificate:
+                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateHash:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                      verifyCertificateSpki:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -5039,6 +5052,37 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
+                  localhostClientTls:
+                    properties:
+                      caCertificates:
+                        format: string
+                        type: string
+                      clientCertificate:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      mode:
+                        enum:
+                        - DISABLE
+                        - SIMPLE
+                        - MUTUAL
+                        - ISTIO_MUTUAL
+                        type: string
+                      privateKey:
+                        description: REQUIRED if mode is `MUTUAL`.
+                        format: string
+                        type: string
+                      sni:
+                        description: SNI string to present to the server during TLS
+                          handshake.
+                        format: string
+                        type: string
+                      subjectAltNames:
+                        items:
+                          format: string
+                          type: string
+                        type: array
+                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -5056,6 +5100,108 @@ spec:
                     type: object
                 type: object
               type: array
+            localhost:
+              properties:
+                clientTls:
+                  properties:
+                    caCertificates:
+                      format: string
+                      type: string
+                    clientCertificate:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    mode:
+                      enum:
+                      - DISABLE
+                      - SIMPLE
+                      - MUTUAL
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    sni:
+                      description: SNI string to present to the server during TLS
+                        handshake.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+                serverTls:
+                  properties:
+                    caCertificates:
+                      description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    cipherSuites:
+                      description: 'Optional: If specified, only support the specified
+                        cipher list.'
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    credentialName:
+                      format: string
+                      type: string
+                    httpsRedirect:
+                      type: boolean
+                    maxProtocolVersion:
+                      description: 'Optional: Maximum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    minProtocolVersion:
+                      description: 'Optional: Minimum TLS protocol version.'
+                      enum:
+                      - TLS_AUTO
+                      - TLSV1_0
+                      - TLSV1_1
+                      - TLSV1_2
+                      - TLSV1_3
+                      type: string
+                    mode:
+                      enum:
+                      - PASSTHROUGH
+                      - SIMPLE
+                      - MUTUAL
+                      - AUTO_PASSTHROUGH
+                      - ISTIO_MUTUAL
+                      type: string
+                    privateKey:
+                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                      format: string
+                      type: string
+                    serverCertificate:
+                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                      format: string
+                      type: string
+                    subjectAltNames:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateHash:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                    verifyCertificateSpki:
+                      items:
+                        format: string
+                        type: string
+                      type: array
+                  type: object
+              type: object
             outboundTrafficPolicy:
               description: Configuration for the outbound traffic policy.
               properties:
@@ -7478,16 +7624,6 @@ spec:
 
 
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-
-
-apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-reader-service-account
@@ -8746,8 +8882,6 @@ data:
       ingressService: istio-ingressgateway
     jwksResolverExtraRootCA: ""
     keepaliveMaxServerConnectionAge: 30m
-    meshNetworks:
-      networks: {}
     namespace: istio-system
     nodeSelector: {}
     plugins: []
@@ -8770,14 +8904,10 @@ data:
   mesh: |-
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
-
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: ""
-
     accessLogFormat: ""
-
     accessLogEncoding: 'TEXT'
-
     enableEnvoyAccessLogService: false
     mixerCheckServer: istio-policy.istio-system.svc.cluster.local:15004
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
@@ -8788,11 +8918,9 @@ data:
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
     reportBatchMaxTime: 1s
     disableMixerHttpReports: true
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: true
-
     # Automatic protocol detection uses a set of heuristics to
     # determine whether the connection is using TLS or not (on the
     # server side), as well as the application protocol being used
@@ -8803,16 +8931,13 @@ data:
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
     protocolDetectionTimeout: 100ms
-
     # This is the k8s ingress service name, update if you used a different name
     ingressService: "istio-ingressgateway"
     ingressControllerMode: "STRICT"
     ingressClass: "istio"
-
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: "cluster.local"
-
     #  The trust domain aliases represent the aliases of trust_domain.
     #  For example, if we have
     #  trustDomain: td1
@@ -8820,15 +8945,12 @@ data:
     #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
     #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
     trustDomainAliases:
-
     # Used by pilot-agent
     sdsUdsPath: "unix:/etc/istio/proxy/SDS"
-
     # If true, automatically configure client side mTLS settings to match the corresponding service's
     # server side mTLS authentication policy, when destination rule for that service does not specify
     # TLS settings.
     enableAutoMtls: true
-
     outboundTrafficPolicy:
       mode: ALLOW_ANY
     localityLbSetting:
@@ -8903,39 +9025,6 @@ spec:
         app: istiod
         istio: pilot
     spec:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-                - ppc64le
-                - s390x
       containers:
       - args:
         - discovery
@@ -8970,8 +9059,6 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: CONFIG_NAMESPACE
-          value: istio-config
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
           value: "true"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
@@ -8980,16 +9067,10 @@ spec:
           value: istio-sidecar-injector
         - name: ISTIOD_ADDR
           value: istiod.istio-system.svc:15012
-        - name: PILOT_EXTERNAL_GALLEY
-          value: "false"
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        envFrom:
-        - configMapRef:
-            name: istiod
-            optional: true
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
@@ -9028,9 +9109,6 @@ spec:
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
-        - mountPath: /var/lib/istio/local
-          name: istiod
-          readOnly: true
       securityContext:
         fsGroup: 1337
       serviceAccountName: istio-pilot-service-account
@@ -9045,10 +9123,6 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istiod
-          optional: true
-        name: istiod
       - name: cacerts
         secret:
           optional: true
@@ -9107,11 +9181,6 @@ data:
           "enabled": true
         },
         "jwtPolicy": "third-party-jwt",
-        "k8sIngress": {
-          "enableHttps": false,
-          "enabled": false,
-          "gatewayName": "ingressgateway"
-        },
         "localityLbSetting": {
           "enabled": true
         },
@@ -9154,7 +9223,6 @@ data:
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
           "concurrency": 2,
-          "dnsRefreshRate": "300s",
           "enableCoreDump": false,
           "envoyAccessLogService": {
             "enabled": false
@@ -9179,8 +9247,6 @@ data:
           "excludeOutboundPorts": "",
           "image": "proxyv2",
           "includeIPRanges": "*",
-          "includeInboundPorts": "*",
-          "kubevirtInterfaces": "",
           "logLevel": "warning",
           "privileged": false,
           "protocolDetectionTimeout": "100ms",
