@@ -58,7 +58,7 @@ spec:
             
     pilot:
       autoscaleEnabled: false
-      sampleTracing: 100
+      traceSampling: 100
 
     tracing:
       enabled: false
