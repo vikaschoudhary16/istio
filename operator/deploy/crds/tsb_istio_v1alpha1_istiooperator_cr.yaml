@@ -58,6 +58,7 @@ spec:
             
     pilot:
       autoscaleEnabled: false
+      sampleTracing: 100
 
     tracing:
       enabled: false
@@ -99,8 +100,6 @@ spec:
             value: "true"
           - name: PILOT_ENABLE_MYSQL_FILTER
             value: "false"
-          - name: PILOT_TRACE_SAMPLING
-            value: "1"
           - name: PILOT_PUSH_THROTTLE
             value: "100"
           - name: PILOT_SCOPE_GATEWAY_TO_NAMESPACE
