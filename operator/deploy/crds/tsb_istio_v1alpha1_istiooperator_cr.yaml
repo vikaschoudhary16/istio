@@ -13,6 +13,8 @@ spec:
       useMCP: false
       controlPlaneSecurityEnabled: true
       disablePolicyChecks: true
+      meshExpansion:
+        enabled: true
       proxy:
         accessLogFile: /dev/stdout
         envoyAccessLogService:
