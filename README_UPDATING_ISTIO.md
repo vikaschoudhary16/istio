@@ -41,8 +41,6 @@ echo $TAG
 curl -X POST --header "Content-Type: application/json" -d '{
   "build_parameters": {
     "CIRCLE_JOB" : "dockerpush",
-    "DOCKER_USER": "tetratebot",
-    "DOCKER_PASS": "TetrateControlCenter",
     "HUB" : "docker.io/tetrate",
     "TAG" : '\"${TAG}\"',
     "VERSION" : '\"${VERSION}\"'
