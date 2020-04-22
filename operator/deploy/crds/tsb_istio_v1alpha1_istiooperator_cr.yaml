@@ -15,12 +15,23 @@ spec:
       disablePolicyChecks: true
       meshExpansion:
         enabled: true
+      certificates:
+      - dnsNames:
+        - oap.istio-system
+        secretName: dns.oap-service-account
       proxy:
         accessLogFile: /dev/stdout
         envoyAccessLogService:
           enabled: true
           host: oap.istio-system
           port: "11800"
+          tlsSettings:
+            mode: SIMPLE
+            caCertificates: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          tcpKeepalive:
+            probes: 3
+            time: 10s
+            interval: 10s
         resources:
           requests:
             cpu: 10m

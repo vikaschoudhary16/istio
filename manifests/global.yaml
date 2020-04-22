@@ -99,6 +99,9 @@ global:
       enabled: true
       host: oap.istio-system
       port: 11800
+      tlsSettings:
+        mode: SIMPLE
+        caCertificates: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
       tcpKeepalive:
         probes: 3
         time: 10s
@@ -528,7 +531,9 @@ global:
   #     dnsNames: [istio-galley.istio-system.svc, istio-galley.istio-system]
   #   - secretName: dns.istio-sidecar-injector-service-account
   #     dnsNames: [istio-sidecar-injector.istio-system.svc, istio-sidecar-injector.istio-system]
-  certificates: []
+  certificates:
+  - secretName: dns.oap-service-account
+    dnsNames: [oap.istio-system]
 
   # Configure whether Operator manages webhook configurations. The current behavior
   # of Galley and Sidecar Injector is that they manage their own webhook configurations.
