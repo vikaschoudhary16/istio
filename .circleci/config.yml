@@ -49,6 +49,21 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: BUILD_WITH_CONTAINER=1 DOCKER_BUILD_VARIANTS="default distroless" VERSION=${VERSION} make -k init docker.all push
+      ## CNI
+      - run:
+          name: Get CNI repo SHA
+          command: |
+            export CNI_REPO_SHA=$(jq -r '.[] | select(.name=="CNI_REPO_SHA") | .lastStableSHA' istio.deps)
+            echo "export CNI_REPO_SHA=${CNI_REPO_SHA}" >> $BASH_ENV
+      - run:
+          name: Clone CNI repo
+          command: git clone https://github.com/istio/cni.git cni
+      - run:
+          name: Build CNI image
+          command: |
+            cd cni/
+            git checkout ${CNI_REPO_SHA}
+            BUILD_WITH_CONTAINER=1 VERSION=${VERSION} make -k init docker.all docker.push
   # dockerpush:
   #   <<: *defaults
   #   resource_class: xlarge
