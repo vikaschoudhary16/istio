@@ -1,6 +1,0 @@
-enabled: false
-tag: ""
-token: ""
-elasticsearch:
-  host: ""
-  port: ""
