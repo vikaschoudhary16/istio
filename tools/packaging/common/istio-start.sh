@@ -95,22 +95,23 @@ if [ -z "${PILOT_ADDRESS:-}" ]; then
   PILOT_ADDRESS=istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:${ISTIO_PILOT_PORT}
 fi
 
-ISTIO_CA=${ISTIO_CA:-${PILOT_ADDRESS}}
+CA_ADDR=${CA_ADDR:-${PILOT_ADDRESS}}
+PROV_CERT=${PROV_CERT:-/etc/certs}
+OUTPUT_CERTS=${OUTPUT_CERTS:-/etc/certs}
 
-export ISTIO_CA
 export PROV_CERT
 export OUTPUT_CERTS
+export CA_ADDR
 
 # If predefined ISTIO_AGENT_FLAGS is null, make it an empty string.
 ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
 # Split ISTIO_AGENT_FLAGS by spaces.
 IFS=' ' read -r -a ISTIO_AGENT_FLAGS_ARRAY <<< "$ISTIO_AGENT_FLAGS"
 
-export MESH_CONFIG=${MESH_CONFIG:-"
-defaultConfig:
-  serviceCluster: $SVC
-  controlPlaneAuthPolicy: ${CONTROL_PLANE_AUTH_POLICY}
-  discoveryAddress: ${PILOT_ADDRESS}
+export PROXY_CONFIG=${PROXY_CONFIG:-"
+serviceCluster: $SVC
+controlPlaneAuthPolicy: ${CONTROL_PLANE_AUTH_POLICY}
+discoveryAddress: ${PILOT_ADDRESS}
 "}
 
 if [ ${EXEC_USER} == "${USER:-}" ] ; then

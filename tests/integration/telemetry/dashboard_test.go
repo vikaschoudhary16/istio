@@ -63,6 +63,8 @@ var (
 				"sidecar_injection_failure_total",
 				// In default install, we have no proxy
 				"istio-proxy",
+				// https://github.com/istio/istio/issues/22674 this causes flaky tests
+				"galley_validation_passed",
 				// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 				"container_fs_usage_bytes",
 			},
@@ -206,6 +208,7 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 	return nil
 }
 
+// nolint: interfacer
 func waitForMetrics(t framework.TestContext, instance prometheus.Instance) {
 	// These are sentinel metrics that will be used to evaluate if prometheus
 	// scraping has occurred and data is available via promQL.
@@ -242,7 +245,7 @@ spec:
     hosts:
     - "*"
   - port:
-      number: 15029
+      number: 31400
       name: tcp
       protocol: TCP
     hosts:
@@ -268,7 +271,7 @@ spec:
           number: 80
   tcp:
   - match:
-    - port: 15029
+    - port: 31400
     route:
     - destination:
         host: server

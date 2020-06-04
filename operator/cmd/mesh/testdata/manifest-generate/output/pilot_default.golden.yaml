@@ -18,7 +18,9 @@
 
 # EgressGateways istio-egressgateway component is disabled.
 
-# Galley component is disabled.
+# IstiodRemote component is disabled.
+
+# Resources for Pilot component
 
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
@@ -28,6 +30,7 @@ metadata:
   labels:
     app: istiod
     release: istio
+    istio.io/rev: default
 spec:
   maxReplicas: 5
   minReplicas: 1
@@ -44,21 +47,34 @@ spec:
 
 
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: istio-system
+  labels:
+    istio.io/rev: default
+    release: istio
 data:
+
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+    networks: {}
+
   mesh: |-
     accessLogEncoding: TEXT
     accessLogFile: ""
     accessLogFormat: ""
-    certificates: []
     defaultConfig:
       concurrency: 2
-      configPath: /etc/istio/proxy
+      configPath: ./etc/istio/proxy
       connectTimeout: 10s
       controlPlaneAuthPolicy: NONE
       discoveryAddress: istiod.istio-system.svc:15012
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       proxyAdminPort: 15000
+      proxyMetadata:
+        DNS_AGENT: ""
       serviceCluster: istio-proxy
       tracing:
         zipkin:
@@ -66,7 +82,7 @@ data:
     disableMixerHttpReports: true
     disablePolicyChecks: true
     enableAutoMtls: true
-    enableEnvoyAccessLogService: false
+    enablePrometheusMerge: false
     enableTracing: true
     ingressClass: istio
     ingressControllerMode: STRICT
@@ -82,56 +98,6 @@ data:
     sdsUdsPath: unix:/etc/istio/proxy/SDS
     trustDomain: cluster.local
     trustDomainAliases: null
-  meshNetworks: 'networks: {}'
-  values.yaml: |-
-    appNamespaces: []
-    autoscaleEnabled: true
-    autoscaleMax: 5
-    autoscaleMin: 1
-    configMap: true
-    configNamespace: istio-config
-    configSource:
-      subscribedResources: []
-    cpu:
-      targetAverageUtilization: 80
-    deploymentLabels: {}
-    enableProtocolSniffingForInbound: true
-    enableProtocolSniffingForOutbound: true
-    enabled: true
-    env: {}
-    hub: ""
-    image: pilot
-    ingress:
-      ingressClass: istio
-      ingressControllerMode: STRICT
-      ingressService: istio-ingressgateway
-    jwksResolverExtraRootCA: ""
-    keepaliveMaxServerConnectionAge: 30m
-    namespace: istio-system
-    nodeSelector: {}
-    plugins: []
-    podAnnotations: {}
-    podAntiAffinityLabelSelector: []
-    podAntiAffinityTermLabelSelector: []
-    policy:
-      enabled: false
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 500m
-        memory: 2048Mi
-    rollingMaxSurge: 100%
-    rollingMaxUnavailable: 25%
-    tag: ""
-    tolerations: []
-    traceSampling: 1
-kind: ConfigMap
-metadata:
-  labels:
-    release: istio
-  name: istio
-  namespace: istio-system
-
 ---
 
 
@@ -141,6 +107,7 @@ metadata:
   labels:
     app: istiod
     istio: pilot
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-system
@@ -159,6 +126,7 @@ spec:
       labels:
         app: istiod
         istio: pilot
+        istio.io/rev: default
     spec:
       containers:
       - args:
@@ -212,6 +180,7 @@ spec:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
+        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -269,6 +238,7 @@ spec:
       - configMap:
           name: istio
         name: config-volume
+
 ---
 
 
@@ -278,6 +248,7 @@ metadata:
   name: istio-sidecar-injector
   namespace: istio-system
   labels:
+    istio.io/rev: default
     release: istio
 data:
 
@@ -289,7 +260,6 @@ data:
           "ppc64le": 2,
           "s390x": 2
         },
-        "certificates": [],
         "configNamespace": "istio-system",
         "configValidation": true,
         "controlPlaneSecurityEnabled": true,
@@ -302,7 +272,6 @@ data:
             "cpu": "10m"
           }
         },
-        "disablePolicyChecks": true,
         "enableHelmTest": false,
         "enableTracing": true,
         "enabled": false,
@@ -329,8 +298,7 @@ data:
         "meshNetworks": {},
         "mountMtlsCerts": false,
         "mtls": {
-          "auto": true,
-          "enabled": false
+          "auto": true
         },
         "multiCluster": {
           "clusterName": "",
@@ -350,29 +318,10 @@ data:
         "priorityClassName": "",
         "prometheusNamespace": "istio-system",
         "proxy": {
-          "accessLogEncoding": "TEXT",
-          "accessLogFile": "",
-          "accessLogFormat": "",
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",
           "componentLogLevel": "misc:error",
-          "concurrency": 2,
           "enableCoreDump": false,
-          "envoyAccessLogService": {
-            "enabled": false
-          },
-          "envoyMetricsService": {
-            "enabled": false,
-            "tcpKeepalive": {
-              "interval": "10s",
-              "probes": 3,
-              "time": "10s"
-            },
-            "tlsSettings": {
-              "mode": "DISABLE",
-              "subjectAltNames": []
-            }
-          },
           "envoyStatsd": {
             "enabled": false
           },
@@ -383,7 +332,6 @@ data:
           "includeIPRanges": "*",
           "logLevel": "warning",
           "privileged": false,
-          "protocolDetectionTimeout": "100ms",
           "readinessFailureThreshold": 30,
           "readinessInitialDelaySeconds": 1,
           "readinessPeriodSeconds": 2,
@@ -430,9 +378,7 @@ data:
           },
           "lightstep": {
             "accessToken": "",
-            "address": "",
-            "cacertPath": "",
-            "secure": true
+            "address": ""
           },
           "stackdriver": {
             "debug": false,
@@ -475,16 +421,11 @@ data:
   config: |-
     policy: enabled
     alwaysInjectSelector:
-            []
+      []
     neverInjectSelector:
-            []
+      []
     injectedAnnotations:
 
-    # Configmap optimized for Istiod. Please DO NOT MERGE all changes from istio - in particular those dependent on
-    # Values.yaml, which should not be used by istiod.
-    
-    # Istiod only uses SDS based config ( files will mapped/handled by SDS).
-    
     template: |
       rewriteAppHTTPProbe: {{ valueOrDefault .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe false }}
       initContainers:
@@ -531,6 +472,11 @@ data:
         {{ end -}}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
       {{- if .Values.global.proxy_init.resources }}
+        env:
+        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
         resources:
           {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
       {{- else }}
@@ -547,12 +493,13 @@ data:
         {{- end }}
             drop:
             - ALL
-          readOnlyRootFilesystem: false
         {{- if not .Values.istio_cni.enabled }}
+          readOnlyRootFilesystem: false
           runAsGroup: 0
           runAsNonRoot: false
           runAsUser: 0
         {{- else }}
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsUser: 1337
           runAsNonRoot: true
@@ -619,6 +566,10 @@ data:
       {{- if .Values.global.logAsJson }}
         - --log_as_json
       {{- end }}
+      {{- if gt .ProxyConfig.Concurrency 0 }}
+        - --concurrency
+        - "{{ .ProxyConfig.Concurrency }}"
+      {{- end -}}
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
@@ -632,10 +583,8 @@ data:
         - name: CA_ADDR
         {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
-        {{- else if .Values.global.configNamespace }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.configNamespace }}.svc:15012
         {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.istio-system.svc:15012
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -657,9 +606,9 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: MESH_CONFIG
+        - name: PROXY_CONFIG
           value: |
-                 {{ protoToJSON .MeshConfig }}
+                 {{ protoToJSON .ProxyConfig }}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -672,6 +621,14 @@ data:
                 {{- end }}
               {{- end}}
             {{- end}}
+            ]
+        - name: ISTIO_META_APP_CONTAINERS
+          value: |-
+            [
+              {{- range $index, $container := .Spec.Containers }}
+                {{- if ne $index 0}},{{- end}}
+                {{ $container.Name }}
+              {{- end}}
             ]
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
@@ -892,6 +849,7 @@ metadata:
   name: istio-sidecar-injector
 
   labels:
+    istio.io/rev: default
     app: sidecar-injector
     release: istio
 webhooks:
@@ -921,6 +879,7 @@ metadata:
   namespace: istio-system
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio
     istio: pilot
 spec:
@@ -938,7 +897,9 @@ metadata:
   name: istiod
   namespace: istio-system
   labels:
+    istio.io/rev: default
     app: istiod
+    istio: pilot
     release: istio
 spec:
   ports:
@@ -951,6 +912,14 @@ spec:
       targetPort: 15017
     - port: 15014
       name: http-monitoring # prometheus stats
+    - name: dns
+      port: 53
+      targetPort: 15053
+      protocol: UDP
+    - name: dns-tls
+      port: 853
+      targetPort: 15053
+      protocol: TCP
   selector:
     app: istiod
     # Label used by the 'default' service. For versioned deployments we match with app and version.
@@ -964,6 +933,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -994,6 +965,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.4
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1074,6 +1047,7 @@ spec:
                 {
                   "debug": "false",
                   "stat_prefix": "istio",
+                  "disable_host_header_fallback": true,
                 }
               vm_config:
                 vm_id: stats_outbound
@@ -1088,6 +1062,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1122,6 +1098,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1176,6 +1154,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1267,6 +1247,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -1282,6 +1263,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.5
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1382,6 +1365,8 @@ kind: EnvoyFilter
 metadata:
   name: metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1416,6 +1401,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-metadata-exchange-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER
@@ -1473,6 +1460,8 @@ kind: EnvoyFilter
 metadata:
   name: stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: HTTP_FILTER
@@ -1564,6 +1553,7 @@ spec:
                   {
                     "debug": "false",
                     "stat_prefix": "istio",
+                    "disable_host_header_fallback": true,
                   }
                 vm_config:
                   vm_id: stats_outbound
@@ -1579,6 +1569,8 @@ kind: EnvoyFilter
 metadata:
   name: tcp-stats-filter-1.6
   namespace: istio-system
+  labels:
+    istio.io/rev: default
 spec:
   configPatches:
     - applyTo: NETWORK_FILTER

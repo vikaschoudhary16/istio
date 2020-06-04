@@ -61,7 +61,8 @@ spec:
 `
 
 	deploymentYAML = `
-{{$subsets := .Subsets }}
+{{- $subsets := .Subsets }}
+{{- $cluster := .Cluster }}
 {{- range $i, $subset := $subsets }}
 apiVersion: apps/v1
 kind: Deployment
@@ -105,6 +106,8 @@ spec:
           runAsUser: 1
         args:
           - --metrics=15014
+          - --cluster
+          - "{{ $cluster }}"
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
           - --grpc
@@ -114,6 +117,9 @@ spec:
           - --port
 {{- end }}
           - "{{ $p.Port }}"
+{{- if $p.TLS }}
+          - --tls={{ $p.Port }}
+{{- end }}
 {{- end }}
 {{- range $i, $p := $.WorkloadOnlyPorts }}
 {{- if eq .Protocol "TCP" }}
@@ -122,6 +128,9 @@ spec:
           - --port
 {{- end }}
           - "{{ $p.Port }}"
+{{- if $p.TLS }}
+          - --tls={{ $p.Port }}
+{{- end }}
 {{- end }}
           - --version
           - "{{ $subset.Version }}"
@@ -235,6 +244,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings) (servic
 		"IncludeInboundPorts": cfg.IncludeInboundPorts,
 		"Subsets":             cfg.Subsets,
 		"TLSSettings":         cfg.TLSSettings,
+		"Cluster":             cfg.ClusterIndex(),
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)

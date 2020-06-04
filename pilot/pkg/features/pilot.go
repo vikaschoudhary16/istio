@@ -17,10 +17,10 @@ package features
 import (
 	"time"
 
-	"istio.io/istio/pkg/jwt"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
+
+	"istio.io/istio/pkg/jwt"
 
 	"istio.io/pkg/env"
 )
@@ -215,13 +215,6 @@ var (
 			"should be enabled if applications access all services explicitly via a HTTP proxy port in the sidecar.",
 	).Get()
 
-	BlockHTTPonHTTPSPort = env.RegisterBoolVar(
-		"PILOT_BLOCK_HTTP_ON_443",
-		true,
-		"If enabled, any HTTP services will be blocked on HTTPS port (443). If this is disabled, any "+
-			"HTTP service on port 443 could block all external traffic",
-	).Get()
-
 	EnableDistributionTracking = env.RegisterBoolVar(
 		"PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING",
 		true,
@@ -258,13 +251,38 @@ var (
 			"Istio Resources",
 	).Get()
 
+	EnableStatus = env.RegisterBoolVar(
+		"PILOT_ENABLE_STATUS",
+		false,
+		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
+	).Get()
+
+	StatusQPS = env.RegisterFloatVar(
+		"PILOT_STATUS_QPS",
+		100,
+		"If status is enabled, controls the QPS with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config QPS",
+	).Get()
+
+	StatusBurst = env.RegisterIntVar(
+		"PILOT_STATUS_BURST",
+		500,
+		"If status is enabled, controls the Burst rate with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
+	).Get()
+
 	// IstiodService controls the istiod address - used for injection and as default value injected into pods
 	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
 	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
 	// istio-pilot or istiod) plus namespace and .svc.
-	// The 15010 port is used with plain text, 15011 with Spiffee certs - we need a different port for DNS cert.
+	// The 15010 port is used with plain text, 15011 with Spiffe certs - we need a different port for DNS cert.
 	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
 		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
+
+	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
+	// for examples: istiod.mycompany.com
+	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
+		"Custom host name of istiod that istiod signs the server cert.")
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.")
@@ -288,6 +306,32 @@ var (
 		"If this is set to true, support for Kubernetes service-apis (github.com/kubernetes-sigs/service-apis) will "+
 			" be enabled. This feature is currently experimental, and is off by default.").Get()
 
+	EnableVirtualServiceDelegate = env.RegisterBoolVar(
+		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
+		false,
+		"If enabled, Pilot will merge virtual services with delegates. "+
+			"By default, this is false, and virtualService with delegate will be ignored",
+	).Get()
+
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to")
+
+	EnableIncrementalMCP = env.RegisterBoolVar(
+		"PILOT_ENABLE_INCREMENTAL_MCP",
+		false,
+		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
+			"to true, and then galley may push data incrementally, it depends on whether the "+
+			"resource supports incremental. By default, this is false.").Get()
+
+	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
+		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
+
+	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
+		"If this is set to false, will not create CA server in istiod.").Get()
+
+	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
+		"If enabled, service entries with selectors will select pods from the cluster. "+
+			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
+		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
 )

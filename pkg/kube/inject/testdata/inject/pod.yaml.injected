@@ -9,6 +9,7 @@ metadata:
     traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
   creationTimestamp: null
   labels:
+    istio.io/rev: ""
     security.istio.io/tlsMode: istio
   name: hellopod
 spec:
@@ -58,13 +59,18 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: status.hostIP
-    - name: MESH_CONFIG
+    - name: PROXY_CONFIG
       value: |
         {}
     - name: ISTIO_META_POD_PORTS
       value: |-
         [
             {"name":"http","containerPort":80}
+        ]
+    - name: ISTIO_META_APP_CONTAINERS
+      value: |-
+        [
+            hello
         ]
     - name: ISTIO_META_CLUSTER_ID
       value: Kubernetes

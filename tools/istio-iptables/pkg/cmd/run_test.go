@@ -61,8 +61,8 @@ func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 		"ip6tables -t nat -N ISTIO_REDIRECT",
 		"ip6tables -t nat -N ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -N ISTIO_OUTPUT",
-		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001",
-		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
@@ -83,6 +83,7 @@ func TestRulesWithIpRange(t *testing.T) {
 	cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 	cfg.OutboundIPRangesInclude = "9.9.0.0/16"
 	cfg.DryRun = true
+	dnsVar.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -93,8 +94,8 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -N ISTIO_REDIRECT",
 		"iptables -t nat -N ISTIO_IN_REDIRECT",
 		"iptables -t nat -N ISTIO_OUTPUT",
-		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001",
-		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
@@ -113,6 +114,9 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15013",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)
@@ -134,8 +138,8 @@ func TestHandleInboundIpv6RulesWithInboundPorts(t *testing.T) {
 	expected := []string{
 		"ip6tables -t nat -N ISTIO_REDIRECT", "ip6tables -t nat -N ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -N ISTIO_INBOUND", "ip6tables -t nat -N ISTIO_OUTPUT",
-		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001",
-		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"ip6tables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND",
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 4000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
@@ -172,8 +176,8 @@ func TestHandleInboundIpv6RulesWithWildcardRanges(t *testing.T) {
 		"ip6tables -t nat -N ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -N ISTIO_INBOUND",
 		"ip6tables -t nat -N ISTIO_OUTPUT",
-		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001",
-		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"ip6tables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND",
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 4000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
@@ -213,8 +217,8 @@ func TestHandleInboundIpv6RulesWithIpNets(t *testing.T) {
 	expected := []string{
 		"ip6tables -t nat -N ISTIO_REDIRECT", "ip6tables -t nat -N ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -N ISTIO_INBOUND", "ip6tables -t nat -N ISTIO_OUTPUT",
-		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001",
-		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"ip6tables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND",
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 4000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
@@ -258,8 +262,8 @@ func TestHandleInboundIpv6RulesWithUidGid(t *testing.T) {
 	expected := []string{
 		"ip6tables -t nat -N ISTIO_REDIRECT", "ip6tables -t nat -N ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -N ISTIO_INBOUND", "ip6tables -t nat -N ISTIO_OUTPUT",
-		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001",
-		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"ip6tables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND",
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 4000 -j ISTIO_IN_REDIRECT",
 		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT",
@@ -563,6 +567,7 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 	cfg := constructConfig()
 	cfg.DryRun = true
+	dnsVar.DefaultValue = "ALL"
 	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
 	iptConfigurator.cfg.EnableInboundIPv6 = false
 	iptConfigurator.cfg.ProxyGID = "1,2"
@@ -573,8 +578,8 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -N ISTIO_REDIRECT",
 		"iptables -t nat -N ISTIO_IN_REDIRECT",
 		"iptables -t nat -N ISTIO_OUTPUT",
-		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port 15001",
-		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port 15001",
+		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
@@ -590,6 +595,9 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 15013",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {

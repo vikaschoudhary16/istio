@@ -26,7 +26,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/api/label"
+
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -110,7 +111,7 @@ func (n *kubeNamespace) Close() (err error) {
 	return
 }
 
-func claimKube(ctx resource.Context, name string) (Instance, error) {
+func claimKube(ctx resource.Context, name string, injectSidecar bool) (Instance, error) {
 	env := ctx.Environment().(*kube.Environment)
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
@@ -120,7 +121,7 @@ func claimKube(ctx resource.Context, name string) (Instance, error) {
 	for _, cluster := range env.KubeClusters {
 		if !cluster.NamespaceExists(name) {
 			nsConfig := Config{
-				Inject:   true,
+				Inject:   injectSidecar,
 				Revision: cfg.CustomSidecarInjectorNamespace,
 			}
 			nsLabels := createNamespaceLabels(&nsConfig)
@@ -164,7 +165,7 @@ func createNamespaceLabels(cfg *Config) map[string]string {
 	l := make(map[string]string)
 	if cfg.Inject {
 		if cfg.Revision != "" {
-			l[model.RevisionLabel] = cfg.Revision
+			l[label.IstioRev] = cfg.Revision
 		} else {
 			l["istio-injection"] = "enabled"
 		}

@@ -24,8 +24,11 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/status"
+
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/istio/pilot/pkg/leaderelection"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
@@ -95,7 +98,14 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 				return err
 			}
 		}
+		s.initStatusController(args, features.EnableStatus)
 	}
+
+	// Used for tests.
+	memStore := memory.Make(collections.Pilot)
+	memConfigController := memory.NewController(memStore)
+	s.ConfigStores = append(s.ConfigStores, memConfigController)
+	s.EnvoyXdsServer.MemConfigController = memConfigController
 
 	// If running in ingress mode (requires k8s), wrap the config controller.
 	if hasKubeRegistry(args.Service.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
@@ -103,11 +113,18 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores,
 			ingress.NewController(s.kubeClient, meshConfig, args.Config.ControllerOptions))
 
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.Config.ControllerOptions, s.leaderElection); errSyncer != nil {
-			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
+		ingressSyncer, err := ingress.NewStatusSyncer(meshConfig, s.kubeClient, args.Config.ControllerOptions)
+		if err != nil {
+			log.Warnf("Disabled ingress status syncer due to %v", err)
 		} else {
-			s.addStartFunc(func(stop <-chan struct{}) error {
-				go ingressSyncer.Run(stop)
+			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+				leaderelection.
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient).
+					AddRunFunction(func(stop <-chan struct{}) {
+						log.Infof("Starting ingress controller")
+						ingressSyncer.Run(stop)
+					}).
+					Run(stop)
 				return nil
 			})
 		}
@@ -148,6 +165,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) (err error) {
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.Config),
 		XDSUpdater:   s.EnvoyXdsServer,
+		Revision:     args.Revision,
 	}
 	reporter := monitoring.NewStatsContext("pilot")
 
@@ -296,17 +314,44 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	processing := components.NewProcessing(processingArgs)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		if err := processing.Start(); err != nil {
-			return err
-		}
+		go leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+			AddRunFunction(func(stop <-chan struct{}) {
+				if err := processing.Start(); err != nil {
+					log.Fatalf("Error starting Background Analysis: %s", err)
+				}
 
-		go func() {
-			<-stop
-			processing.Stop()
-		}()
+				go func() {
+					<-stop
+					processing.Stop()
+				}()
+			}).Run(stop)
 		return nil
 	})
 	return nil
+}
+
+func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
+	s.statusReporter = &status.Reporter{
+		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
+		PodName:        args.PodName,
+	}
+	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+		s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, writeStatus, stop)
+		return nil
+	})
+	s.EnvoyXdsServer.StatusReporter = s.statusReporter
+	if writeStatus {
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+				AddRunFunction(func(stop <-chan struct{}) {
+					(&status.DistributionController{QPS: float32(features.StatusQPS), Burst: features.StatusBurst}).
+						Start(s.kubeConfig, args.Namespace, stop)
+				}).Run(stop)
+			return nil
+		})
+	}
 }
 
 func (s *Server) mcpController(
@@ -319,7 +364,7 @@ func (s *Server) mcpController(
 	all := collections.Pilot.All()
 	cols := make([]sink.CollectionOptions, 0, len(all))
 	for _, c := range all {
-		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: false})
+		cols = append(cols, sink.CollectionOptions{Name: c.Name().String(), Incremental: features.EnableIncrementalMCP})
 	}
 
 	mcpController := mcp.NewController(opts)
@@ -365,7 +410,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 
 func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
 	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, collections.Pilot)
-	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
+	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, fileSnapshot.ReadConfigFiles, fileDir)
 
 	// Defer starting the file monitor until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {

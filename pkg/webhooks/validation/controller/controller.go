@@ -37,7 +37,6 @@ import (
 	kubeLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kubeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -82,14 +81,18 @@ type Options struct {
 	// without relying on the user to manually delete configs.
 	// Deprecated: istiod webhook controller shouldn't use this.
 	UnregisterValidationWebhook bool
+
+	//RemoteWebhookConfig defines whether the webhook config is coming from remote cluster
+	RemoteWebhookConfig bool
 }
 
 func DefaultArgs() Options {
 	return Options{
-		WatchedNamespace:  "istio-system",
-		CAPath:            constants.DefaultRootCert,
-		WebhookConfigName: "istio-galley",
-		ServiceName:       "istio-galley",
+		WatchedNamespace:    "istio-system",
+		CAPath:              constants.DefaultRootCert,
+		WebhookConfigName:   "istio-galley",
+		ServiceName:         "istio-galley",
+		RemoteWebhookConfig: false,
 	}
 }
 
@@ -224,7 +227,7 @@ var (
 	configGVK   = kubeApiAdmission.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiAdmission.ValidatingWebhookConfiguration{}).Name())
 	endpointGVK = kubeApiCore.SchemeGroupVersion.WithKind(reflect.TypeOf(kubeApiCore.Endpoints{}).Name())
 
-	istioGatewayGVK = kubeSchema.GroupVersionResource{
+	istioGatewayGVK = schema.GroupVersionResource{
 		Group:    collections.IstioNetworkingV1Alpha3Gateways.Resource().Group(),
 		Version:  collections.IstioNetworkingV1Alpha3Gateways.Resource().Version(),
 		Resource: collections.IstioNetworkingV1Alpha3Gateways.Resource().Plural(),
@@ -266,8 +269,10 @@ func newController(
 	webhookInformer := c.sharedInformers.Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer()
 	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK, o.WebhookConfigName))
 
-	endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
-	endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
+	if !o.RemoteWebhookConfig {
+		endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
+		endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
+	}
 
 	return c, nil
 }
@@ -344,17 +349,19 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	if c.o.UnregisterValidationWebhook {
 		return c.deleteValidatingWebhookConfiguration()
 	}
-
-	ready, err := c.readyForFailClose()
-	if err != nil {
-		return err
-	}
-
 	failurePolicy := kubeApiAdmission.Ignore
-	if ready {
+	if c.o.RemoteWebhookConfig {
 		failurePolicy = kubeApiAdmission.Fail
-	}
+	} else {
+		ready, err := c.readyForFailClose()
+		if err != nil {
+			return err
+		}
 
+		if ready {
+			failurePolicy = kubeApiAdmission.Fail
+		}
+	}
 	caBundle, err := c.loadCABundle()
 	if err != nil {
 		scope.Errorf("Failed to load CA bundle: %v", err)
@@ -407,7 +414,10 @@ func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
 	return ready, reason, nil
 }
 
-const deniedRequestMessageFragment = `admission webhook "validation.istio.io" denied the request`
+const (
+	deniedRequestMessageFragment   = `admission webhook "validation.istio.io" denied the request`
+	missingResourceMessageFragment = `the server could not find the requested resource`
+)
 
 // Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
 func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason string) {
@@ -424,12 +434,19 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 		_, err = c.dynamicResourceInterface.Update(context.TODO(), invalid, updateOptions)
 	}
 	if err == nil {
-		return false, fmt.Sprintf("dummy invalid config not rejected")
+		return false, "dummy invalid config not rejected"
 	}
-	if !strings.Contains(err.Error(), deniedRequestMessageFragment) {
-		return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
+	// We expect to get deniedRequestMessageFragment (the config was rejected, as expected)
+	if strings.Contains(err.Error(), deniedRequestMessageFragment) {
+		return true, ""
 	}
-	return true, ""
+	// If the CRD does not exist, we will get this error. This is to handle when Pilot is run
+	// without CRDs - in this case, this check will not be possible.
+	if strings.Contains(err.Error(), missingResourceMessageFragment) {
+		log.Warnf("missing Gateway CRD, cannot perform validation check. Assuming validation is ready")
+		return true, ""
+	}
+	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
 }
 
 func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string) {

@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -96,7 +97,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		ClusterID:        "v2-debug",
 		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: s.MemRegistry,
-		Controller:       s.MemRegistry.controller,
+		Controller:       s.MemRegistry.Controller,
 	})
 
 	if enableProfiling {
@@ -121,6 +122,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
+	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 
 	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
 	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
@@ -288,12 +290,15 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			con.mu.RLock()
 
 			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
-				// TODO: handle skipped nodes
+				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
-					ProxyID:         con.node.ID,
-					ClusterVersion:  s.getResourceVersion(con.ClusterNonceAcked, resourceID, knownVersions),
-					ListenerVersion: s.getResourceVersion(con.ListenerNonceAcked, resourceID, knownVersions),
-					RouteVersion:    s.getResourceVersion(con.RouteNonceAcked, resourceID, knownVersions),
+					ProxyID: con.node.ID,
+					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ClusterType),
+						resourceID, knownVersions),
+					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, ListenerType),
+						resourceID, knownVersions),
+					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, RouteType),
+						resourceID, knownVersions),
 				})
 			}
 			con.mu.RUnlock()
@@ -362,6 +367,20 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 
 	if err == nil {
 		_, _ = fmt.Fprint(w, "\n{}]")
+	}
+}
+
+// Resource debugging.
+func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+	schemas := []resource.GroupVersionKind{}
+	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
+		schemas = append(schemas, schema.Resource().GroupVersionKind())
+		return false
+	})
+
+	if b, err := json.MarshalIndent(schemas, "", "  "); err == nil {
+		_, _ = w.Write(b)
 	}
 }
 
@@ -456,7 +475,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters := s.generateRawClusters(conn.node, s.globalPushContext())
+	clusters := s.ConfigGenerator.BuildClusters(conn.node, s.globalPushContext())
 
 	for _, cs := range clusters {
 		cluster, err := ptypes.MarshalAny(cs)
@@ -474,7 +493,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
-	listeners := s.generateRawListeners(conn, s.globalPushContext())
+	listeners := s.ConfigGenerator.BuildListeners(conn.node, s.globalPushContext())
 	for _, cs := range listeners {
 		listener, err := ptypes.MarshalAny(cs)
 		if err != nil {
@@ -492,7 +511,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 		return nil, err
 	}
 
-	routes := s.generateRawRoutes(conn, s.globalPushContext())
+	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.node, s.globalPushContext(), conn.Routes)
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)

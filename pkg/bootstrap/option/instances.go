@@ -43,7 +43,7 @@ func ProxyConfig(value *meshAPI.ProxyConfig) Instance {
 }
 
 func PilotSubjectAltName(value []string) Instance {
-	return newOption("pilot_SAN", value)
+	return newOption("pilot_SAN", value).withConvert(sanConverter(value))
 }
 
 func MixerSubjectAltName(value []string) Instance {
@@ -138,14 +138,6 @@ func LightstepToken(value string) Instance {
 	return newOption("lightstepToken", value)
 }
 
-func LightstepSecure(value bool) Instance {
-	return newOption("lightstepSecure", value)
-}
-
-func LightstepCACertPath(value string) Instance {
-	return newOption("lightstepCacertPath", value)
-}
-
 func StackDriverEnabled(value bool) Instance {
 	return newOption("stackdriver", value)
 }
@@ -184,6 +176,11 @@ func DataDogAddress(value string) Instance {
 
 func StatsdAddress(value string) Instance {
 	return newOptionOrSkipIfZero("statsd", value).withConvert(addressConverter(value))
+}
+
+func TracingTLS(value *networkingAPI.ClientTLSSettings, metadata *model.NodeMetadata, isH2 bool) Instance {
+	return newOptionOrSkipIfZero("tracing_tls", value).
+		withConvert(transportSocketConverter(value, "tracer", metadata, isH2))
 }
 
 func EnvoyMetricsServiceAddress(value string) Instance {

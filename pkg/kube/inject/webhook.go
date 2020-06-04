@@ -23,12 +23,15 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
+
+	"istio.io/api/label"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -81,6 +84,7 @@ type Webhook struct {
 	cert       *tls.Certificate
 	mon        *monitor
 	env        *model.Environment
+	revision   string
 }
 
 // env will be used for other things besides meshConfig - when webhook is running in Istiod it can take advantage
@@ -158,6 +162,9 @@ type WebhookParameters struct {
 
 	// Use an existing mux instead of creating our own.
 	Mux *http.ServeMux
+
+	// The istio.io/rev this injector is responsible for
+	Revision string
 }
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
@@ -204,11 +211,13 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		keyFile:                p.KeyFile,
 		cert:                   &pair,
 		env:                    p.Env,
+		revision:               p.Revision,
 	}
 
 	var mux *http.ServeMux
 	if p.Mux != nil {
 		p.Mux.HandleFunc("/inject", wh.serveInject)
+		p.Mux.HandleFunc("/inject/", wh.serveInject)
 		mux = p.Mux
 	} else {
 		wh.server = &http.Server{
@@ -218,6 +227,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		}
 		mux = http.NewServeMux()
 		mux.HandleFunc("/inject", wh.serveInject)
+		mux.HandleFunc("/inject/", wh.serveInject)
 		wh.server.Handler = mux
 	}
 
@@ -547,8 +557,8 @@ func updateAnnotation(target map[string]string, added map[string]string) (patch 
 	return patch
 }
 
-func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotations map[string]string, sic *SidecarInjectionSpec,
-	workloadName string, statusPort int32) ([]byte, error) {
+func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision string, annotations map[string]string,
+	sic *SidecarInjectionSpec, workloadName string, mesh *meshconfig.MeshConfig) ([]byte, error) {
 
 	var patch []rfc6902PatchOperation
 
@@ -560,21 +570,33 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
-	addAppProberCmd := func() {
-		if !rewrite {
-			return
-		}
-		sidecar := FindSidecar(sic.Containers)
-		if sidecar == nil {
-			log.Errorf("sidecar not found in the template, skip addAppProberCmd")
-			return
-		}
-		// We don't have to escape json encoding here when using golang libraries.
+
+	sidecar := FindSidecar(sic.Containers)
+	// We don't have to escape json encoding here when using golang libraries.
+	if rewrite && sidecar != nil {
 		if prober := DumpAppProbers(&pod.Spec); prober != "" {
 			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 		}
 	}
-	addAppProberCmd()
+
+	if enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
+		scrape := status.PrometheusScrapeConfiguration{
+			Scrape: pod.ObjectMeta.Annotations["prometheus.io/scrape"],
+			Path:   pod.ObjectMeta.Annotations["prometheus.io/path"],
+			Port:   pod.ObjectMeta.Annotations["prometheus.io/port"],
+		}
+		empty := status.PrometheusScrapeConfiguration{}
+		if sidecar != nil && scrape != empty {
+			by, err := json.Marshal(scrape)
+			if err != nil {
+				return nil, err
+			}
+			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.PrometheusScrapingConfig.Name, Value: string(by)})
+		}
+		annotations["prometheus.io/port"] = strconv.Itoa(int(mesh.GetDefaultConfig().GetStatusPort()))
+		annotations["prometheus.io/path"] = "/stats/prometheus"
+		annotations["prometheus.io/scrape"] = "true"
+	}
 
 	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
@@ -593,15 +615,35 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 
 	canonicalSvc, canonicalRev := extractCanonicalServiceLabels(pod.Labels, workloadName)
 	patch = append(patch, addLabels(pod.Labels, map[string]string{
-		model.TLSModeLabelName:                       model.IstioMutualTLSModeLabel,
+		label.TLSMode:                                model.IstioMutualTLSModeLabel,
 		model.IstioCanonicalServiceLabelName:         canonicalSvc,
+		label.IstioRev:                               revision,
 		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
 
 	if rewrite {
-		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, statusPort)...)
+		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, mesh.GetDefaultConfig().GetStatusPort())...)
 	}
 
 	return json.Marshal(patch)
+}
+
+func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) bool {
+	// If annotation is present, we look there first
+	if val, f := anno[annotation.PrometheusMergeMetrics.Name]; f {
+		bval, err := strconv.ParseBool(val)
+		if err != nil {
+			// This shouldn't happen since we validate earlier in the code
+			log.Warnf("invalid annotation %v=%v", annotation.PrometheusMergeMetrics.Name, bval)
+		} else {
+			return bval
+		}
+	}
+	// If mesh config setting is present, use that
+	if mesh.GetEnablePrometheusMerge() != nil {
+		return mesh.GetEnablePrometheusMerge().Value
+	}
+	// Otherwise, we default to enable
+	return true
 }
 
 func extractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
@@ -683,7 +725,7 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 	return &v1beta1.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
 
-func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (wh *Webhook) inject(ar *v1beta1.AdmissionReview, path string) *v1beta1.AdmissionResponse {
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
@@ -766,7 +808,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		deployMeta.Name = pod.Name
 	}
 
-	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
+	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig, path) // nolint: lll
 	if err != nil {
 		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
 		return toAdmissionResponse(err)
@@ -779,7 +821,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		annotations[k] = v
 	}
 
-	patchBytes, err := createPatch(&pod, injectionStatus(&pod), annotations, spec, deployMeta.Name, wh.meshConfig.GetDefaultConfig().GetStatusPort())
+	patchBytes, err := createPatch(&pod, injectionStatus(&pod), wh.revision, annotations, spec, deployMeta.Name, wh.meshConfig)
 	if err != nil {
 		handleError(fmt.Sprintf("AdmissionResponse: err=%v spec=%v\n", err, spec))
 		return toAdmissionResponse(err)
@@ -821,13 +863,19 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	path := ""
+	if r.URL != nil {
+		path = r.URL.Path
+	}
+
 	var reviewResponse *v1beta1.AdmissionResponse
 	ar := v1beta1.AdmissionReview{}
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
-		reviewResponse = wh.inject(&ar)
+		log.Debugf("AdmissionRequest for path=%s\n", path)
+		reviewResponse = wh.inject(&ar, path)
 	}
 
 	response := v1beta1.AdmissionReview{}

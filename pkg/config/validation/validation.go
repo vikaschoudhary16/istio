@@ -28,7 +28,7 @@ import (
 	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -40,6 +40,7 @@ import (
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -475,6 +476,24 @@ func validateExportTo(exportTo []string) (errs error) {
 	return
 }
 
+func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error {
+	var errs error
+	if selector != nil {
+		for k, v := range selector.Labels {
+			if k == "" {
+				errs = appendErrors(errs,
+					fmt.Errorf("empty key is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+			}
+			if strings.Contains(k, "*") || strings.Contains(v, "*") {
+				errs = appendErrors(errs,
+					fmt.Errorf("wildcard is not supported in selector: %q", fmt.Sprintf("%s=%s", k, v)))
+			}
+		}
+	}
+
+	return errs
+}
+
 // ValidateEnvoyFilter checks envoy filter config supplied by user
 var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 	func(_, _ string, msg proto.Message) (errs error) {
@@ -483,10 +502,8 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			return fmt.Errorf("cannot cast to Envoy filter")
 		}
 
-		if rule.WorkloadSelector != nil {
-			if rule.WorkloadSelector.GetLabels() == nil {
-				errs = appendErrors(errs, fmt.Errorf("Envoy filter: workloadSelector cannot have empty labels")) // nolint: golint,stylecheck
-			}
+		if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
+			return err
 		}
 
 		for _, cp := range rule.ConfigPatches {
@@ -640,10 +657,8 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return fmt.Errorf("cannot cast to Sidecar")
 		}
 
-		if rule.WorkloadSelector != nil {
-			if rule.WorkloadSelector.GetLabels() == nil {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: workloadSelector cannot have empty labels"))
-			}
+		if err := validateAlphaWorkloadSelector(rule.WorkloadSelector); err != nil {
+			return err
 		}
 
 		if len(rule.Egress) == 0 {
@@ -1088,9 +1103,6 @@ func ValidateLightstepCollector(ls *meshconfig.Tracing_Lightstep) error {
 	if ls.GetAccessToken() == "" {
 		errs = multierror.Append(errs, errors.New("access token is required"))
 	}
-	if ls.GetSecure() && (ls.GetCacertPath() == "") {
-		errs = multierror.Append(errs, errors.New("cacertPath is required"))
-	}
 	return errs
 }
 
@@ -1169,6 +1181,21 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, err)
 	}
 
+	if err := validateServiceSettings(mesh); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	return
+}
+
+func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
+	for sIndex, s := range config.ServiceSettings {
+		for _, h := range s.Hosts {
+			if err := ValidateWildcardDomain(h); err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("serviceSettings[%d], host `%s`: %v", sIndex, h, err))
+			}
+		}
+	}
 	return
 }
 
@@ -1214,6 +1241,12 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if tracer := config.GetTracing().GetDatadog(); tracer != nil {
 		if err := ValidateDatadogCollector(tracer); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid datadog config:"))
+		}
+	}
+
+	if tracer := config.GetTracing().GetTlsSettings(); tracer != nil {
+		if err := validateTLS(tracer); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid tracing TLS config:"))
 		}
 	}
 
@@ -1994,7 +2027,32 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			return errors.New("cannot cast to virtual service")
 		}
 
+		isDelegate := false
+		if len(virtualService.Hosts) == 0 {
+			if features.EnableVirtualServiceDelegate {
+				isDelegate = true
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
+			}
+		}
+
+		if isDelegate {
+			if len(virtualService.Gateways) != 0 {
+				// meaningless to specify gateways in delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
+			}
+			if len(virtualService.Tls) != 0 {
+				// meaningless to specify tls in delegate, we donot support tls delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
+			}
+			if len(virtualService.Tcp) != 0 {
+				// meaningless to specify tls in delegate, we donot support tcp delegate
+				errs = appendErrors(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
+			}
+		}
+
 		appliesToMesh := false
+		appliesToGateway := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
 		}
@@ -2003,12 +2061,9 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		for _, gatewayName := range virtualService.Gateways {
 			if gatewayName == constants.IstioMeshGateway {
 				appliesToMesh = true
-				break
+			} else {
+				appliesToGateway = true
 			}
-		}
-
-		if len(virtualService.Hosts) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("virtual service must have at least one host"))
 		}
 
 		allHostsValid := true
@@ -2044,7 +2099,10 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 		}
 		for _, httpRoute := range virtualService.Http {
-			errs = appendErrors(errs, validateHTTPRoute(httpRoute))
+			if !appliesToGateway && httpRoute.Delegate != nil {
+				errs = appendErrors(errs, errors.New("http delegate only applies to gateway"))
+			}
+			errs = appendErrors(errs, validateHTTPRoute(httpRoute, isDelegate))
 		}
 		for _, tlsRoute := range virtualService.Tls {
 			errs = appendErrors(errs, validateTLSRoute(tlsRoute, virtualService))
@@ -2141,7 +2199,16 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	return
 }
 
-func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
+func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
+	if features.EnableVirtualServiceDelegate {
+		if delegate {
+			return validateDelegateHTTPRoute(http)
+		}
+		if http.Delegate != nil {
+			return validateRootHTTPRoute(http)
+		}
+	}
+
 	// check for conflicts
 	if http.Redirect != nil {
 		if len(http.Route) > 0 {
@@ -2189,6 +2256,7 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
 				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
 			}
 
 			if match.Port != 0 {
@@ -2196,6 +2264,13 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			}
 			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
+			for _, qp := range match.GetQueryParams() {
+				errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
+			}
 		}
 	}
 
@@ -2221,6 +2296,20 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	}
 
 	return
+}
+
+func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
+	re := sm.GetRegex()
+	if re == "" {
+		return nil
+	}
+
+	_, err := regexp.Compile(re)
+	if err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("%q: %w; Istio uses RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax)", where, err)
 }
 
 func validateGatewayNames(gatewayNames []string) (errs error) {
@@ -2307,25 +2396,8 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 		return
 	}
 
-	for _, hostname := range policy.AllowOrigin {
-		if hostname != "*" {
-			hostname = strings.TrimPrefix(hostname, "https://")
-			hostname = strings.TrimPrefix(hostname, "http://")
-			parts := strings.Split(hostname, ":")
-			if len(parts) > 2 {
-				errs = appendErrors(errs, fmt.Errorf("CORS Allow Origin must be '*' or of [http[s]://]host[:port] format"))
-			} else {
-				if len(parts) == 2 {
-					if port, err := strconv.Atoi(parts[1]); err != nil {
-						errs = appendErrors(errs, fmt.Errorf("port in CORS Allow Origin is not a number: %s", parts[1]))
-					} else {
-						errs = ValidatePort(port)
-					}
-					hostname = parts[0]
-				}
-				errs = appendErrors(errs, ValidateFQDN(hostname))
-			}
-		}
+	for _, origin := range policy.AllowOrigins {
+		errs = appendErrors(errs, validateAllowOrigins(origin))
 	}
 
 	for _, method := range policy.AllowMethods {
@@ -2348,6 +2420,22 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	}
 
 	return
+}
+
+func validateAllowOrigins(origin *networking.StringMatch) error {
+	var match string
+	switch origin.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		match = origin.GetExact()
+	case *networking.StringMatch_Prefix:
+		match = origin.GetPrefix()
+	case *networking.StringMatch_Regex:
+		match = origin.GetRegex()
+	}
+	if match == "" {
+		return fmt.Errorf("'%v' is not a valid match type for CORS allow origins", match)
+	}
+	return validateStringMatchRegexp(origin, "corsPolicy.allowOrigins")
 }
 
 func validateHTTPMethod(method string) error {
@@ -2549,6 +2637,14 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		serviceEntry, ok := config.(*networking.ServiceEntry)
 		if !ok {
 			return fmt.Errorf("cannot cast to service entry")
+		}
+
+		if err := validateAlphaWorkloadSelector(serviceEntry.WorkloadSelector); err != nil {
+			return err
+		}
+
+		if serviceEntry.WorkloadSelector != nil && serviceEntry.Endpoints != nil {
+			errs = appendErrors(errs, fmt.Errorf("only one of WorkloadSelector or Endpoints is allowed in Service Entry"))
 		}
 
 		if len(serviceEntry.Hosts) == 0 {
@@ -2824,4 +2920,46 @@ func validateLocalities(localities []string) error {
 	}
 
 	return nil
+}
+
+// ValidateMeshNetworks validates meshnetworks.
+func ValidateMeshNetworks(meshnetworks *meshconfig.MeshNetworks) (errs error) {
+	for name, network := range meshnetworks.Networks {
+		if err := validateNetwork(network); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid network %v:", name)))
+		}
+	}
+	return
+}
+
+func validateNetwork(network *meshconfig.Network) (errs error) {
+	for _, n := range network.Endpoints {
+		switch e := n.Ne.(type) {
+		case *meshconfig.Network_NetworkEndpoints_FromCidr:
+			if err := ValidateIPSubnet(e.FromCidr); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *meshconfig.Network_NetworkEndpoints_FromRegistry:
+			if ok := labels.IsDNS1123Label(e.FromRegistry); !ok {
+				errs = multierror.Append(errs, fmt.Errorf("invalid registry name: %v", e.FromRegistry))
+			}
+		}
+
+	}
+	for _, n := range network.Gateways {
+		switch g := n.Gw.(type) {
+		case *meshconfig.Network_IstioNetworkGateway_RegistryServiceName:
+			if err := ValidateFQDN(g.RegistryServiceName); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *meshconfig.Network_IstioNetworkGateway_Address:
+			if err := ValidateIPAddress(g.Address); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+		if err := ValidatePort(int(n.Port)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return
 }

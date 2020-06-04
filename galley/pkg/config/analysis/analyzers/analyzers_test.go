@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/policy"
-
 	. "github.com/onsi/gomega"
 
 	"istio.io/pkg/log"
@@ -35,6 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/virtualservice"
@@ -53,11 +52,12 @@ type message struct {
 }
 
 type testCase struct {
-	name           string
-	inputFiles     []string
-	meshConfigFile string // Optional
-	analyzer       analysis.Analyzer
-	expected       []message
+	name             string
+	inputFiles       []string
+	meshConfigFile   string // Optional
+	meshNetworksFile string // Optional
+	analyzer         analysis.Analyzer
+	expected         []message
 }
 
 // Some notes on setting up tests for Analyzers:
@@ -75,132 +75,10 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.UnknownAnnotation, "Service httpbin"},
 			{msg.MisplacedAnnotation, "Service details"},
+			{msg.InvalidAnnotation, "Pod invalid-annotations"},
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
 			{msg.MisplacedAnnotation, "Namespace staging"},
-		},
-	},
-	{
-		name:       "jwtTargetsInvalidServicePortName",
-		inputFiles: []string{"testdata/jwt-invalid-service-port-name.yaml"},
-		analyzer:   &auth.JwtAnalyzer{},
-		expected: []message{
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-specified-ports.namespace-port-missing-prefix"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-without-specified-ports.namespace-port-missing-prefix"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-without-specified-ports.namespace-port-missing-prefix"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-udp-target-port.namespace-with-non-tcp-protocol"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix, "Policy policy-with-invalid-named-target-port.namespace-with-invalid-named-port"},
-			{msg.JwtFailureDueToInvalidServicePortPrefix,
-				"Policy policy-with-valid-named-target-port-invalid-protocol.namespace-with-valid-named-port-invalid-protocol"},
-		},
-	},
-	{
-		name:       "jwtTargetsValidServicePortName",
-		inputFiles: []string{"testdata/jwt-valid-service-port-name.yaml"},
-		analyzer:   &auth.JwtAnalyzer{},
-		expected:   []message{
-			// port prefixes all pass
-		},
-	},
-	{
-		name:           "mtlsAnalyzerAutoMtlsSkips",
-		inputFiles:     []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
-		meshConfigFile: "testdata/mesh-with-automtls.yaml",
-		analyzer:       &auth.MTLSAnalyzer{},
-		expected:       []message{
-			// With autoMtls enabled, we should not generate a message
-		},
-	},
-	{
-		name:       "mtlsAnalyzerGlobalDestinationRuleNoMeshPolicy",
-		inputFiles: []string{"testdata/mtls-global-dr-no-meshpolicy.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "DestinationRule default.istio-system"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerIgnoresIstioControlPlane",
-		inputFiles: []string{"testdata/mtls-ignores-istio-control-plane.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name:       "mtlsAnalyzerIgnoresSystemNamespaces",
-		inputFiles: []string{"testdata/mtls-ignores-system-namespaces.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name:       "mtlsAnalyzerNoDestinationRule",
-		inputFiles: []string{"testdata/mtls-no-dr.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "Policy default.missing-dr"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerNoPolicy",
-		inputFiles: []string{"testdata/mtls-no-policy.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "DestinationRule no-policy-service-dr.no-policy"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerNoSidecar",
-		inputFiles: []string{"testdata/mtls-no-sidecar.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.DestinationRuleUsesMTLSForWorkloadWithoutSidecar, "DestinationRule default.istio-system"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerWithExports",
-		inputFiles: []string{"testdata/mtls-exports.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "Policy default.primary"},
-		},
-	},
-	{
-		name:       "mtlsAnalyzerWithMeshPolicy",
-		inputFiles: []string{"testdata/mtls-meshpolicy.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "MeshPolicy default"},
-		},
-	},
-	{
-		name: "mtlsAnalyzerPeerAuthenticationDisablesAnalyzer",
-		inputFiles: []string{
-			"testdata/mtls-meshpolicy.yaml",
-			"testdata/peerauthentication-crd.yaml",
-		},
-		analyzer: &auth.MTLSAnalyzer{},
-		expected: []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name:       "mtlsAnalyzerWithPermissiveMeshPolicy",
-		inputFiles: []string{"testdata/mtls-meshpolicy-permissive.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
-		name:       "mtlsAnalyzerWithPort",
-		inputFiles: []string{"testdata/mtls-with-port.yaml"},
-		analyzer:   &auth.MTLSAnalyzer{},
-		expected: []message{
-			{msg.MTLSPolicyConflict, "DestinationRule default.my-namespace"},
-			{msg.MTLSPolicyConflict, "Policy default.my-namespace"},
 		},
 	},
 	{
@@ -230,7 +108,6 @@ var testGrid = []testCase{
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
 			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
-			{msg.Deprecated, "Policy policy-with-jwt.deprecation-policy"},
 		},
 	},
 	{
@@ -298,6 +175,7 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.NamespaceNotInjected, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
 		},
 	},
 	{
@@ -409,23 +287,6 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "deprecatedPolicyProducesMessageWhenCRDExists",
-		inputFiles: []string{"testdata/policy-with-peerauthentication-crd.yaml"},
-		analyzer:   &policy.DeprecatedAnalyzer{},
-		expected: []message{
-			{msg.PolicyResourceIsDeprecated, "Policy namespace-level-policy.foobar"},
-			{msg.MeshPolicyResourceIsDeprecated, "MeshPolicy default"},
-		},
-	},
-	{
-		name:       "deprecatedPolicyProducesNoMessageWhenNoCRDExists",
-		inputFiles: []string{"testdata/policy-without-peerauthentication-crd.yaml"},
-		analyzer:   &policy.DeprecatedAnalyzer{},
-		expected:   []message{
-			// no messages, this test case verifies no false positives
-		},
-	},
-	{
 		name: "regexes",
 		inputFiles: []string{
 			"testdata/virtualservice_regexes.yaml",
@@ -440,6 +301,18 @@ var testGrid = []testCase{
 			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
 			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
 			{msg.InvalidRegexp, "VirtualService lots-of-regexes"},
+		},
+	},
+	{
+		name: "unknown service registry in mesh networks",
+		inputFiles: []string{
+			"testdata/multicluster-unknown-serviceregistry.yaml",
+		},
+		meshNetworksFile: "testdata/common/meshnetworks.yaml",
+		analyzer:         &multicluster.MeshNetworksAnalyzer{},
+		expected: []message{
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
 		},
 	},
 }
@@ -566,6 +439,13 @@ func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*lo
 		err := sa.AddFileKubeMeshConfig(tc.meshConfigFile)
 		if err != nil {
 			return nil, fmt.Errorf("error applying mesh config file %s: %v", tc.meshConfigFile, err)
+		}
+	}
+
+	if tc.meshNetworksFile != "" {
+		err := sa.AddFileKubeMeshNetworks(tc.meshNetworksFile)
+		if err != nil {
+			return nil, fmt.Errorf("error apply mesh networks file %s: %v", tc.meshNetworksFile, err)
 		}
 	}
 

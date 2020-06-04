@@ -486,8 +486,6 @@ func TestValidateProxyConfig(t *testing.T) {
 							Lightstep: &meshconfig.Tracing_Lightstep{
 								Address:     "collector.lightstep:8080",
 								AccessToken: "abcdefg1234567",
-								Secure:      false,
-								CacertPath:  "/etc/lightstep/cacert.pem",
 							},
 						},
 					}
@@ -504,8 +502,6 @@ func TestValidateProxyConfig(t *testing.T) {
 							Lightstep: &meshconfig.Tracing_Lightstep{
 								Address:     "10.0.0.100",
 								AccessToken: "abcdefg1234567",
-								Secure:      false,
-								CacertPath:  "/etc/lightstep/cacert.pem",
 							},
 						},
 					}
@@ -522,8 +518,6 @@ func TestValidateProxyConfig(t *testing.T) {
 							Lightstep: &meshconfig.Tracing_Lightstep{
 								Address:     "",
 								AccessToken: "abcdefg1234567",
-								Secure:      false,
-								CacertPath:  "/etc/lightstep/cacert.pem",
 							},
 						},
 					}
@@ -540,8 +534,6 @@ func TestValidateProxyConfig(t *testing.T) {
 							Lightstep: &meshconfig.Tracing_Lightstep{
 								Address:     "collector.lightstep:8080",
 								AccessToken: "",
-								Secure:      false,
-								CacertPath:  "/etc/lightstep/cacert.pem",
 							},
 						},
 					}
@@ -558,8 +550,6 @@ func TestValidateProxyConfig(t *testing.T) {
 							Lightstep: &meshconfig.Tracing_Lightstep{
 								Address:     "10.0.0.100",
 								AccessToken: "",
-								Secure:      false,
-								CacertPath:  "/etc/lightstep/cacert.pem",
 							},
 						},
 					}
@@ -576,26 +566,6 @@ func TestValidateProxyConfig(t *testing.T) {
 							Lightstep: &meshconfig.Tracing_Lightstep{
 								Address:     "",
 								AccessToken: "",
-								Secure:      false,
-								CacertPath:  "/etc/lightstep/cacert.pem",
-							},
-						},
-					}
-				},
-			),
-			isValid: false,
-		},
-		{
-			name: "lightstep cacert is missing",
-			in: modify(valid,
-				func(c *meshconfig.ProxyConfig) {
-					c.Tracing = &meshconfig.Tracing{
-						Tracer: &meshconfig.Tracing_Lightstep_{
-							Lightstep: &meshconfig.Tracing_Lightstep{
-								Address:     "collector.lightstep:8080",
-								AccessToken: "abcdefg1234567",
-								Secure:      true,
-								CacertPath:  "",
 							},
 						},
 					}
@@ -1559,83 +1529,28 @@ func TestValidateCORSPolicy(t *testing.T) {
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
-		{name: "good origin ", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with star", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"*"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with http", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"http://example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with https", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"https://example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with https and port number", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"https://example.com:80"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "good origin with port number", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com:80"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: true},
-		{name: "bad origin", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com", "error$.com"},
+		{name: "empty matchType AllowOrigins", in: &networking.CorsPolicy{
+			AllowOrigins: []*networking.StringMatch{
+				{MatchType: &networking.StringMatch_Exact{Exact: ""}},
+				{MatchType: &networking.StringMatch_Prefix{Prefix: ""}},
+				{MatchType: &networking.StringMatch_Regex{Regex: ""}},
+			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
-		{name: "bad origin with scheme only", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"http://", "https://"},
+		{name: "non empty matchType AllowOrigins", in: &networking.CorsPolicy{
+			AllowOrigins: []*networking.StringMatch{
+				{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+				{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
+				{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
+			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
 			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
-		{name: "bad origin with bad port string", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com:port"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
-		{name: "bad origin with bad port number", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"example.com:100000"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
-		{name: "bad origin with star", in: &networking.CorsPolicy{
-			AllowOrigin:   []string{"*.example.com"},
-			AllowMethods:  []string{"GET", "POST"},
-			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
-		}, valid: false},
+		}, valid: true},
 	}
 
 	for _, tc := range testCases {
@@ -2289,7 +2204,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRoute(tc.route); (err == nil) != tc.valid {
+			if err := validateHTTPRoute(tc.route, false); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -3663,6 +3578,33 @@ func TestValidateServiceEntries(t *testing.T) {
 			Resolution: networking.ServiceEntry_NONE,
 		},
 			valid: true},
+		{name: "selector", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+		},
+			valid: true},
+		{name: "selector and endpoints", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+			Endpoints: []*networking.WorkloadEntry{
+				{Address: "1.1.1.1"},
+			},
+		},
+			valid: false},
+		{name: "bad selector key", in: networking.ServiceEntry{
+			Hosts:            []string{"google.com"},
+			WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"": "bar"}},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+			},
+		},
+			valid: false},
 	}
 
 	for _, c := range cases {
@@ -5923,6 +5865,139 @@ func TestValidatePeerAuthentication(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ValidatePeerAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
 				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
+			}
+		})
+	}
+}
+
+func TestServiceSettings(t *testing.T) {
+	cases := []struct {
+		name  string
+		hosts []string
+		valid bool
+	}{
+		{
+			name: "good",
+			hosts: []string{
+				"*.foo.bar",
+				"bar.baz.svc.cluster.local",
+			},
+			valid: true,
+		},
+		{
+			name: "bad",
+			hosts: []string{
+				"foo.bar.*",
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			m := meshconfig.MeshConfig{
+				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
+					{
+						Hosts: c.hosts,
+					},
+				},
+			}
+
+			if got := validateServiceSettings(&m); (got == nil) != c.valid {
+				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
+			}
+		})
+	}
+}
+
+func TestValidateMeshNetworks(t *testing.T) {
+	testcases := []struct {
+		name  string
+		mn    *meshconfig.MeshNetworks
+		valid bool
+	}{
+		{
+			name:  "Empty MeshNetworks",
+			mn:    &meshconfig.MeshNetworks{},
+			valid: true,
+		},
+		{
+			name: "Valid MeshNetworks",
+			mn: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"n1": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "Kubernetes",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+									RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+								},
+								Port: 80,
+							},
+						},
+					},
+					"n2": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "cluster1",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+									RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+								},
+								Port: 443,
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "Invalid registry name",
+			mn: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"n1": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "cluster.local",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+									RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+								},
+								Port: 80,
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateMeshNetworks(tc.mn)
+			if err != nil && tc.valid {
+				t.Errorf("error not expected on valid meshnetworks: %v", *tc.mn)
+			}
+			if err == nil && !tc.valid {
+				t.Errorf("expected an error on invalid meshnetworks: %v", *tc.mn)
 			}
 		})
 	}

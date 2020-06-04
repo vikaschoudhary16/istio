@@ -25,8 +25,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/util/yml"
-
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/env"
@@ -35,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 type operatorComponent struct {
@@ -215,15 +214,12 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	installSettings := []string{
 		"-f", defaultsIOPFile,
 		"-f", iopFile,
-		"--force",
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
+		"--charts", filepath.Join(env.IstioSrc, "manifests"),
 	}
-	// If control plane values set, assume this includes the full set of values, and .Values is
-	// just for helm use case. Otherwise, include all values.
-	if cfg.ControlPlaneValues == "" {
-		for k, v := range cfg.Values {
-			installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
-		}
+	// Include all user-specified values.
+	for k, v := range cfg.Values {
+		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
 	if c.environment.IsMulticluster() {
 		// Set the clusterName for the local cluster.
@@ -234,7 +230,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	// Save the manifest generate output so we can later cleanup
 	genCmd := []string{"manifest", "generate"}
 	genCmd = append(genCmd, installSettings...)
-	out, err := istioCtl.Invoke(genCmd)
+	out, _, err := istioCtl.Invoke(genCmd)
 	if err != nil {
 		return err
 	}
@@ -244,12 +240,11 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster kube.Cluster, 
 	cmd := []string{
 		"manifest", "apply",
 		"--skip-confirmation",
-		"--logtostderr",
 		"--wait",
 	}
 	cmd = append(cmd, installSettings...)
 	scopes.CI.Infof("Running istio control plane on cluster %s %v", cluster.Name(), cmd)
-	if _, err := istioCtl.Invoke(cmd); err != nil {
+	if _, _, err := istioCtl.Invoke(cmd); err != nil {
 		return fmt.Errorf("manifest apply failed: %v", err)
 	}
 
@@ -302,7 +297,7 @@ func createRemoteSecret(ctx resource.Context, cluster kube.Cluster) (string, err
 	}
 
 	scopes.CI.Infof("Creating remote secret for cluster cluster %d %v", cluster.Index(), cmd)
-	out, err := istioCtl.Invoke(cmd)
+	out, _, err := istioCtl.Invoke(cmd)
 	if err != nil {
 		return "", fmt.Errorf("create remote secret failed for cluster %d: %v", cluster.Index(), err)
 	}

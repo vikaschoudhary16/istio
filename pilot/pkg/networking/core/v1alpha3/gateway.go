@@ -30,6 +30,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -59,6 +60,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
 	errs := &multierror.Error{}
 	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
+	proxyConfig := node.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
 	for portNumber, servers := range mergedGateway.Servers {
 		var si *model.ServiceInstance
 		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
@@ -96,7 +98,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
 			routeName := mergedGateway.RouteNamesByServer[servers[0]]
-			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, servers[0], routeName, "")}
+			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, servers[0], routeName, "", proxyConfig)}
 			filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
 		} else {
 			// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
@@ -110,7 +112,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 				if gateway.IsTLSServer(server) && gateway.IsHTTPServer(server) {
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 					routeName := mergedGateway.RouteNamesByServer[server]
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName, push.Mesh.SdsUdsPath))
+					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName, push.Mesh.SdsUdsPath, proxyConfig))
 					filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
 				} else {
 					// passthrough or tcp, yields multiple filter chains
@@ -251,7 +253,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:    fmt.Sprintf("%s:%d", hostname, port),
+						Name:    domainName(string(hostname), port),
 						Domains: buildGatewayVirtualHostDomains(string(hostname)),
 						Routes:  routes,
 					}
@@ -268,7 +270,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
 		virtualHosts = []*route.VirtualHost{{
-			Name:    fmt.Sprintf("blackhole:%d", port),
+			Name:    domainName("blackhole", port),
 			Domains: []string{"*"},
 			Routes: []*route.Route{
 				{
@@ -318,7 +320,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	node *model.Proxy, server *networking.Server, routeName string, sdsPath string) *filterChainOpts {
+	node *model.Proxy, server *networking.Server, routeName string,
+	sdsPath string, proxyConfig *meshconfig.ProxyConfig) *filterChainOpts {
 
 	serverProto := protocol.Parse(server.Port.Protocol)
 
@@ -326,6 +329,16 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 
 	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpProtoOpts.AcceptHttp_10 = true
+	}
+
+	xffNumTrustedHops := uint32(0)
+	forwardClientCertDetails := util.MeshConfigToEnvoyForwardClientCertDetails(meshconfig.Topology_SANITIZE_SET)
+
+	if proxyConfig != nil && proxyConfig.GatewayTopology != nil {
+		xffNumTrustedHops = proxyConfig.GatewayTopology.NumTrustedProxies
+		if proxyConfig.GatewayTopology.ForwardClientCertDetails != meshconfig.Topology_UNDEFINED {
+			forwardClientCertDetails = util.MeshConfigToEnvoyForwardClientCertDetails(proxyConfig.GatewayTopology.ForwardClientCertDetails)
+		}
 	}
 
 	// Are we processing plaintext servers or HTTPS servers?
@@ -341,8 +354,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				rds:              routeName,
 				useRemoteAddress: true,
 				connectionManager: &http_conn.HttpConnectionManager{
+					XffNumTrustedHops: xffNumTrustedHops,
 					// Forward client cert if connection is mTLS
-					ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
+					ForwardClientCertDetails: forwardClientCertDetails,
 					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 						Subject: proto.BoolTrue,
 						Cert:    true,
@@ -372,8 +386,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			rds:              routeName,
 			useRemoteAddress: true,
 			connectionManager: &http_conn.HttpConnectionManager{
+				XffNumTrustedHops: xffNumTrustedHops,
 				// Forward client cert if connection is mTLS
-				ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
+				ForwardClientCertDetails: forwardClientCertDetails,
 				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 					Subject: proto.BoolTrue,
 					Cert:    true,
@@ -419,9 +434,9 @@ func buildGatewayListenerTLSContext(
 	if server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
-		util.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
+		authn_model.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
 	} else if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
-		util.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
+		authn_model.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
@@ -450,7 +465,7 @@ func buildGatewayListenerTLSContext(
 			tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: &auth.CertificateValidationContext{
 					TrustedCa:            trustedCa,
-					VerifySubjectAltName: server.Tls.SubjectAltNames,
+					MatchSubjectAltNames: util.StringToExactMatch(server.Tls.SubjectAltNames),
 				},
 			}
 		}

@@ -41,7 +41,7 @@ const (
 
 var (
 	retryTimeout = retry.Timeout(time.Second * 120)
-	retryDelay   = retry.Delay(time.Second * 20)
+	retryDelay   = retry.Delay(time.Second * 5)
 
 	_ Instance  = &kubeComponent{}
 	_ io.Closer = &kubeComponent{}
@@ -115,7 +115,7 @@ func (c *kubeComponent) API() prometheusApiV1.API {
 func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (model.Value, error) {
 	var previous model.Value
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 1)
 
 	value, err := retry.Do(func() (interface{}, bool, error) {
 
@@ -162,8 +162,6 @@ func (c *kubeComponent) WaitForQuiesceOrFail(t test.Failer, format string, args 
 }
 
 func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (model.Value, error) {
-
-	time.Sleep(time.Second * 5)
 
 	value, err := retry.Do(func() (interface{}, bool, error) {
 		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})

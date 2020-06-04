@@ -84,9 +84,15 @@ type DiscoveryServer struct {
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *MemServiceDiscovery
 
+	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
+	MemConfigController model.ConfigStoreCache
+
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
 	ConfigGenerator core.ConfigGenerator
+
+	// Generators allow customizing the generated config, based on the client metadata.
+	Generators map[string]model.XdsResourceGenerator
 
 	concurrentPushLimit chan struct{}
 
@@ -116,6 +122,8 @@ type DiscoveryServer struct {
 	// adsClients reflect active gRPC channels, for both ADS and EDS.
 	adsClients      map[string]*XdsConnection
 	adsClientsMutex sync.RWMutex
+
+	StatusReporter DistributionStatusCache
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -143,6 +151,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         core.NewConfigGenerator(plugins),
+		Generators:              map[string]model.XdsResourceGenerator{},
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
@@ -222,7 +231,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 		return
 	}
 
-	if err := s.updateServiceShards(push); err != nil {
+	if err := s.UpdateServiceShards(push); err != nil {
 		return
 	}
 
@@ -374,13 +383,12 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			go func() {
 				pushEv := &XdsEvent{
-					full:              info.Full,
-					push:              info.Push,
-					done:              doneFunc,
-					start:             info.Start,
-					namespacesUpdated: info.NamespacesUpdated,
-					configsUpdated:    info.ConfigsUpdated,
-					noncePrefix:       info.Push.Version,
+					full:           info.Full,
+					push:           info.Push,
+					done:           doneFunc,
+					start:          info.Start,
+					configsUpdated: info.ConfigsUpdated,
+					noncePrefix:    info.Push.Version,
 				}
 
 				select {

@@ -19,12 +19,11 @@ import (
 	"fmt"
 
 	"github.com/ghodss/yaml"
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/tpath"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-
-	"github.com/spf13/cobra"
+	"istio.io/istio/operator/pkg/util/clog"
 )
 
 type profileDumpArgs struct {
@@ -41,10 +40,17 @@ const (
 	yamlOutput = "yaml"
 )
 
+const (
+	IstioOperatorTreeString = `
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+`
+)
+
 func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.configPath, "config-path", "p", "",
-		"The path the root of the configuration subtree to dump e.g. trafficManagement.components.pilot. By default, dump whole tree")
+		"The path the root of the configuration subtree to dump e.g. components.pilot. By default, dump whole tree")
 	cmd.PersistentFlags().StringVarP(&args.outputFormat, "output", "o", yamlOutput,
 		"Output format: one of json|yaml")
 }
@@ -61,7 +67,7 @@ func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			l := NewLogger(rootArgs.logToStdErr, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			return profileDump(args, rootArgs, pdArgs, l)
 		}}
 
@@ -72,7 +78,7 @@ func prependHeader(yml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out2, err := util.OverlayYAML(translate.IstioOperatorTreeString, out)
+	out2, err := util.OverlayYAML(IstioOperatorTreeString, out)
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +105,7 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	return string(prettyJSON), nil
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *Logger) error {
+func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l clog.Logger) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilenames != nil {
@@ -112,15 +118,12 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
 	}
 
-	setFlagYAML := ""
+	setFlags := applyFlagAliases(make([]string, 0), "", "")
 	if len(args) == 1 {
-		var err error
-		if setFlagYAML, err = tpath.AddSpecRoot("profile: " + args[0]); err != nil {
-			return err
-		}
+		setFlags = append(setFlags, "profile="+args[0])
 	}
 
-	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlagYAML, true, nil, l)
+	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlags, true, nil, l)
 	if err != nil {
 		return err
 	}
@@ -141,9 +144,9 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l *
 		if err != nil {
 			return err
 		}
-		l.print(j + "\n")
+		l.Print(j + "\n")
 	case yamlOutput:
-		l.print(y + "\n")
+		l.Print(y + "\n")
 	}
 
 	return nil

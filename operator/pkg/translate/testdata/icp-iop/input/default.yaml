@@ -135,35 +135,6 @@ spec:
       certManager:
         enabled: false
 
-  # Config management feature
-  configManagement:
-    enabled: true
-    components:
-      galley:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          resources:
-            requests:
-              cpu: 100m
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-
-  # Auto injection feature
-  autoInjection:
-    enabled: true
-    components:
-      injector:
-        enabled: true
-        k8s:
-          replicaCount: 1
-          strategy:
-            rollingUpdate:
-              maxSurge: "100%"
-              maxUnavailable: "25%"
-
   # Istio Gateway feature
   gateways:
     enabled: true
@@ -310,8 +281,6 @@ spec:
         lightstep:
           address: ""                # example: lightstep-satellite:443
           accessToken: ""            # example: abcdefg1234567
-          secure: true               # example: true|false
-          cacertPath: ""             # example: /etc/lightstep/cacert.pem
         zipkin:
           address: ""
         datadog:
@@ -452,10 +421,6 @@ spec:
           kubernetesenv:
             enabled: true
           useAdapterCRDs: false
-
-    galley:
-      image: galley
-      enableAnalysis: false
 
     security:
       image: citadel

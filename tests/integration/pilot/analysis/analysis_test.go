@@ -16,9 +16,17 @@ package analysis
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	status2 "istio.io/istio/pilot/pkg/status"
+
+	"istio.io/istio/pkg/test/framework/features"
+
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/framework/resource"
@@ -26,55 +34,72 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
-func TestAnalysisWritesStatus(t *testing.T) {
-	framework.NewTest(t).Run(func(ctx framework.TestContext) {
-		ns := setupModifiedBookinfo(t, ctx)
-		retry.UntilSuccessOrFail(t, func() error { return doTest(t, ctx, ns) },
-			retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
-	})
+func TestStatusExistsByDefault(t *testing.T) {
+	// This test is not yet implemented
+	framework.NewTest(t).
+		NotImplementedYet(features.UsabilityObservabilityStatusDefaultExists)
 }
 
-func setupModifiedBookinfo(t *testing.T, ctx resource.Context) namespace.Instance {
-	ns := namespace.NewOrFail(t, ctx, namespace.Config{
-		Prefix:   "default",
-		Inject:   true,
-		Revision: "",
-		Labels:   nil,
-	})
-	badVS := `
+func TestAnalysisWritesStatus(t *testing.T) {
+	framework.NewTest(t).
+		Features(features.UsabilityObservabilityStatus).
+		// TODO: make feature labels heirarchical constants like:
+		// Label(features.Usability.Observability.Status).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix:   "default",
+				Inject:   true,
+				Revision: "",
+				Labels:   nil,
+			})
+			// Apply bad config (referencing invalid host)
+			g.ApplyConfigOrFail(t, ns, `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews
 spec:
+  gateways: [missing-gw]
   hosts:
   - reviews
-  gateways:
-  - httpbin-gateway-bogus
   http:
   - route:
-    - destination:
+    - destination: 
         host: reviews
-        subset: v1
-`
-	_, err := deployment.New(ctx, deployment.Config{
-		Name:      "bogus-virtualservice",
-		Namespace: ns,
-		Yaml:      badVS,
-	})
-	if err != nil {
-		t.Fatalf("test setup failure: failed to create bogus virtualservice: %v", err)
-	}
-	return ns
+`)
+			// Status should report error
+			retry.UntilSuccessOrFail(t, func() error {
+				return expectStatus(t, ctx, ns, true)
+			}, retry.Timeout(time.Minute*5))
+			// Apply config to make this not invalid
+			g.ApplyConfigOrFail(t, ns, `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: missing-gw
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+`)
+			// Status should no longer report error
+			retry.UntilSuccessOrFail(t, func() error {
+				return expectStatus(t, ctx, ns, false)
+			})
+		})
 }
 
-func doTest(t *testing.T, ctx resource.Context, ns namespace.Instance) error {
-
+func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {
 	x, err := kube.ClusterOrDefault(nil, ctx.Environment()).GetUnstructured(schema.GroupVersionResource{
 		Group:    "networking.istio.io",
 		Version:  "v1alpha3",
@@ -84,8 +109,32 @@ func doTest(t *testing.T, ctx resource.Context, ns namespace.Instance) error {
 		t.Fatalf("unexpected test failure: can't get bogus virtualservice: %v", err)
 	}
 
-	if x.Object["status"] == nil {
+	if hasError && x.Object["status"] == nil {
 		return fmt.Errorf("object is missing expected status field.  Actual object is: %v", x)
+	}
+	statusString := fmt.Sprintf("%v", x.Object["status"])
+	if strings.Contains(statusString, msg.ReferencedResourceNotFound.Code()) != hasError {
+		return fmt.Errorf("expected error=%v, but got %v", hasError, statusString)
+	}
+
+	status, err := status2.GetTypedStatus(x.Object["status"])
+	if err != nil {
+		return fmt.Errorf("unable to cast status field '%s'to istiostatus:, %v", statusString, err)
+	}
+	if len(status.Conditions) < 1 {
+		return fmt.Errorf("expected conditions to exist, but got %v", status)
+	}
+	found := false
+	for _, condition := range status.Conditions {
+		if condition.Type == status2.Reconciled {
+			found = true
+			if condition.Status != metav1.ConditionTrue {
+				return fmt.Errorf("expected Reconciled to be true but was %v", condition.Status)
+			}
+		}
+	}
+	if !found {
+		return fmt.Errorf("expected Reconciled condition to exist, but got %v", status.Conditions)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ metadata:
   labels:
     app: istiod
     istio: pilot
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-control
@@ -22,6 +23,7 @@ spec:
       labels:
         app: istiod
         istio: pilot
+        istio.io/rev: default
     spec:
       containers:
       - args:
@@ -66,7 +68,7 @@ spec:
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
           value: "true"
         - name: INJECTION_WEBHOOK_CONFIG_NAME
-          value: istio-sidecar-injector
+          value: istio-sidecar-injector-istio-control
         - name: ISTIOD_ADDR
           value: istiod.istio-control.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
@@ -79,6 +81,7 @@ spec:
         - containerPort: 8080
         - containerPort: 15010
         - containerPort: 15017
+        - containerPort: 15053
         readinessProbe:
           httpGet:
             path: /ready
@@ -146,6 +149,7 @@ kind: HorizontalPodAutoscaler
 metadata:
   labels:
     app: istiod
+    istio.io/rev: default
     release: istio
   name: istiod
   namespace: istio-control

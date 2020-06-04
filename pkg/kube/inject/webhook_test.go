@@ -30,29 +30,25 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-
-	operatormesh "istio.io/istio/operator/cmd/mesh"
-	"istio.io/istio/operator/pkg/tpath"
-
-	"istio.io/istio/operator/pkg/name"
-
-	"istio.io/api/annotation"
-
-	operator "istio.io/istio/operator/cmd/mesh"
-
-	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
-
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	operatormesh "istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const yamlSeparator = "\n---"
@@ -520,6 +516,7 @@ func TestInjectRequired(t *testing.T) {
 }
 
 func TestWebhookInject(t *testing.T) {
+	mesh.TestMode = true
 	cases := []struct {
 		inputFile    string
 		wantFile     string
@@ -666,7 +663,7 @@ func TestWebhookInject(t *testing.T) {
 						Raw: podJSON,
 					},
 				},
-			})
+			}, "")
 			var prettyPatch bytes.Buffer
 			if err := json.Indent(&prettyPatch, got.Patch, "", "  "); err != nil {
 				t.Fatalf(err.Error())
@@ -812,7 +809,7 @@ func TestHelmInject(t *testing.T) {
 								Raw: templateJSON,
 							},
 						},
-					})
+					}, "")
 
 					// Apply the generated patch to the template.
 					patch := prettyJSON(got.Patch, t)
@@ -877,20 +874,23 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate, values := loadInjectionConfigMap(t, "")
+	sidecarTemplate, values := loadInjectionConfigMap(t, nil, "")
 	return createTestWebhook(t, sidecarTemplate, values)
 }
 
 // loadInjectionConfigMap will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
-func loadInjectionConfigMap(t testing.TB, settings string) (template *Config, values string) {
+func loadInjectionConfigMap(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string) {
 	t.Helper()
-	oy, err := tpath.AddSpecRoot(settings)
-	if err != nil {
-		t.Fatal(err)
+	// add --set installPackagePath=<path to charts snapshot>
+	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir())
+	var inFilenames []string
+	if inFilePath != "" {
+		inFilenames = []string{"testdata/inject/" + inFilePath}
 	}
-	l := operatormesh.NewLogger(true, os.Stdout, os.Stderr)
-	manifests, _, err := operator.GenManifests(nil, oy, false, nil, l)
+
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
+	manifests, _, err := operatormesh.GenManifests(inFilenames, setFlags, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
@@ -1199,7 +1199,7 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		cleanup()
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
-	_, values := loadInjectionConfigMap(t, "")
+	_, values := loadInjectionConfigMap(t, nil, "")
 	var (
 		configFile     = filepath.Join(dir, "config-file.yaml")
 		valuesFile     = filepath.Join(dir, "values-file.yaml")
@@ -1263,6 +1263,8 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 }
 
 func TestRunAndServe(t *testing.T) {
+	// TODO: adjust the test to match prod defaults instead of fake defaults.
+	mesh.TestMode = true
 	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
 	defer cleanup()
 	stop := make(chan struct{})
@@ -1312,15 +1314,35 @@ func TestRunAndServe(t *testing.T) {
       "op":"add",
       "path":"/metadata/annotations",
       "value":{
-         "sidecar.istio.io/status":"{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+         "prometheus.io/path":"/stats/prometheus"
       }
    },
    {
       "op": "add",
-      "path": "/metadata/labels",
-      "value": {
-         "security.istio.io/tlsMode": "istio"
+      "path": "/metadata/annotations/prometheus.io~1port",
+      "value": "15020"
+   },
+   {
+      "op": "add",
+      "path": "/metadata/annotations/prometheus.io~1scrape",
+      "value": "true"
+   },
+   {
+      "op":"add",
+      "path":"/metadata/annotations/sidecar.istio.io~1status",
+      "value": "{\"version\":\"461c380844de8df1d1e2a80a09b6d7b58b8313c4a7d6796530eb124740a1440f\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
+   },
+    {
+      "op":"add",
+      "path":"/metadata/labels",
+      "value":{
+         "istio.io/rev":""
       }
+    },
+    {
+      "op":"add",
+      "path":"/metadata/labels/security.istio.io~1tlsMode",
+      "value":"istio"
     },
     {
       "op": "add",
@@ -1502,7 +1524,7 @@ func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
 }
 
 func BenchmarkInjectServe(b *testing.B) {
-	sidecarTemplate, _ := loadInjectionConfigMap(b, "")
+	sidecarTemplate, _ := loadInjectionConfigMap(b, nil, "")
 	wh, cleanup := createWebhook(b, sidecarTemplate)
 	defer cleanup()
 
@@ -1518,4 +1540,60 @@ func BenchmarkInjectServe(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		wh.serveInject(httptest.NewRecorder(), req)
 	}
+}
+
+func TestEnablePrometheusAggregation(t *testing.T) {
+	tests := []struct {
+		name string
+		mesh *meshconfig.MeshConfig
+		anno map[string]string
+		want bool
+	}{
+		{
+			"no settings",
+			nil,
+			nil,
+			true,
+		},
+		{
+			"mesh on",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			nil,
+			true,
+		},
+		{
+			"mesh off",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			nil,
+			false,
+		},
+		{
+			"annotation on",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			map[string]string{annotation.PrometheusMergeMetrics.Name: "true"},
+			true,
+		},
+		{
+			"annotation off",
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			map[string]string{annotation.PrometheusMergeMetrics.Name: "false"},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := enablePrometheusMerge(tt.mesh, tt.anno); got != tt.want {
+				t.Errorf("enablePrometheusMerge() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// defaultInstallPackageDir returns a path to a snapshot of the helm charts used for testing.
+func defaultInstallPackageDir() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Join(wd, "../../../operator/cmd/mesh/testdata/manifest-generate/data-snapshot")
 }

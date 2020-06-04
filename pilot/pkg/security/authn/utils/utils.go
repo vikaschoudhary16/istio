@@ -25,11 +25,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	protovalue "istio.io/istio/pkg/proto"
 )
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
-func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy) []networking.FilterChain {
+func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy,
+	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}
@@ -37,7 +39,8 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 	meta := node.Metadata
 	var alpnIstioMatch *ldsv2.FilterChainMatch
 	var tls *auth.DownstreamTlsContext
-	if util.IsTCPMetadataExchangeEnabled(node) {
+	if util.IsTCPMetadataExchangeEnabled(node) &&
+		(listenerProtocol == networking.ListenerProtocolTCP || listenerProtocol == networking.ListenerProtocolAuto) {
 		alpnIstioMatch = &ldsv2.FilterChainMatch{
 			ApplicationProtocols: util.ALPNInMeshWithMxc,
 		}
@@ -70,7 +73,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 			RequireClientCertificate: protovalue.BoolTrue,
 		}
 	}
-	util.ApplyToCommonTLSContext(tls.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/)
+	authn_model.ApplyToCommonTLSContext(tls.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/)
 
 	if mTLSMode == model.MTLSStrict {
 		log.Debug("Allow only istio mutual TLS traffic")

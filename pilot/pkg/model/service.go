@@ -34,6 +34,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/mitchellh/copystructure"
 
+	"istio.io/api/label"
+
 	authn "istio.io/api/authentication/v1alpha1"
 
 	"istio.io/istio/pkg/config/host"
@@ -136,10 +138,6 @@ const (
 const (
 	// TLSModeLabelShortname name used for determining endpoint level tls transport socket configuration
 	TLSModeLabelShortname = "tlsMode"
-
-	// TLSModeLabelName is the name of label given to service instances to determine whether to use mTLS or
-	// fallback to plaintext/tls
-	TLSModeLabelName = "security.istio.io/" + TLSModeLabelShortname
 
 	// DisabledTLSModeLabel implies that this endpoint should receive traffic as is (mostly plaintext)
 	DisabledTLSModeLabel = "disabled"
@@ -331,6 +329,10 @@ type ServiceAttributes struct {
 	// a namespace when the namespace is imported.
 	ExportTo map[visibility.Instance]bool
 
+	// LabelSelectors are the labels used by the service to select workloads.
+	// Applicable to both Kubernetes and ServiceEntries.
+	LabelSelectors map[string]string
+
 	// For Kubernetes platform
 
 	// ClusterExternalAddresses is a mapping between a cluster name and the external
@@ -338,6 +340,13 @@ type ServiceAttributes struct {
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
 	ClusterExternalAddresses map[string][]string
+
+	// ClusterExternalPorts is a mapping between a cluster name and the service port
+	// to node port mappings for a given service. When accessing the service via
+	// node port IPs, we need to use the kubernetes assigned node ports of the service
+	// The port that the user provides in the meshNetworks config is the service port.
+	// We translate that to the appropriate node port here.
+	ClusterExternalPorts map[string]map[uint32]uint32
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -618,7 +627,7 @@ func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
 // and apply custom transport socket matchers here.
 func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	if labels != nil {
-		if val, exists := labels[TLSModeLabelName]; exists {
+		if val, exists := labels[label.TLSMode]; exists {
 			return val
 		}
 	}

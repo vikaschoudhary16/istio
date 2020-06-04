@@ -18,8 +18,6 @@
 
 # EgressGateways istio-egressgateway component is disabled.
 
-# Galley component is disabled.
-
 # Resources for IngressGateways component
 
 apiVersion: autoscaling/v2beta1
@@ -28,9 +26,10 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
-    
     release: istio
 spec:
   maxReplicas: 5
@@ -51,7 +50,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
     release: istio
   name: istio-ingressgateway
@@ -59,7 +60,9 @@ metadata:
 spec:
   selector:
     matchLabels:
+      aaa: aaa-val
       app: istio-ingressgateway
+      bbb: bbb-val
       istio: ingressgateway
   strategy:
     rollingUpdate:
@@ -70,7 +73,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
       labels:
+        aaa: aaa-val
         app: istio-ingressgateway
+        bbb: bbb-val
         chart: gateways
         heritage: Tiller
         istio: ingressgateway
@@ -175,10 +180,6 @@ spec:
         - containerPort: 15020
         - containerPort: 8080
         - containerPort: 8443
-        - containerPort: 15029
-        - containerPort: 15030
-        - containerPort: 15031
-        - containerPort: 15032
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
@@ -202,7 +203,7 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 111m
+            cpu: 999m
             memory: 128Mi
         volumeMounts:
         - mountPath: /etc/istio/config
@@ -267,17 +268,19 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
-    
     release: istio
 spec:
   minAvailable: 1
   selector:
     matchLabels:
+      aaa: aaa-val
       app: istio-ingressgateway
+      bbb: bbb-val
       istio: ingressgateway
-      
       release: istio
 ---
 
@@ -320,16 +323,18 @@ metadata:
   namespace: istio-system
   annotations:
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
-    
     release: istio
 spec:
   type: LoadBalancer
   selector:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
-    
   ports:
     -
       name: status-port
@@ -344,22 +349,6 @@ spec:
       port: 443
       targetPort: 8443
     -
-      name: kiali
-      port: 15029
-      targetPort: 15029
-    -
-      name: prometheus
-      port: 15030
-      targetPort: 15030
-    -
-      name: grafana
-      port: 15031
-      targetPort: 15031
-    -
-      name: tracing
-      port: 15032
-      targetPort: 15032
-    -
       name: tls
       port: 15443
       targetPort: 15443
@@ -372,9 +361,10 @@ metadata:
   name: istio-ingressgateway-service-account
   namespace: istio-system
   labels:
+    aaa: aaa-val
     app: istio-ingressgateway
+    bbb: bbb-val
     istio: ingressgateway
-    
     release: istio
 ---
 
@@ -388,8 +378,9 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
-    
     release: istio
 spec:
   maxReplicas: 5
@@ -411,6 +402,8 @@ kind: Deployment
 metadata:
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
     release: istio
   name: user-ingressgateway
@@ -419,6 +412,8 @@ spec:
   selector:
     matchLabels:
       app: istio-ingressgateway
+      ccc: ccc-val
+      ddd: ddd-val
       istio: ingressgateway
   strategy:
     rollingUpdate:
@@ -430,7 +425,9 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istio-ingressgateway
+        ccc: ccc-val
         chart: gateways
+        ddd: ddd-val
         heritage: Tiller
         istio: ingressgateway
         release: istio
@@ -534,10 +531,6 @@ spec:
         - containerPort: 15020
         - containerPort: 8080
         - containerPort: 8443
-        - containerPort: 15029
-        - containerPort: 15030
-        - containerPort: 15031
-        - containerPort: 15032
         - containerPort: 15443
         - containerPort: 15011
         - containerPort: 15012
@@ -561,7 +554,7 @@ spec:
             cpu: 2000m
             memory: 1024Mi
           requests:
-            cpu: 222m
+            cpu: 555m
             memory: 128Mi
         volumeMounts:
         - mountPath: /etc/istio/config
@@ -627,16 +620,18 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
-    
     release: istio
 spec:
   minAvailable: 1
   selector:
     matchLabels:
       app: istio-ingressgateway
+      ccc: ccc-val
+      ddd: ddd-val
       istio: ingressgateway
-      
       release: istio
 ---
 
@@ -680,15 +675,17 @@ metadata:
   annotations:
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
-    
     release: istio
 spec:
   type: LoadBalancer
   selector:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
-    
   ports:
     -
       name: status-port
@@ -703,22 +700,6 @@ spec:
       port: 443
       targetPort: 8443
     -
-      name: kiali
-      port: 15029
-      targetPort: 15029
-    -
-      name: prometheus
-      port: 15030
-      targetPort: 15030
-    -
-      name: grafana
-      port: 15031
-      targetPort: 15031
-    -
-      name: tracing
-      port: 15032
-      targetPort: 15032
-    -
       name: tls
       port: 15443
       targetPort: 15443
@@ -732,11 +713,34 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
+    ccc: ccc-val
+    ddd: ddd-val
     istio: ingressgateway
-    
     release: istio
 ---
 
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ilb-gateway
+  namespace: user-ingressgateway-ns
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    release: istio
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ilb-gateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -942,29 +946,6 @@ spec:
           secretName: istio-ingressgateway-ca-certs
 
 ---
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: ilb-gateway
-  namespace: user-ingressgateway-ns
-  labels:
-    app: istio-ingressgateway
-    istio: ingressgateway
-    
-    release: istio
-spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: ilb-gateway
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
----
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -973,7 +954,6 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 spec:
   minAvailable: 1
@@ -981,7 +961,6 @@ spec:
     matchLabels:
       app: istio-ingressgateway
       istio: ingressgateway
-      
       release: istio
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1044,9 +1023,10 @@ metadata:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-    
     release: istio
 ---
+
+# IstiodRemote component is disabled.
 
 # Pilot istiod component is disabled.
 

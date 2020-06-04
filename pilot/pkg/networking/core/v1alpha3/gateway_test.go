@@ -25,6 +25,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -249,7 +250,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					},
 					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
 						ValidationContext: &auth.CertificateValidationContext{
-							VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+							MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
 						},
 					},
 				},
@@ -360,7 +361,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 							DefaultValidationContext: &auth.CertificateValidationContext{
-								VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+								MatchSubjectAltNames: util.StringToExactMatch([]string{"subject.name.a.com", "subject.name.b.com"}),
 							},
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",
@@ -551,11 +552,12 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 	testCases := []struct {
-		name      string
-		node      *pilot_model.Proxy
-		server    *networking.Server
-		routeName string
-		result    *filterChainOpts
+		name        string
+		node        *pilot_model.Proxy
+		server      *networking.Server
+		routeName   string
+		proxyConfig *meshconfig.ProxyConfig
+		result      *filterChainOpts
 	}{
 		{
 			name: "HTTP1.0 mode enabled",
@@ -565,7 +567,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			server: &networking.Server{
 				Port: &networking.Port{},
 			},
-			routeName: "some-route",
+			routeName:   "some-route",
+			proxyConfig: nil,
 			result: &filterChainOpts{
 				sniHosts:   nil,
 				tlsContext: nil,
@@ -573,6 +576,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					rds:              "some-route",
 					useRemoteAddress: true,
 					connectionManager: &http_conn.HttpConnectionManager{
+						XffNumTrustedHops:        0,
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
@@ -600,7 +604,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
-			routeName: "some-route",
+			routeName:   "some-route",
+			proxyConfig: nil,
 			result: &filterChainOpts{
 				sniHosts: []string{"example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
@@ -636,6 +641,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					rds:              "some-route",
 					useRemoteAddress: true,
 					connectionManager: &http_conn.HttpConnectionManager{
+						XffNumTrustedHops:        0,
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
@@ -661,7 +667,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
-			routeName: "some-route",
+			routeName:   "some-route",
+			proxyConfig: nil,
 			result: &filterChainOpts{
 				sniHosts: []string{"example.org", "test.org"},
 				tlsContext: &auth.DownstreamTlsContext{
@@ -697,6 +704,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					rds:              "some-route",
 					useRemoteAddress: true,
 					connectionManager: &http_conn.HttpConnectionManager{
+						XffNumTrustedHops:        0,
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
@@ -722,7 +730,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
 			},
-			routeName: "some-route",
+			routeName:   "some-route",
+			proxyConfig: nil,
 			result: &filterChainOpts{
 				sniHosts: []string{"*.example.org", "example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
@@ -758,7 +767,110 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					rds:              "some-route",
 					useRemoteAddress: true,
 					connectionManager: &http_conn.HttpConnectionManager{
+						XffNumTrustedHops:        0,
 						ForwardClientCertDetails: http_conn.HttpConnectionManager_SANITIZE_SET,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+				},
+			},
+		},
+		{
+			name: "Topology HTTP Protocol",
+			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
+			server: &networking.Server{
+				Port: &networking.Port{},
+			},
+			routeName: "some-route",
+			proxyConfig: &meshconfig.ProxyConfig{
+				GatewayTopology: &meshconfig.Topology{
+					NumTrustedProxies:        2,
+					ForwardClientCertDetails: meshconfig.Topology_APPEND_FORWARD,
+				},
+			},
+			result: &filterChainOpts{
+				sniHosts:   nil,
+				tlsContext: nil,
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					connectionManager: &http_conn.HttpConnectionManager{
+						XffNumTrustedHops:        2,
+						ForwardClientCertDetails: http_conn.HttpConnectionManager_APPEND_FORWARD,
+						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+				},
+			},
+		},
+		{
+			name: "Topology HTTPS Protocol",
+			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
+			server: &networking.Server{
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"example.org"},
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+				},
+			},
+			routeName: "some-route",
+			proxyConfig: &meshconfig.ProxyConfig{
+				GatewayTopology: &meshconfig.Topology{
+					NumTrustedProxies:        3,
+					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+				},
+			},
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: proto.BoolTrue,
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificates: []*auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/cert-chain.pem",
+									},
+								},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/key.pem",
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+							ValidationContext: &auth.CertificateValidationContext{
+								TrustedCa: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/root-cert.pem",
+									},
+								},
+							},
+						},
+						AlpnProtocols: []string{"h2", "http/1.1"},
+					},
+				},
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					connectionManager: &http_conn.HttpConnectionManager{
+						XffNumTrustedHops:        3,
+						ForwardClientCertDetails: http_conn.HttpConnectionManager_FORWARD_ONLY,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
 							Subject: proto.BoolTrue,
 							Cert:    true,
@@ -775,9 +887,9 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 
 	for _, tc := range testCases {
 		cgi := NewConfigGenerator([]plugin.Plugin{})
-		ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, "")
+		ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, "", tc.proxyConfig)
 		if !reflect.DeepEqual(tc.result, ret) {
-			t.Errorf("test case %s: expecting %v but got %v", tc.name, tc.result, ret)
+			t.Errorf("test case %s: expecting %+v but got %+v", tc.name, tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
 		}
 	}
 }
@@ -914,8 +1026,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			p := &fakePlugin{}
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			proxy14Gateway.SetGatewaysForProxy(env.PushContext)
-			route := configgen.buildGatewayHTTPRouteConfig(&proxy14Gateway, env.PushContext, tt.routeName)
+			proxyGateway.SetGatewaysForProxy(env.PushContext)
+			route := configgen.buildGatewayHTTPRouteConfig(&proxyGateway, env.PushContext, tt.routeName)
 			if route == nil {
 				t.Fatal("got an empty route configuration")
 			}
@@ -985,9 +1097,10 @@ func TestBuildGatewayListeners(t *testing.T) {
 		p := &fakePlugin{}
 		configgen := NewConfigGenerator([]plugin.Plugin{p})
 		env := buildEnv(t, []pilot_model.Config{{Spec: tt.gateway}}, []pilot_model.Config{})
-		proxy14Gateway.SetGatewaysForProxy(env.PushContext)
-		proxy14Gateway.ServiceInstances = tt.node.ServiceInstances
-		builder := configgen.buildGatewayListeners(&proxy14Gateway, env.PushContext, &ListenerBuilder{})
+		proxyGateway.SetGatewaysForProxy(env.PushContext)
+		proxyGateway.ServiceInstances = tt.node.ServiceInstances
+		proxyGateway.DiscoverIPVersions()
+		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
 		var listeners []string
 		for _, l := range builder.gatewayListeners {
 			listeners = append(listeners, l.Name)
@@ -995,7 +1108,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 		sort.Strings(listeners)
 		sort.Strings(tt.expectedListeners)
 		if !reflect.DeepEqual(listeners, tt.expectedListeners) {
-			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxy14Gateway.MergedGateway.Servers)
+			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.Servers)
 		}
 	}
 }

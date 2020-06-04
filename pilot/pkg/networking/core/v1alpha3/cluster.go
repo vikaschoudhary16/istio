@@ -31,7 +31,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
@@ -175,7 +174,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 			inputParams.Service = service
 			inputParams.Port = port
 
-			lbEndpoints := buildLocalityLbEndpoints(push, networkView, service, port.Port, nil)
+			lbEndpoints := buildLocalityLbEndpoints(proxy, push, networkView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(proxy, service)
@@ -191,7 +190,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(proxy *model.Proxy, 
 
 			setUpstreamProtocol(proxy, defaultCluster, port, model.TrafficDirectionOutbound)
 			clusters = append(clusters, defaultCluster)
-			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
+			subsetClusters := cb.applyDestinationRule(proxy, defaultCluster, DefaultClusterMode, service, port, networkView)
 
 			// call plugins for subset clusters.
 			for _, subsetCluster := range subsetClusters {
@@ -227,7 +226,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			lbEndpoints := buildLocalityLbEndpoints(push, networkView, service, port.Port, nil)
+			lbEndpoints := buildLocalityLbEndpoints(proxy, push, networkView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(proxy, service)
@@ -238,16 +237,15 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				continue
 			}
 			clusters = append(clusters, defaultCluster)
-			clusters = append(clusters, cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView)...)
+			clusters = append(clusters, cb.applyDestinationRule(proxy, defaultCluster, SniDnatClusterMode, service, port, networkView)...)
 		}
 	}
 
 	return clusters
 }
 
-func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[string]bool, service *model.Service,
+func buildLocalityLbEndpoints(proxy *model.Proxy, push *model.PushContext, proxyNetworkView map[string]bool, service *model.Service,
 	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
-
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
@@ -258,6 +256,10 @@ func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[stri
 		return nil
 	}
 
+	// Determine whether or not the target service is considered local to the cluster
+	// and should, therefore, not be accessed from outside the cluster.
+	isClusterLocal := push.IsClusterLocal(service)
+
 	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
@@ -265,6 +267,11 @@ func buildLocalityLbEndpoints(push *model.PushContext, proxyNetworkView map[stri
 		// the default network assigned to endpoints that don't have an explicit network
 		if !proxyNetworkView[instance.Endpoint.Network] {
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
+			continue
+		}
+		// If the downstream service is configured as cluster-local, only include endpoints that
+		// reside in the same cluster.
+		if isClusterLocal && (proxy.ClusterID != instance.Endpoint.Locality.ClusterID) {
 			continue
 		}
 		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
@@ -482,9 +489,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
+			connectionPool, _, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, instance.ServicePort)
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			applyConnectionPool(pluginParams.Push, localCluster, destinationRule.TrafficPolicy.ConnectionPool)
+			applyConnectionPool(pluginParams.Push, localCluster, connectionPool)
 			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.ConfigMeta)
 		}
 	}
@@ -790,7 +798,7 @@ func applyTCPKeepalive(push *model.PushContext, cluster *apiv2.Cluster, settings
 	}
 }
 
-func setKeepAliveSettings(cluster *apiv2.Cluster, keepalive *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
+func setKeepAliveSettings(cluster *apiv2.Cluster, keepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
 	if keepalive.Probes > 0 {
 		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepalive.Probes}
 	}
@@ -966,7 +974,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 	if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
 		certValidationContext = &auth.CertificateValidationContext{
 			TrustedCa:            trustedCa,
-			VerifySubjectAltName: tls.SubjectAltNames,
+			MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames),
 		}
 	}
 
@@ -1000,7 +1008,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		}
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
-		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" || tls.Mode == networking.ClientTLSSettings_MUTUAL {
+		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -1018,13 +1026,30 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 					},
 				},
 			}
+		} else if tls.Mode == networking.ClientTLSSettings_MUTUAL {
+			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+			// which does not support rotation, we will serve them over SDS by reading the files.
+			res := model.SdsCertificateConfig{
+				CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
+				PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
+				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+			}
+			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), opts.push.Mesh.SdsUdsPath))
+
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
+				},
+			}
 		} else {
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, opts.push.Mesh.SdsUdsPath))
 
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
+					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
 					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, opts.push.Mesh.SdsUdsPath),
 				},
 			}
@@ -1034,15 +1059,27 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 		if len(tls.Sni) == 0 && tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			tlsContext.Sni = cluster.Name
 		}
+
+		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
+		// We add `istio-peer-exchange` to the list of alpn strings.
+		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
+				// metadataexchange is enabled.
+				if util.IsTCPMetadataExchangeEnabled(node) {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
+				} else {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				}
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		} else if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
+			// Also, Enable sending `istio-peer-exchange` ALPN in ALPN list if TCP
+			// metadataexchange is enabled.
 			if util.IsTCPMetadataExchangeEnabled(node) {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
 			} else {

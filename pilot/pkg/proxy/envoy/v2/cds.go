@@ -24,10 +24,10 @@ import (
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func cdsDiscoveryResponse(response []*xdsapi.Cluster, noncePrefix string) *xdsapi.DiscoveryResponse {
+func cdsDiscoveryResponse(response []*xdsapi.Cluster, noncePrefix, typeURL string) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
-		// All resources for CDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: ClusterType,
+		// All resources for CDS ought to be of the type Cluster
+		TypeUrl: typeURL,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject CDS
@@ -39,6 +39,7 @@ func cdsDiscoveryResponse(response []*xdsapi.Cluster, noncePrefix string) *xdsap
 
 	for _, c := range response {
 		cc := util.MessageToAny(c)
+		cc.TypeUrl = typeURL
 		out.Resources = append(out.Resources, cc)
 	}
 
@@ -48,12 +49,12 @@ func cdsDiscoveryResponse(response []*xdsapi.Cluster, noncePrefix string) *xdsap
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawClusters := s.generateRawClusters(con.node, push)
+	rawClusters := s.ConfigGenerator.BuildClusters(con.node, push)
 
 	if s.DebugConfigs {
 		con.CDSClusters = rawClusters
 	}
-	response := cdsDiscoveryResponse(rawClusters, push.Version)
+	response := cdsDiscoveryResponse(rawClusters, push.Version, con.RequestedTypes.CDS)
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -67,19 +68,4 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
 		con.node.ID, len(rawClusters), len(push.Services(nil)), version)
 	return nil
-}
-
-func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.PushContext) []*xdsapi.Cluster {
-	rawClusters := s.ConfigGenerator.BuildClusters(node, push)
-
-	for _, c := range rawClusters {
-		if err := c.Validate(); err != nil {
-			adsLog.Errorf("CDS: Generated invalid cluster for node:%s: %v, %v", node.ID, err, c)
-			cdsBuildErrPushes.Increment()
-			totalXDSInternalErrors.Increment()
-			// Generating invalid clusters is a bug.
-			// Instead of panic, which will break down the whole cluster. Just ignore it here, let envoy process it.
-		}
-	}
-	return rawClusters
 }

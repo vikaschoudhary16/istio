@@ -23,7 +23,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/env"
 )
@@ -170,8 +170,6 @@ cni:
 }
 
 func TestValidateValuesFromProfile(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/20112")
-	// TODO port to new api
 	tests := []struct {
 		desc     string
 		profile  string
@@ -193,7 +191,7 @@ func TestValidateValuesFromProfile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("fail to read profile: %s", tt.profile)
 			}
-			val, _, err := manifest.ParseK8SYAMLToIstioOperator(pf)
+			val, _, err := object.ParseK8SYAMLToIstioOperator(pf)
 			if err != nil {
 				t.Fatalf(" fail to parse profile to ISCP: (%s), got error %s", tt.profile, err)
 			}
@@ -207,7 +205,7 @@ func TestValidateValuesFromProfile(t *testing.T) {
 func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 	valuesYAML := ""
 	var allFiles []string
-	manifestDir := filepath.Join(repoRootDir, "manifests")
+	manifestDir := filepath.Join(repoRootDir, "manifests/charts")
 	for _, sd := range []string{"base", "gateways", "istio-cni", "istiocoredns", "istio-telemetry", "istio-control", "istio-policy"} {
 		dir := filepath.Join(manifestDir, sd)
 		files, err := util.FindFiles(dir, yamlFileFilter)
