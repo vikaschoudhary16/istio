@@ -77,11 +77,6 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		resolution = model.Passthrough
 	}
 
-	var labelSelectors map[string]string
-	if svc.Spec.ClusterIP != coreV1.ClusterIPNone && svc.Spec.Type != coreV1.ServiceTypeExternalName {
-		labelSelectors = svc.Spec.Selector
-	}
-
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
 		ports = append(ports, convertPort(port))
@@ -119,7 +114,6 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			Namespace:       svc.Namespace,
 			UID:             formatUID(svc.Namespace, svc.Name),
 			ExportTo:        exportTo,
-			LabelSelectors:  labelSelectors,
 		},
 	}
 
@@ -143,12 +137,11 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 				if len(ingress.IP) > 0 {
 					lbAddrs = append(lbAddrs, ingress.IP)
 				} else if len(ingress.Hostname) > 0 {
-					// This does not work on AWS with ELBs
-					// addrs, err := net.DefaultResolver.LookupHost(context.TODO(), ingress.Hostname)
-					// if err == nil {
-					// 	lbAddrs = append(lbAddrs, addrs...)
-					// }
-					// this is most likely going to break split horizon routing for VMs on AWS.
+					// DO NOT resolve the DNS here. In environments like AWS, the ELB hostname
+					// does not have a repeatable DNS address and IPs resolved at an earlier point
+					// in time may not work. So, when we get just hostnames instead of IPs, we need
+					// to smartly switch from EDS to strict_dns rather than doing the naive thing of
+					// resolving the DNS name and hoping the resolution is one-time task.
 					lbAddrs = append(lbAddrs, ingress.Hostname)
 				}
 			}

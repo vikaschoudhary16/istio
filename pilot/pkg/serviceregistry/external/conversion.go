@@ -67,10 +67,6 @@ func convertServices(cfg model.Config) []*model.Service {
 		}
 	}
 
-	var labelSelectors map[string]string
-	if serviceEntry.WorkloadSelector != nil {
-		labelSelectors = serviceEntry.WorkloadSelector.Labels
-	}
 	for _, hostname := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
@@ -93,7 +89,6 @@ func convertServices(cfg model.Config) []*model.Service {
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
-							LabelSelectors:  labelSelectors,
 						},
 						ServiceAccounts: serviceEntry.SubjectAltNames,
 					})
@@ -110,7 +105,6 @@ func convertServices(cfg model.Config) []*model.Service {
 							Name:            hostname,
 							Namespace:       cfg.Namespace,
 							ExportTo:        exportTo,
-							LabelSelectors:  labelSelectors,
 						},
 						ServiceAccounts: serviceEntry.SubjectAltNames,
 					})
@@ -129,7 +123,6 @@ func convertServices(cfg model.Config) []*model.Service {
 					Name:            hostname,
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
-					LabelSelectors:  labelSelectors,
 				},
 				ServiceAccounts: serviceEntry.SubjectAltNames,
 			})
