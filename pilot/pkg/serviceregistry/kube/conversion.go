@@ -77,6 +77,11 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		resolution = model.Passthrough
 	}
 
+	var labelSelectors map[string]string
+	if svc.Spec.ClusterIP != coreV1.ClusterIPNone && svc.Spec.Type != coreV1.ServiceTypeExternalName {
+		labelSelectors = svc.Spec.Selector
+	}
+
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
 		ports = append(ports, convertPort(port))
@@ -114,6 +119,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			Namespace:       svc.Namespace,
 			UID:             formatUID(svc.Namespace, svc.Name),
 			ExportTo:        exportTo,
+			LabelSelectors:  labelSelectors,
 		},
 	}
 
