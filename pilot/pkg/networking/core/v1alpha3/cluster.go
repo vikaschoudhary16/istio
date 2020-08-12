@@ -538,10 +538,15 @@ func conditionallyConvertToIstioMtls(
 	autoMTLSEnabled bool,
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode,
-) (*networking.ClientTLSSettings, mtlsContextType) {
+	clusterDiscoveryType apiv2.Cluster_DiscoveryType) (*networking.ClientTLSSettings, mtlsContextType) {
 	mtlsCtx := userSupplied
 	if tls == nil {
 		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
+			return nil, mtlsCtx
+		}
+		// Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`
+		// We don't know whether headless service instance has sidecar injected or not.
+		if clusterDiscoveryType == apiv2.Cluster_ORIGINAL_DST {
 			return nil, mtlsCtx
 		}
 
@@ -719,7 +724,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
+			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
 		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, opts.proxy)
 	}
 }
@@ -819,6 +824,10 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 
 	out := &v2Cluster.OutlierDetection{}
+
+	// SuccessRate based outlier detection should be disabled.
+	out.EnforcingSuccessRate = &wrappers.UInt32Value{Value: 0}
+
 	if outlier.BaseEjectionTime != nil {
 		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
 	}
@@ -962,6 +971,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 
 	cluster := opts.cluster
 	proxy := opts.proxy
+
 	certValidationContext := &auth.CertificateValidationContext{}
 	var trustedCa *core.DataSource
 	if len(tls.CaCertificates) != 0 {
@@ -1114,6 +1124,10 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 				},
 				defaultTransportSocketMatch,
 			}
+		} else {
+			// Since previous calls to applyTrafficPolicy may have set TransportSocketMatches for a subset cluster
+			// make sure they are reset.  See https://github.com/istio/istio/issues/23910
+			cluster.TransportSocketMatches = nil
 		}
 	}
 }

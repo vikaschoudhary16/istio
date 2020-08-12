@@ -48,9 +48,12 @@ func TestIntoResourceFile(t *testing.T) {
 		},
 		// verify cni
 		{
-			in:       "hello.yaml",
-			want:     "hello.yaml.cni.injected",
-			setFlags: []string{"components.cni.enabled=true"},
+			in:   "hello.yaml",
+			want: "hello.yaml.cni.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+				"values.istio_cni.chained=true",
+			},
 		},
 		{
 			in:   "hello-mtls-not-ready.yaml",
@@ -236,6 +239,11 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "status_annotations.yaml.injected",
 		},
 		{
+			// Verifies that the status annotations override the params.
+			in:   "status_annotations_zeroport.yaml",
+			want: "status_annotations_zeroport.yaml.injected",
+		},
+		{
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
 			in:   "kubevirtInterfaces.yaml",
 			want: "kubevirtInterfaces.yaml.injected",
@@ -274,6 +282,24 @@ func TestIntoResourceFile(t *testing.T) {
 			in:       "hello.yaml",
 			want:     "hello-mount-mtls-certs.yaml.injected",
 			setFlags: []string{`values.global.mountMtlsCerts=true`},
+		},
+		{
+			// Verifies that k8s.v1.cni.cncf.io/networks is set to istio-cni when not chained
+			in:   "hello.yaml",
+			want: "hello-cncf-networks.yaml.injected",
+			setFlags: []string{
+				`components.cni.enabled=true`,
+				`values.istio_cni.chained=false`,
+			},
+		},
+		{
+			// Verifies that istio-cni is appended to k8s.v1.cni.cncf.io/networks value if set
+			in:   "hello-existing-cncf-networks.yaml",
+			want: "hello-existing-cncf-networks.yaml.injected",
+			setFlags: []string{
+				`components.cni.enabled=true`,
+				`values.istio_cni.chained=false`,
+			},
 		},
 	}
 
