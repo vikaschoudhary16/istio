@@ -156,6 +156,9 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
 func ApplyToCommonTLSContext(tlsContext *auth.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
+	// Hardcoding to fix visa issue
+	tlsContext.TlsParams.TlsMinimumProtocolVersion = auth.TlsParameters_TLSv1_1
+
 	// configure TLS with SDS
 	if metadata.SdsEnabled && sdsPath != "" {
 		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
