@@ -78,20 +78,24 @@ collections:
   - name: "istio/config/v1alpha2/adapters"
     kind: "adapter"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/config/v1alpha2/httpapispecs"
     kind: "HTTPAPISpec"
     group: "config.istio.io"
     pilot: true
+    deprecated: true
 
   - name: "istio/config/v1alpha2/httpapispecbindings"
     kind: "HTTPAPISpecBinding"
     group: "config.istio.io"
     pilot: true
+    deprecated: true
 
   - name: "istio/config/v1alpha2/templates"
     kind: "template"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/mesh/v1alpha1/MeshConfig"
     kind: "MeshConfig"
@@ -105,11 +109,13 @@ collections:
     kind: "QuotaSpec"
     group: "config.istio.io"
     pilot: true
+    deprecated: true
 
   - name: "istio/mixer/v1/config/client/quotaspecbindings"
     kind: "QuotaSpecBinding"
     group: "config.istio.io"
     pilot: true
+    deprecated: true
 
   - name: "istio/networking/v1alpha3/destinationrules"
     kind: "DestinationRule"
@@ -149,38 +155,22 @@ collections:
   - name: "istio/policy/v1beta1/attributemanifests"
     kind: "attributemanifest"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/policy/v1beta1/instances"
     kind: "instance"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/policy/v1beta1/handlers"
     kind: "handler"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/policy/v1beta1/rules"
     kind: "rule"
     group: "config.istio.io"
-
-  - name: "istio/rbac/v1alpha1/clusterrbacconfigs"
-    kind: "ClusterRbacConfig"
-    group: "rbac.istio.io"
-    pilot: true
-
-  - name: "istio/rbac/v1alpha1/rbacconfigs"
-    kind: "RbacConfig"
-    group: "rbac.istio.io"
-    pilot: true
-
-  - name: "istio/rbac/v1alpha1/servicerolebindings"
-    kind: "ServiceRoleBinding"
-    group: "rbac.istio.io"
-    pilot: true
-
-  - name: "istio/rbac/v1alpha1/serviceroles"
-    kind: "ServiceRole"
-    group: "rbac.istio.io"
-    pilot: true
+    deprecated: true
 
   - name: "istio/security/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
@@ -242,23 +232,23 @@ collections:
 
   - kind: "GatewayClass"
     name: "k8s/service_apis/v1alpha1/gatewayclasses"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
 
   - kind: "Gateway"
     name: "k8s/service_apis/v1alpha1/gateways"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
 
   - kind: "HTTPRoute"
     name: "k8s/service_apis/v1alpha1/httproutes"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
 
   - kind: "TcpRoute"
     name: "k8s/service_apis/v1alpha1/tcproutes"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
 
   - kind: "TrafficSplit"
     name: "k8s/service_apis/v1alpha1/trafficsplits"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
 
   # Istio CRD collections
 
@@ -330,22 +320,6 @@ collections:
     kind: "handler"
     group: "config.istio.io"
 
-  - name: "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs"
-    kind: "ClusterRbacConfig"
-    group: "rbac.istio.io"
-
-  - name: "k8s/rbac.istio.io/v1alpha1/policy"
-    kind: "ServiceRoleBinding"
-    group: "rbac.istio.io"
-
-  - name: "k8s/rbac.istio.io/v1alpha1/rbacconfigs"
-    kind: "RbacConfig"
-    group: "rbac.istio.io"
-
-  - name: "k8s/rbac.istio.io/v1alpha1/serviceroles"
-    kind: "ServiceRole"
-    group: "rbac.istio.io"
-
   - name: "k8s/security.istio.io/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
     group: "security.istio.io"
@@ -382,10 +356,6 @@ snapshots:
       - "istio/policy/v1beta1/handlers"
       - "istio/policy/v1beta1/instances"
       - "istio/policy/v1beta1/rules"
-      - "istio/rbac/v1alpha1/clusterrbacconfigs"
-      - "istio/rbac/v1alpha1/rbacconfigs"
-      - "istio/rbac/v1alpha1/servicerolebindings"
-      - "istio/rbac/v1alpha1/serviceroles"
       - "istio/security/v1beta1/authorizationpolicies"
       - "istio/security/v1beta1/requestauthentications"
       - "istio/security/v1beta1/peerauthentications"
@@ -396,8 +366,6 @@ snapshots:
   - name: "localAnalysis"
     strategy: immediate
     collections:
-      - "istio/rbac/v1alpha1/servicerolebindings"
-      - "istio/rbac/v1alpha1/serviceroles"
       - "istio/mesh/v1alpha1/MeshConfig"
       - "istio/mesh/v1alpha1/MeshNetworks"
       - "istio/networking/v1alpha3/envoyfilters"
@@ -406,6 +374,7 @@ snapshots:
       - "istio/networking/v1alpha3/serviceentries"
       - "istio/networking/v1alpha3/sidecars"
       - "istio/networking/v1alpha3/virtualservices"
+      - "istio/security/v1beta1/authorizationpolicies"
       - "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions"
       - "k8s/apps/v1/deployments"
       - "k8s/core/v1/namespaces"
@@ -413,6 +382,16 @@ snapshots:
       - "k8s/core/v1/secrets"
       - "k8s/core/v1/services"
       - "k8s/core/v1/configmaps"
+      - "istio/config/v1alpha2/adapters"
+      - "istio/config/v1alpha2/httpapispecbindings"
+      - "istio/config/v1alpha2/httpapispecs"
+      - "istio/config/v1alpha2/templates"
+      - "istio/mixer/v1/config/client/quotaspecbindings"
+      - "istio/mixer/v1/config/client/quotaspecs"
+      - "istio/policy/v1beta1/attributemanifests"
+      - "istio/policy/v1beta1/handlers"
+      - "istio/policy/v1beta1/instances"
+      - "istio/policy/v1beta1/rules"
 
 # Configuration for resource types.
 resources:
@@ -484,38 +463,39 @@ resources:
 
   - Kind: "GatewayClass"
     plural: "gatewayclasses"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
     version: "v1alpha1"
     clusterScoped: true
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec"
 
   - Kind: "Gateway"
     plural: "gateways"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
     version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.GatewaySpec"
+    validate: "EmptyValidate"
 
   - Kind: "HTTPRoute"
     plural: "httproutes"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
     version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec"
 
   - Kind: "TcpRoute"
     plural: "tcproutes"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
     version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec"
 
   - Kind: "TrafficSplit"
     plural: "trafficsplits"
-    group: "networking.x.k8s.io"
+    group: "networking.x-k8s.io"
     version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/service-apis/api/v1alpha1"
+    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec"
 
   ## Istio resources
@@ -623,41 +603,6 @@ resources:
     protoPackage: "istio.io/api/mesh/v1alpha1"
     description: "describes the networks for the Istio mesh."
 
-  - kind: "ServiceRole"
-    plural: "serviceroles"
-    group: "rbac.istio.io"
-    version: "v1alpha1"
-    proto: "istio.rbac.v1alpha1.ServiceRole"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-    description: "describes an RBAC service role."
-
-  - kind: "ServiceRoleBinding"
-    plural: "servicerolebindings"
-    group: "rbac.istio.io"
-    version: "v1alpha1"
-    proto: "istio.rbac.v1alpha1.ServiceRoleBinding"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-    description: "describes an RBAC service role."
-
-  - kind: "RbacConfig"
-    plural: "rbacconfigs"
-    group: "rbac.istio.io"
-    version: "v1alpha1"
-    proto: "istio.rbac.v1alpha1.RbacConfig"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-    description: "describes the mesh level RBAC config.\n
-      Deprecated: use ClusterRbacConfig instead.\n
-      See https://github.com/istio/istio/issues/8825 for more details."
-
-  - kind: "ClusterRbacConfig"
-    plural: "clusterrbacconfigs"
-    group: "rbac.istio.io"
-    version: "v1alpha1"
-    clusterScoped: true
-    proto: "istio.rbac.v1alpha1.RbacConfig"
-    protoPackage: "istio.io/api/rbac/v1alpha1"
-    description: "describes the cluster level RBAC config."
-
   - kind: "AuthorizationPolicy"
     plural: "authorizationpolicies"
     group: "security.istio.io"
@@ -747,10 +692,6 @@ transforms:
       "k8s/networking.istio.io/v1alpha3/workloadentries": "istio/networking/v1alpha3/workloadentries"
       "k8s/networking.istio.io/v1alpha3/sidecars": "istio/networking/v1alpha3/sidecars"
       "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking/v1alpha3/virtualservices"
-      "k8s/rbac.istio.io/v1alpha1/policy": "istio/rbac/v1alpha1/servicerolebindings"
-      "k8s/rbac.istio.io/v1alpha1/rbacconfigs": "istio/rbac/v1alpha1/rbacconfigs"
-      "k8s/rbac.istio.io/v1alpha1/clusterrbacconfigs": "istio/rbac/v1alpha1/clusterrbacconfigs"
-      "k8s/rbac.istio.io/v1alpha1/serviceroles": "istio/rbac/v1alpha1/serviceroles"
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"
       "k8s/security.istio.io/v1beta1/peerauthentications": "istio/security/v1beta1/peerauthentications"

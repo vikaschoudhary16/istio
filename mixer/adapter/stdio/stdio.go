@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/stdio/config/config.proto -x "-n stdio -t logentry -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/stdio/config/config.proto -x "-n stdio -t logentry -t metric -d example"
 
 // Package stdio provides an adapter that implements the logEntry and metrics
 // templates to serialize generated logs and metrics to stdout, stderr, or files.

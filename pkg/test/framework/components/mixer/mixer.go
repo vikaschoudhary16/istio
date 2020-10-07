@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -22,9 +22,7 @@ import (
 	istioMixerV1 "istio.io/api/mixer/v1"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 type Instance interface {
@@ -41,7 +39,6 @@ type CheckResponse struct {
 }
 
 type Config struct {
-	Galley galley.Instance
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
 }
@@ -53,14 +50,7 @@ func (c *CheckResponse) Succeeded() bool {
 
 // New returns a new instance of echo.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i, err = newNative(ctx, cfg)
-	})
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, cfg)
-	})
-	return
+	return newKube(ctx, cfg)
 }
 
 func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {

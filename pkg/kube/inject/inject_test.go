@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ import (
 )
 
 func TestIntoResourceFile(t *testing.T) {
-	mesh.TestMode = true
 	cases := []struct {
 		in         string
 		want       string
@@ -41,7 +40,7 @@ func TestIntoResourceFile(t *testing.T) {
 		inFilePath string
 		mesh       func(m *meshapi.MeshConfig)
 	}{
-		//"testdata/hello.yaml" is tested in http_test.go (with debug)
+		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
 			in:   "hello.yaml",
 			want: "hello.yaml.injected",
@@ -301,6 +300,14 @@ func TestIntoResourceFile(t *testing.T) {
 				`values.istio_cni.chained=false`,
 			},
 		},
+		{
+			// Verifies that HoldApplicationUntilProxyStarts in MeshConfig puts sidecar in front
+			in:   "hello.yaml",
+			want: "hello.proxyHoldsApplication.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
+		},
 	}
 
 	for i, c := range cases {
@@ -308,11 +315,10 @@ func TestIntoResourceFile(t *testing.T) {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
-			m := mesh.DefaultMeshConfig()
+			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, c.setFlags, c.inFilePath)
 			if c.mesh != nil {
-				c.mesh(&m)
+				c.mesh(m)
 			}
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, c.setFlags, c.inFilePath)
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -321,7 +327,7 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -343,13 +349,14 @@ func TestIntoResourceFile(t *testing.T) {
 
 // TestRewriteAppProbe tests the feature for pilot agent to take over app health check traffic.
 func TestRewriteAppProbe(t *testing.T) {
-	mesh.TestMode = true
 	cases := []struct {
 		in                  string
 		rewriteAppHTTPProbe bool
 		want                string
+		setFlags            []string
 	}{
 		{
+
 			in:                  "hello-probes.yaml",
 			rewriteAppHTTPProbe: true,
 			want:                "hello-probes.yaml.injected",
@@ -399,6 +406,27 @@ func TestRewriteAppProbe(t *testing.T) {
 			rewriteAppHTTPProbe: true,
 			want:                "ready_live.yaml.injected",
 		},
+		{
+			in:                  "startup_only.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_only.yaml.injected",
+		},
+		{
+			in:                  "startup_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_live.yaml.injected",
+		},
+		{
+			in:                  "startup_ready_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_ready_live.yaml.injected",
+		},
+		{
+			in:                  "hello-probes.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "hello-probes.proxyHoldsApplication.yaml.injected",
+			setFlags:            []string{`values.global.proxy.holdApplicationUntilProxyStarts=true`},
+		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
 	}
@@ -406,8 +434,7 @@ func TestRewriteAppProbe(t *testing.T) {
 	for i, c := range cases {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
-			m := mesh.DefaultMeshConfig()
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
+			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, c.setFlags, "")
 			inputFilePath := "testdata/inject/app_probe/" + c.in
 			wantFilePath := "testdata/inject/app_probe/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -416,7 +443,7 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -461,7 +488,7 @@ func TestInvalidAnnotations(t *testing.T) {
 	m := mesh.DefaultMeshConfig()
 	for _, c := range cases {
 		t.Run(c.annotation, func(t *testing.T) {
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
+			sidecarTemplate, valuesConfig, _ := loadInjectionSettings(t, nil, "")
 			inputFilePath := "testdata/inject/" + c.in
 			in, err := os.Open(inputFilePath)
 			if err != nil {

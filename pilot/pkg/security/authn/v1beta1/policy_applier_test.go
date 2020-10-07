@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,34 +15,32 @@
 package v1beta1
 
 import (
-	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	envoy_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
+	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 	protovalue "istio.io/istio/pkg/proto"
-	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
-	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
 )
 
 func TestJwtFilter(t *testing.T) {
@@ -836,13 +834,6 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 	}
 }
 
-func setSkipValidateTrustDomain(value string, t *testing.T) {
-	err := os.Setenv(features.SkipValidateTrustDomain.Name, value)
-	if err != nil {
-		t.Fatalf("failed to set SkipValidateTrustDomain: %v", err)
-	}
-}
-
 func humanReadableAuthnFilterDump(filter *http_conn.HttpFilter) string {
 	if filter == nil {
 		return "<nil>"
@@ -860,12 +851,12 @@ func TestAuthnFilterConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name                    string
-		isGateway               bool
-		skipTrustDomainValidate bool
-		jwtIn                   []*model.Config
-		peerIn                  []*model.Config
-		expected                *http_conn.HttpFilter
+		name                         string
+		isGateway                    bool
+		gatewayServerUsesIstioMutual bool
+		jwtIn                        []*model.Config
+		peerIn                       []*model.Config
+		expected                     *http_conn.HttpFilter
 	}{
 		{
 			name: "no-policy",
@@ -884,18 +875,42 @@ func TestAuthnFilterConfig(t *testing.T) {
 								},
 							},
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
 		},
 		{
-			name:      "no-policy-for-gateway",
+			name:      "no-policy-for-gateway-with-non-istio-mutual-servers",
 			isGateway: true,
 			expected:  nil,
 		},
 		{
-			name:                    "no-request-authn-rule-skip-trust-domain",
-			skipTrustDomainValidate: true,
+			name:                         "policy-for-gateway-with-istio-mutual-server",
+			isGateway:                    true,
+			gatewayServerUsesIstioMutual: true,
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+						Policy: &authn_alpha.Policy{
+							Peers: []*authn_alpha.PeerAuthenticationMethod{
+								{
+									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+										Mtls: &authn_alpha.MutualTls{
+											Mode: authn_alpha.MutualTls_STRICT,
+										},
+									},
+								},
+							},
+						},
+						SkipValidateTrustDomain: true,
+					}),
+				},
+			},
+		},
+		{
+			name: "no-request-authn-rule-skip-trust-domain",
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
@@ -954,6 +969,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -988,6 +1004,52 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+						SkipValidateTrustDomain: true,
+					}),
+				},
+			},
+		},
+		{
+			name:                         "beta-jwt-for-gateway-with-istio-mutual",
+			isGateway:                    true,
+			gatewayServerUsesIstioMutual: true,
+			jwtIn: []*model.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "https://secret.foo.com",
+								JwksUri: jwksURI,
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+						Policy: &authn_alpha.Policy{
+							Peers: []*authn_alpha.PeerAuthenticationMethod{
+								{
+									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+										Mtls: &authn_alpha.MutualTls{
+											Mode: authn_alpha.MutualTls_STRICT,
+										},
+									},
+								},
+							},
+							Origins: []*authn_alpha.OriginAuthenticationMethod{
+								{
+									Jwt: &authn_alpha.Jwt{
+										Issuer: "https://secret.foo.com",
+									},
+								},
+							},
+							OriginIsOptional: true,
+							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1048,6 +1110,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1108,6 +1171,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1138,12 +1202,13 @@ func TestAuthnFilterConfig(t *testing.T) {
 								},
 							},
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
 		},
 		{
-			name:      "beta-mtls-for-gateway",
+			name:      "beta-mtls-for-gateway-does-not-respect-mtls-configs",
 			isGateway: true,
 			peerIn: []*model.Config{
 				{
@@ -1157,8 +1222,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name:                    "beta-mtls-skip-trust-domain",
-			skipTrustDomainValidate: true,
+			name: "beta-mtls-skip-trust-domain",
 			peerIn: []*model.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
@@ -1191,17 +1255,11 @@ func TestAuthnFilterConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if c.skipTrustDomainValidate {
-				setSkipValidateTrustDomain("true", t)
-				defer func() {
-					setSkipValidateTrustDomain("false", t)
-				}()
-			}
 			proxyType := model.SidecarProxy
 			if c.isGateway {
 				proxyType = model.Router
 			}
-			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, 80)
+			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, 80, c.gatewayServerUsesIstioMutual)
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
 			}
@@ -1211,9 +1269,9 @@ func TestAuthnFilterConfig(t *testing.T) {
 
 func TestOnInboundFilterChain(t *testing.T) {
 	now := time.Now()
-	tlsContext := &envoy_auth.DownstreamTlsContext{
-		CommonTlsContext: &envoy_auth.CommonTlsContext{
-			TlsCertificates: []*envoy_auth.TlsCertificate{
+	tlsContext := &tls.DownstreamTlsContext{
+		CommonTlsContext: &tls.CommonTlsContext{
+			TlsCertificates: []*tls.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
@@ -1227,8 +1285,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			ValidationContextType: &envoy_auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &envoy_auth.CertificateValidationContext{
+			ValidationContextType: &tls.CommonTlsContext_ValidationContext{
+				ValidationContext: &tls.CertificateValidationContext{
 					TrustedCa: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
 							Filename: "/etc/certs/root-cert.pem",
@@ -1255,10 +1313,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 				ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 			},
 			ListenerFilters: []*listener.ListenerFilter{
-				{
-					Name:       "envoy.listener.tls_inspector",
-					ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
-				},
+				xdsfilters.TLSInspector,
 			},
 		},
 		{
@@ -1454,6 +1509,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 				tc.sdsUdsPath,
 				testNode,
 				networking.ListenerProtocolAuto,
+				[]string{},
 			)
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)

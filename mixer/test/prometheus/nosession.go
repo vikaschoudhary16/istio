@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n prometheus-nosession -s=false  -c $REPO_ROOT/mixer/adapter/prometheus/config/config.proto_descriptor   -t metric -o prometheus-nosession.yaml
+//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n prometheus-nosession -s=false  -c $REPO_ROOT/mixer/adapter/prometheus/config/config.proto_descriptor   -t metric -o prometheus-nosession.yaml -d example
 
 package prometheus
 
@@ -215,7 +215,7 @@ func NewNoSessionServer(addr uint16, promAddr uint16) (*NoSessionServer, error) 
 	gp := pool.NewGoroutinePool(5, false)
 	inf, srv := prometheus.GetInfoWithAddr(pddr)
 	s := &NoSessionServer{builder: inf.NewBuilder(),
-		env:    handler.NewEnv(0, "prometheus-nosession", gp),
+		env:    handler.NewEnv(0, "prometheus-nosession", gp, []string{""}),
 		rawcfg: []byte{0xff, 0xff},
 	}
 	var err error

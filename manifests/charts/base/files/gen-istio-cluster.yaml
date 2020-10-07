@@ -22,7 +22,6 @@ spec:
     listKind: HTTPAPISpecList
     plural: httpapispecs
     singular: httpapispec
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -295,7 +294,6 @@ spec:
     listKind: HTTPAPISpecBindingList
     plural: httpapispecbindings
     singular: httpapispecbinding
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -392,7 +390,6 @@ spec:
     listKind: QuotaSpecList
     plural: quotaspecs
     singular: quotaspec
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -489,7 +486,6 @@ spec:
     listKind: QuotaSpecBindingList
     plural: quotaspecbindings
     singular: quotaspecbinding
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -588,7 +584,6 @@ spec:
     shortNames:
     - dr
     singular: destinationrule
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -798,6 +793,7 @@ spec:
                                 description: enable locality load balancing, this
                                   is DestinationRule-level and will override mesh
                                   wide settings in entirety.
+                                nullable: true
                                 type: boolean
                               failover:
                                 description: 'Optional: only failover or distribute
@@ -830,6 +826,7 @@ spec:
                           consecutive5xxErrors:
                             description: Number of 5xx errors before a host is ejected
                               from the connection pool.
+                            nullable: true
                             type: integer
                           consecutiveErrors:
                             format: int32
@@ -837,6 +834,7 @@ spec:
                           consecutiveGatewayErrors:
                             description: Number of gateway errors before a host is
                               ejected from the connection pool.
+                            nullable: true
                             type: integer
                           interval:
                             description: Time interval between ejection sweep analysis.
@@ -1028,6 +1026,7 @@ spec:
                                       description: enable locality load balancing,
                                         this is DestinationRule-level and will override
                                         mesh wide settings in entirety.
+                                      nullable: true
                                       type: boolean
                                     failover:
                                       description: 'Optional: only failover or distribute
@@ -1060,6 +1059,7 @@ spec:
                                 consecutive5xxErrors:
                                   description: Number of 5xx errors before a host
                                     is ejected from the connection pool.
+                                  nullable: true
                                   type: integer
                                 consecutiveErrors:
                                   format: int32
@@ -1067,6 +1067,7 @@ spec:
                                 consecutiveGatewayErrors:
                                   description: Number of gateway errors before a host
                                     is ejected from the connection pool.
+                                  nullable: true
                                   type: integer
                                 interval:
                                   description: Time interval between ejection sweep
@@ -1093,6 +1094,9 @@ spec:
                                   type: string
                                 clientCertificate:
                                   description: REQUIRED if mode is `MUTUAL`.
+                                  format: string
+                                  type: string
+                                credentialName:
                                   format: string
                                   type: string
                                 mode:
@@ -1128,6 +1132,9 @@ spec:
                             type: string
                           clientCertificate:
                             description: REQUIRED if mode is `MUTUAL`.
+                            format: string
+                            type: string
+                          credentialName:
                             format: string
                             type: string
                           mode:
@@ -1327,6 +1334,7 @@ spec:
                         enabled:
                           description: enable locality load balancing, this is DestinationRule-level
                             and will override mesh wide settings in entirety.
+                          nullable: true
                           type: boolean
                         failover:
                           description: 'Optional: only failover or distribute can
@@ -1359,6 +1367,7 @@ spec:
                     consecutive5xxErrors:
                       description: Number of 5xx errors before a host is ejected from
                         the connection pool.
+                      nullable: true
                       type: integer
                     consecutiveErrors:
                       format: int32
@@ -1366,6 +1375,7 @@ spec:
                     consecutiveGatewayErrors:
                       description: Number of gateway errors before a host is ejected
                         from the connection pool.
+                      nullable: true
                       type: integer
                     interval:
                       description: Time interval between ejection sweep analysis.
@@ -1554,6 +1564,7 @@ spec:
                                 description: enable locality load balancing, this
                                   is DestinationRule-level and will override mesh
                                   wide settings in entirety.
+                                nullable: true
                                 type: boolean
                               failover:
                                 description: 'Optional: only failover or distribute
@@ -1586,6 +1597,7 @@ spec:
                           consecutive5xxErrors:
                             description: Number of 5xx errors before a host is ejected
                               from the connection pool.
+                            nullable: true
                             type: integer
                           consecutiveErrors:
                             format: int32
@@ -1593,6 +1605,7 @@ spec:
                           consecutiveGatewayErrors:
                             description: Number of gateway errors before a host is
                               ejected from the connection pool.
+                            nullable: true
                             type: integer
                           interval:
                             description: Time interval between ejection sweep analysis.
@@ -1618,6 +1631,9 @@ spec:
                             type: string
                           clientCertificate:
                             description: REQUIRED if mode is `MUTUAL`.
+                            format: string
+                            type: string
+                          credentialName:
                             format: string
                             type: string
                           mode:
@@ -1653,6 +1669,9 @@ spec:
                       type: string
                     clientCertificate:
                       description: REQUIRED if mode is `MUTUAL`.
+                      format: string
+                      type: string
+                    credentialName:
                       format: string
                       type: string
                     mode:
@@ -1952,7 +1971,6 @@ spec:
     shortNames:
     - gw
     singular: gateway
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -1984,6 +2002,11 @@ spec:
                       format: string
                       type: string
                     type: array
+                  name:
+                    description: An optional name of the server, when set must be
+                      unique across all servers.
+                    format: string
+                    type: string
                   port:
                     properties:
                       name:
@@ -1997,6 +2020,8 @@ spec:
                         description: The protocol exposed on the port.
                         format: string
                         type: string
+                      targetPort:
+                        type: integer
                     type: object
                   tls:
                     description: Set of TLS related options that govern the server's
@@ -2129,7 +2154,6 @@ spec:
     shortNames:
     - se
     singular: serviceentry
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2211,6 +2235,8 @@ spec:
                     description: The protocol exposed on the port.
                     format: string
                     type: string
+                  targetPort:
+                    type: integer
                 type: object
               type: array
             resolution:
@@ -2269,7 +2295,6 @@ spec:
     listKind: SidecarList
     plural: sidecars
     singular: sidecar
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2297,74 +2322,6 @@ spec:
                       format: string
                       type: string
                     type: array
-                  localhostServerTls:
-                    properties:
-                      caCertificates:
-                        description: REQUIRED if mode is `MUTUAL`.
-                        format: string
-                        type: string
-                      cipherSuites:
-                        description: 'Optional: If specified, only support the specified
-                          cipher list.'
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      credentialName:
-                        format: string
-                        type: string
-                      httpsRedirect:
-                        type: boolean
-                      maxProtocolVersion:
-                        description: 'Optional: Maximum TLS protocol version.'
-                        enum:
-                        - TLS_AUTO
-                        - TLSV1_0
-                        - TLSV1_1
-                        - TLSV1_2
-                        - TLSV1_3
-                        type: string
-                      minProtocolVersion:
-                        description: 'Optional: Minimum TLS protocol version.'
-                        enum:
-                        - TLS_AUTO
-                        - TLSV1_0
-                        - TLSV1_1
-                        - TLSV1_2
-                        - TLSV1_3
-                        type: string
-                      mode:
-                        enum:
-                        - PASSTHROUGH
-                        - SIMPLE
-                        - MUTUAL
-                        - AUTO_PASSTHROUGH
-                        - ISTIO_MUTUAL
-                        type: string
-                      privateKey:
-                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                        format: string
-                        type: string
-                      serverCertificate:
-                        description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                        format: string
-                        type: string
-                      subjectAltNames:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      verifyCertificateHash:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                      verifyCertificateSpki:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -2379,6 +2336,8 @@ spec:
                         description: The protocol exposed on the port.
                         format: string
                         type: string
+                      targetPort:
+                        type: integer
                     type: object
                 type: object
               type: array
@@ -2398,37 +2357,6 @@ spec:
                   defaultEndpoint:
                     format: string
                     type: string
-                  localhostClientTls:
-                    properties:
-                      caCertificates:
-                        format: string
-                        type: string
-                      clientCertificate:
-                        description: REQUIRED if mode is `MUTUAL`.
-                        format: string
-                        type: string
-                      mode:
-                        enum:
-                        - DISABLE
-                        - SIMPLE
-                        - MUTUAL
-                        - ISTIO_MUTUAL
-                        type: string
-                      privateKey:
-                        description: REQUIRED if mode is `MUTUAL`.
-                        format: string
-                        type: string
-                      sni:
-                        description: SNI string to present to the server during TLS
-                          handshake.
-                        format: string
-                        type: string
-                      subjectAltNames:
-                        items:
-                          format: string
-                          type: string
-                        type: array
-                    type: object
                   port:
                     description: The port associated with the listener.
                     properties:
@@ -2443,111 +2371,11 @@ spec:
                         description: The protocol exposed on the port.
                         format: string
                         type: string
+                      targetPort:
+                        type: integer
                     type: object
                 type: object
               type: array
-            localhost:
-              properties:
-                clientTls:
-                  properties:
-                    caCertificates:
-                      format: string
-                      type: string
-                    clientCertificate:
-                      description: REQUIRED if mode is `MUTUAL`.
-                      format: string
-                      type: string
-                    mode:
-                      enum:
-                      - DISABLE
-                      - SIMPLE
-                      - MUTUAL
-                      - ISTIO_MUTUAL
-                      type: string
-                    privateKey:
-                      description: REQUIRED if mode is `MUTUAL`.
-                      format: string
-                      type: string
-                    sni:
-                      description: SNI string to present to the server during TLS
-                        handshake.
-                      format: string
-                      type: string
-                    subjectAltNames:
-                      items:
-                        format: string
-                        type: string
-                      type: array
-                  type: object
-                serverTls:
-                  properties:
-                    caCertificates:
-                      description: REQUIRED if mode is `MUTUAL`.
-                      format: string
-                      type: string
-                    cipherSuites:
-                      description: 'Optional: If specified, only support the specified
-                        cipher list.'
-                      items:
-                        format: string
-                        type: string
-                      type: array
-                    credentialName:
-                      format: string
-                      type: string
-                    httpsRedirect:
-                      type: boolean
-                    maxProtocolVersion:
-                      description: 'Optional: Maximum TLS protocol version.'
-                      enum:
-                      - TLS_AUTO
-                      - TLSV1_0
-                      - TLSV1_1
-                      - TLSV1_2
-                      - TLSV1_3
-                      type: string
-                    minProtocolVersion:
-                      description: 'Optional: Minimum TLS protocol version.'
-                      enum:
-                      - TLS_AUTO
-                      - TLSV1_0
-                      - TLSV1_1
-                      - TLSV1_2
-                      - TLSV1_3
-                      type: string
-                    mode:
-                      enum:
-                      - PASSTHROUGH
-                      - SIMPLE
-                      - MUTUAL
-                      - AUTO_PASSTHROUGH
-                      - ISTIO_MUTUAL
-                      type: string
-                    privateKey:
-                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                      format: string
-                      type: string
-                    serverCertificate:
-                      description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                      format: string
-                      type: string
-                    subjectAltNames:
-                      items:
-                        format: string
-                        type: string
-                      type: array
-                    verifyCertificateHash:
-                      items:
-                        format: string
-                        type: string
-                      type: array
-                    verifyCertificateSpki:
-                      items:
-                        format: string
-                        type: string
-                      type: array
-                  type: object
-              type: object
             outboundTrafficPolicy:
               description: Configuration for the outbound traffic policy.
               properties:
@@ -2636,7 +2464,6 @@ spec:
     shortNames:
     - vs
     singular: virtualservice
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -2674,6 +2501,7 @@ spec:
                     description: Cross-Origin Resource Sharing policy (CORS).
                     properties:
                       allowCredentials:
+                        nullable: true
                         type: boolean
                       allowHeaders:
                         items:
@@ -3117,10 +2945,12 @@ spec:
                   mirror_percent:
                     description: Percentage of the traffic to be mirrored by the `mirror`
                       field.
+                    nullable: true
                     type: integer
                   mirrorPercent:
                     description: Percentage of the traffic to be mirrored by the `mirror`
                       field.
+                    nullable: true
                     type: integer
                   mirrorPercentage:
                     description: Percentage of the traffic to be mirrored by the `mirror`
@@ -3165,6 +2995,7 @@ spec:
                       retryRemoteLocalities:
                         description: Flag to specify whether the retries should retry
                           to other localities.
+                        nullable: true
                         type: boolean
                     type: object
                   rewrite:
@@ -3247,7 +3078,7 @@ spec:
                       type: object
                     type: array
                   timeout:
-                    description: Timeout for HTTP requests.
+                    description: Timeout for HTTP requests, default is disabled.
                     type: string
                 type: object
               type: array
@@ -3447,7 +3278,6 @@ spec:
     shortNames:
     - we
     singular: workloadentry
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3522,7 +3352,6 @@ spec:
     listKind: attributemanifestList
     plural: attributemanifests
     singular: attributemanifest
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -3877,7 +3706,6 @@ spec:
     listKind: ruleList
     plural: rules
     singular: rule
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4022,506 +3850,6 @@ metadata:
     app: istio-pilot
     chart: istio
     heritage: Tiller
-    istio: rbac
-    release: istio
-  name: clusterrbacconfigs.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: ClusterRbacConfig
-    listKind: ClusterRbacConfigList
-    plural: clusterrbacconfigs
-    singular: clusterrbacconfig
-  preserveUnknownFields: false
-  scope: Cluster
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            enforcementMode:
-              enum:
-              - ENFORCED
-              - PERMISSIVE
-              type: string
-            exclusion:
-              description: A list of services or namespaces that should not be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            inclusion:
-              description: A list of services or namespaces that should be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            mode:
-              description: Istio RBAC mode.
-              enum:
-              - "OFF"
-              - "ON"
-              - ON_WITH_INCLUSION
-              - ON_WITH_EXCLUSION
-              type: string
-          type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    package: istio.io.mixer
-    release: istio
-  name: rbacconfigs.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: RbacConfig
-    listKind: RbacConfigList
-    plural: rbacconfigs
-    singular: rbacconfig
-  preserveUnknownFields: false
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            enforcementMode:
-              enum:
-              - ENFORCED
-              - PERMISSIVE
-              type: string
-            exclusion:
-              description: A list of services or namespaces that should not be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            inclusion:
-              description: A list of services or namespaces that should be enforced
-                by Istio RBAC policies.
-              properties:
-                namespaces:
-                  description: A list of namespaces.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-                services:
-                  description: A list of services.
-                  items:
-                    format: string
-                    type: string
-                  type: array
-              type: object
-            mode:
-              description: Istio RBAC mode.
-              enum:
-              - "OFF"
-              - "ON"
-              - ON_WITH_INCLUSION
-              - ON_WITH_EXCLUSION
-              type: string
-          type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    package: istio.io.mixer
-    release: istio
-  name: serviceroles.rbac.istio.io
-spec:
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: ServiceRole
-    listKind: ServiceRoleList
-    plural: serviceroles
-    singular: servicerole
-  preserveUnknownFields: false
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            rules:
-              description: The set of access rules (permissions) that the role has.
-              items:
-                properties:
-                  constraints:
-                    description: Optional.
-                    items:
-                      properties:
-                        key:
-                          description: Key of the constraint.
-                          format: string
-                          type: string
-                        values:
-                          description: List of valid values for the constraint.
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                      type: object
-                    type: array
-                  hosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  methods:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notHosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notMethods:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPaths:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPorts:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  paths:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  ports:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  services:
-                    description: A list of service names.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                type: object
-              type: array
-          type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: mixer
-    chart: istio
-    heritage: Tiller
-    istio: rbac
-    package: istio.io.mixer
-    release: istio
-  name: servicerolebindings.rbac.istio.io
-spec:
-  additionalPrinterColumns:
-  - JSONPath: .spec.roleRef.name
-    description: The name of the ServiceRole object being referenced
-    name: Reference
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    description: 'CreationTimestamp is a timestamp representing the server time when
-      this object was created. It is not guaranteed to be set in happens-before order
-      across separate operations. Clients may not set this value. It is represented
-      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
-      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
-    name: Age
-    type: date
-  group: rbac.istio.io
-  names:
-    categories:
-    - istio-io
-    - rbac-istio-io
-    kind: ServiceRoleBinding
-    listKind: ServiceRoleBindingList
-    plural: servicerolebindings
-    singular: servicerolebinding
-  preserveUnknownFields: false
-  scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      properties:
-        spec:
-          description: 'See more details at:'
-          properties:
-            actions:
-              items:
-                properties:
-                  constraints:
-                    description: Optional.
-                    items:
-                      properties:
-                        key:
-                          description: Key of the constraint.
-                          format: string
-                          type: string
-                        values:
-                          description: List of valid values for the constraint.
-                          items:
-                            format: string
-                            type: string
-                          type: array
-                      type: object
-                    type: array
-                  hosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  methods:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notHosts:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notMethods:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPaths:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notPorts:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  paths:
-                    description: Optional.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  ports:
-                    items:
-                      format: int32
-                      type: integer
-                    type: array
-                  services:
-                    description: A list of service names.
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                type: object
-              type: array
-            mode:
-              enum:
-              - ENFORCED
-              - PERMISSIVE
-              type: string
-            role:
-              format: string
-              type: string
-            roleRef:
-              description: Reference to the ServiceRole object.
-              properties:
-                kind:
-                  description: The type of the role being referenced.
-                  format: string
-                  type: string
-                name:
-                  description: The name of the ServiceRole object being referenced.
-                  format: string
-                  type: string
-              type: object
-            subjects:
-              description: List of subjects that are assigned the ServiceRole object.
-              items:
-                properties:
-                  group:
-                    format: string
-                    type: string
-                  groups:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  ips:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  names:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  namespaces:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notGroups:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notIps:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notNames:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  notNamespaces:
-                    items:
-                      format: string
-                      type: string
-                    type: array
-                  properties:
-                    additionalProperties:
-                      format: string
-                      type: string
-                    description: Optional.
-                    type: object
-                  user:
-                    description: Optional.
-                    format: string
-                    type: string
-                type: object
-              type: array
-          type: object
-        status:
-          type: object
-          x-kubernetes-preserve-unknown-fields: true
-      type: object
-  versions:
-  - name: v1alpha1
-    served: true
-    storage: true
-
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    "helm.sh/resource-policy": keep
-  labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
     istio: security
     release: istio
   name: authorizationpolicies.security.istio.io
@@ -4535,7 +3863,6 @@ spec:
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
     singular: authorizationpolicy
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4551,6 +3878,7 @@ spec:
               enum:
               - ALLOW
               - DENY
+              - AUDIT
               type: string
             rules:
               description: Optional.
@@ -4740,7 +4068,6 @@ spec:
     shortNames:
     - pa
     singular: peerauthentication
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4822,7 +4149,6 @@ spec:
     shortNames:
     - ra
     singular: requestauthentication
-  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
@@ -4988,6 +4314,10 @@ spec:
     description: Istio control plane revision
     name: Revision
     type: string
+  - JSONPath: .status.status
+    description: IOP current state
+    type: string
+    name: Status
   - JSONPath: .metadata.creationTimestamp
     description: 'CreationTimestamp is a timestamp representing the server time when
       this object was created. It is not guaranteed to be set in happens-before order
@@ -5059,8 +4389,6 @@ metadata:
     release: istio
 ---
 # Source: base/templates/clusterrole.yaml
-# Dedicated cluster role - istiod will use fewer dangerous permissions ( secret access in particular ).
-# TODO: separate cluster role with the minimal set of permissions needed for a 'tenant' Istiod
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -5079,14 +4407,8 @@ rules:
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
 
-  # permissions to verify the webhook is ready and rejecting
-  # invalid config. We use --server-dry-run so no config is persisted.
-  - apiGroups: ["networking.istio.io"]
-    verbs: ["create"]
-    resources: ["gateways"]
-
   # istio configuration
-  - apiGroups: ["config.istio.io", "rbac.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io"]
     verbs: ["get", "watch", "list"]
     resources: ["*"]
 
@@ -5096,9 +4418,6 @@ rules:
     verbs: ["get", "list", "watch"]
 
   # discovery and routing
-  - apiGroups: ["extensions","apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["pods", "nodes", "services", "namespaces", "endpoints"]
     verbs: ["get", "list", "watch"]
@@ -5138,17 +4457,14 @@ rules:
     resources: ["tokenreviews"]
     verbs: ["create"]
 
-  # TODO: remove, no longer needed at cluster
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["create", "get", "watch", "list", "update", "delete"]
-  - apiGroups: [""]
-    resources: ["serviceaccounts"]
+  # Use for Kubernetes Service APIs
+  - apiGroups: ["networking.x-k8s.io"]
+    resources: ["*"]
     verbs: ["get", "watch", "list"]
 
-  # Use for Kubernetes Service APIs
-  - apiGroups: ["networking.x.k8s.io"]
-    resources: ["*"]
+  # Needed for multicluster secret reading, possibly ingress certs in the future
+  - apiGroups: [""]
+    resources: ["secrets"]
     verbs: ["get", "watch", "list"]
 ---
 # Source: base/templates/clusterrole.yaml
@@ -5162,7 +4478,6 @@ metadata:
 rules:
   - apiGroups:
       - "config.istio.io"
-      - "rbac.istio.io"
       - "security.istio.io"
       - "networking.istio.io"
       - "authentication.istio.io"
@@ -5209,6 +4524,46 @@ subjects:
     name: istiod-service-account
     namespace: istio-system
 ---
+# Source: base/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: istiod-istio-system
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+rules:
+# permissions to verify the webhook is ready and rejecting
+# invalid config. We use --server-dry-run so no config is persisted.
+- apiGroups: ["networking.istio.io"]
+  verbs: ["create"]
+  resources: ["gateways"]
+
+# For storing CA secret
+- apiGroups: [""]
+  resources: ["secrets"]
+  # TODO lock this down to istio-ca-cert if not using the DNS cert mesh config
+  verbs: ["create", "get", "watch", "list", "update", "delete"]
+---
+# Source: base/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: istiod-istio-system
+  namespace: istio-system
+  labels:
+    app: pilot
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: istiod-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: istiod-service-account
+    namespace: istio-system
+---
 # Source: base/templates/validatingwebhookconfiguration.yaml
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
@@ -5232,7 +4587,6 @@ webhooks:
         - UPDATE
         apiGroups:
         - config.istio.io
-        - rbac.istio.io
         - security.istio.io
         - authentication.istio.io
         - networking.istio.io
@@ -5245,3 +4599,4 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]

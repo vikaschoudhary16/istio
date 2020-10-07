@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -181,10 +181,11 @@ func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissi
 				return nil, false, fmt.Errorf("path %s, index %s: %s", fullPath, pe, err)
 			}
 			var foundNode interface{}
-			if idx >= len(lst) {
+			if idx >= len(lst) || idx < 0 {
 				if !createMissing {
 					return nil, false, fmt.Errorf("index %d exceeds list length %d at path %s", idx, len(lst), remainPath)
 				}
+				idx = len(lst)
 				foundNode = make(map[string]interface{})
 			} else {
 				foundNode = lst[idx]

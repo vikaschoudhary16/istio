@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,6 +36,9 @@ type CallOptions struct {
 	// port will be used (if feasible).
 	Scheme scheme.Instance
 
+	// If true, h2c will be used in HTTP requests
+	HTTP2 bool
+
 	// Host specifies the host to be used on the request. If not provided, an appropriate
 	// default is chosen for the target Instance.
 	Host string
@@ -55,4 +58,8 @@ type CallOptions struct {
 
 	// Message to be sent if this is a GRPC request
 	Message string
+
+	// Use the custom certificate to make the call. This is mostly used to make mTLS request directly
+	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
+	Cert, Key string
 }

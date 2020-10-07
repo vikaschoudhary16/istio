@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ import (
 	"fmt"
 
 	"istio.io/api/operator/v1alpha1"
+
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
-	binversion "istio.io/istio/operator/version"
 )
 
 // IsComponentEnabledInSpec reports whether the given component is enabled in the given spec.
@@ -49,10 +49,7 @@ func IsComponentEnabledInSpec(componentName name.ComponentName, controlPlaneSpec
 // IsComponentEnabledFromValue get whether component is enabled in helm value.yaml tree.
 // valuePath points to component path in the values tree.
 func IsComponentEnabledFromValue(cn name.ComponentName, valueSpec map[string]interface{}) (enabled bool, pathExist bool, err error) {
-	t, err := NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
-	if err != nil {
-		return false, false, err
-	}
+	t := NewTranslator()
 	cnMap, ok := t.ComponentMaps[cn]
 	if !ok {
 		return false, false, nil

@@ -3,7 +3,6 @@ kind: IstioOperator
 spec:
   meshConfig:
     accessLogFile: /dev/stdout
-    disablePolicyChecks: false
   components:
     egressGateways:
     - name: istio-egressgateway
@@ -50,20 +49,10 @@ spec:
         env:
           - name: PILOT_TRACE_SAMPLING
             value: "100"
-          - name: CONFIG_NAMESPACE
-            value: istio-config
         resources:
           requests:
             cpu: 10m
             memory: 100Mi
-
-  addonComponents:
-    kiali:
-      enabled: true
-    grafana:
-      enabled: true
-    tracing:
-      enabled: true
 
   values:
     global:

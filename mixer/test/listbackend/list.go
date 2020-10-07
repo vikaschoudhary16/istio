@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n listbackend-nosession -c $REPO_ROOT/mixer/adapter/list/config/config.proto_descriptor -s=false -t listentry -o nosession.yaml
+//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n listbackend-nosession -c $REPO_ROOT/mixer/adapter/list/config/config.proto_descriptor -s=false -t listentry -o nosession.yaml -d example
 
 package listbackend
 
@@ -180,7 +180,7 @@ func NewNoSessionServer(addr string) (Server, error) {
 	s := &nosessionServer{
 		listener: listener,
 		builder:  listInf.NewBuilder(),
-		env:      handler.NewEnv(0, "list-backend-nosession", pool.NewGoroutinePool(5, false)),
+		env:      handler.NewEnv(0, "list-backend-nosession", pool.NewGoroutinePool(5, false), []string{""}),
 		rawcfg:   []byte{},
 	}
 	fmt.Printf("listening on :%v\n", s.listener.Addr())

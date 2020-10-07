@@ -1,10 +1,10 @@
 {{- if .Values.global.remotePilotAddress }}
-  {{- if not .Values.global.istiod.enabled }}
+  {{- if .Values.pilot.enabled }}
 apiVersion: v1
 kind: Endpoints
 metadata:
-  name: istio-pilot
-  namespace: {{ .Values.global.istioNamespace }}
+  name: istiod-remote
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
@@ -15,7 +15,7 @@ subsets:
 apiVersion: v1
 kind: Endpoints
 metadata:
-  name: istiod-remote
+  name: istiod
   namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:

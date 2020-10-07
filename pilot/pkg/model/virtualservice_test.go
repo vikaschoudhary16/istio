@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,15 +27,16 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/visibility"
 )
 
 func TestMergeVirtualServices(t *testing.T) {
 	features.EnableVirtualServiceDelegate = true
 	independentVs := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "virtual-service",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "virtual-service",
+			Namespace:        "default",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"example.org"},
@@ -59,9 +60,9 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	rootVs := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "root-vs",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "root-vs",
+			Namespace:        "istio-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -103,9 +104,9 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	oneRoot := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "root-vs",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "root-vs",
+			Namespace:        "istio-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -129,13 +130,14 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	delegateVs := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "productpage-vs",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "productpage-vs",
+			Namespace:        "default",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{},
 			Gateways: []string{"gateway"},
+			ExportTo: []string{"istio-system"},
 			Http: []*networking.HTTPRoute{
 				{
 					Match: []*networking.HTTPMatchRequest{
@@ -194,11 +196,24 @@ func TestMergeVirtualServices(t *testing.T) {
 		},
 	}
 
+	delegateVsNotExported := Config{
+		ConfigMeta: ConfigMeta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "productpage-vs",
+			Namespace:        "default2",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{"gateway"},
+			ExportTo: []string{"."},
+		},
+	}
+
 	mergedVs := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "root-vs",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "root-vs",
+			Namespace:        "istio-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -289,9 +304,9 @@ func TestMergeVirtualServices(t *testing.T) {
 	// invalid delegate, match condition conflicts with root
 	delegateVs2 := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "productpage-vs",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "productpage-vs",
+			Namespace:        "default",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{},
@@ -366,9 +381,9 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	mergedVs2 := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "root-vs",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "root-vs",
+			Namespace:        "istio-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -433,9 +448,9 @@ func TestMergeVirtualServices(t *testing.T) {
 	// multiple routes delegate to one single sub VS
 	multiRoutes := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "root-vs",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "root-vs",
+			Namespace:        "istio-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -476,9 +491,9 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	singleDelegate := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "productpage-vs",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "productpage-vs",
+			Namespace:        "default",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{},
@@ -503,9 +518,9 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	mergedVs3 := Config{
 		ConfigMeta: ConfigMeta{
-			Type:      collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Name:      "root-vs",
-			Namespace: "default",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "root-vs",
+			Namespace:        "istio-system",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{"*.org"},
@@ -593,11 +608,16 @@ func TestMergeVirtualServices(t *testing.T) {
 			virtualServices:         []Config{multiRoutes.DeepCopy(), singleDelegate},
 			expectedVirtualServices: []Config{mergedVs3},
 		},
+		{
+			name:                    "delegate not exported to root vs namespace",
+			virtualServices:         []Config{rootVs, delegateVsNotExported},
+			expectedVirtualServices: []Config{oneRoot},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := mergeVirtualServicesIfNeeded(tc.virtualServices)
+			got := mergeVirtualServicesIfNeeded(tc.virtualServices, map[visibility.Instance]bool{visibility.Public: true})
 			if !reflect.DeepEqual(got, tc.expectedVirtualServices) {
 				t.Errorf("expected vs %v, but got %v,\n diff: %s ", len(tc.expectedVirtualServices), len(got), cmp.Diff(tc.expectedVirtualServices, got))
 			}
@@ -1443,6 +1463,24 @@ func TestHasConflict(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "withoutHeaders mismatch",
+			root: &networking.HTTPMatchRequest{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Prefix{Prefix: "h1"},
+					},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Exact{Exact: "h2"},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
 			name: "port",
 			root: &networking.HTTPMatchRequest{
 				Port: 0,
@@ -1613,6 +1651,11 @@ var gatewayNameTests = []struct {
 		"gateway.default",
 		"foo",
 		"default/gateway",
+	},
+	{
+		"private.ingress.svc.cluster.local",
+		"foo",
+		"ingress/private",
 	},
 }
 

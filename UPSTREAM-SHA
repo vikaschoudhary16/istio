@@ -1,8 +1,7 @@
-# Please keep this file updated.
-commit f8c0850b43cfcd76e2439ccf42aa836265340aca (origin/upstream-istio, istio/master, upstream-istio)
-Author: Nino Kodabande <nkodabande@suse.com>
-Date:   Fri Mar 27 20:07:30 2020 -0700
+commit f5fa38cee9ff455dc0dbf6acc279dcff182b8c86
+Author: Rama Chavali <rama.rao@salesforce.com>
+Date:   Fri Oct 2 11:20:25 2020 +0530
 
-    Remove unnecessary field useInboundFilterChain (#22556)
-
-    - This field is always set to true and seems redundant
+    default min TLS version and configure cipher suites (#27613)
+    
+    Signed-off-by: Rama Chavali <rama.rao@salesforce.com>

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/validate"
-	binversion "istio.io/istio/operator/version"
 )
 
 // RenderCharts renders charts for h.
@@ -34,10 +33,7 @@ func (h *HelmReconciler) RenderCharts() (name.ManifestMap, error) {
 		h.opts.Log.PrintErr(fmt.Sprintf("spec invalid; continuing because of --force: %v\n", err))
 	}
 
-	t, err := translate.NewTranslator(binversion.OperatorBinaryVersion.MinorVersion)
-	if err != nil {
-		return nil, err
-	}
+	t := translate.NewTranslator()
 
 	cp, err := controlplane.NewIstioControlPlane(iopSpec, t)
 	if err != nil {

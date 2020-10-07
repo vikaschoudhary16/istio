@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,28 +34,26 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
-
-	"istio.io/api/label"
-
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/model"
-
+	multierror "github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
+
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	paStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/pkg/log"
 )
 
 type annotationValidationFunc func(value string) error
@@ -143,6 +141,10 @@ const (
 const (
 	// ProxyContainerName is used by e2e integration tests for fetching logs
 	ProxyContainerName = "istio-proxy"
+
+	// ValidationContainerName is the name of the init container that validates
+	// if CNI has made the necessary changes to iptables
+	ValidationContainerName = "istio-validation"
 )
 
 // SidecarInjectionSpec collects all container types and volumes for
@@ -150,13 +152,14 @@ const (
 type SidecarInjectionSpec struct {
 	// RewriteHTTPProbe indicates whether Kubernetes HTTP prober in the PodSpec
 	// will be rewritten to be redirected by pilot agent.
-	PodRedirectAnnot    map[string]string             `yaml:"podRedirectAnnot"`
-	RewriteAppHTTPProbe bool                          `yaml:"rewriteAppHTTPProbe"`
-	InitContainers      []corev1.Container            `yaml:"initContainers"`
-	Containers          []corev1.Container            `yaml:"containers"`
-	Volumes             []corev1.Volume               `yaml:"volumes"`
-	DNSConfig           *corev1.PodDNSConfig          `yaml:"dnsConfig"`
-	ImagePullSecrets    []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
+	PodRedirectAnnot                map[string]string             `yaml:"podRedirectAnnot"`
+	RewriteAppHTTPProbe             bool                          `yaml:"rewriteAppHTTPProbe"`
+	HoldApplicationUntilProxyStarts bool                          `yaml:"holdApplicationUntilProxyStarts"`
+	InitContainers                  []corev1.Container            `yaml:"initContainers"`
+	Containers                      []corev1.Container            `yaml:"containers"`
+	Volumes                         []corev1.Volume               `yaml:"volumes"`
+	DNSConfig                       *corev1.PodDNSConfig          `yaml:"dnsConfig"`
+	ImagePullSecrets                []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
 // SidecarTemplateData is the data object to which the templated
@@ -312,7 +315,7 @@ func validateBool(value string) error {
 
 func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
 	// Skip injection when host networking is enabled. The problem is
-	// that the iptable changes are assumed to be within the pod when,
+	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
 	// often results in routing failures within a node which can
 	// affect the network provider within the cluster causing
@@ -559,6 +562,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	if err != nil {
 		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
 	}
+	sic.HoldApplicationUntilProxyStarts, _, _ = unstructured.NestedBool(data.Values, "global", "proxy", "holdApplicationUntilProxyStarts")
 	return &sic, string(statusAnnotationValue), nil
 }
 
@@ -730,7 +734,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		return out, nil
 	}
 
-	//skip injection for injected pods
+	// skip injection for injected pods
 	if len(podSpec.Containers) > 1 {
 		for _, c := range podSpec.Containers {
 			if c.Name == ProxyContainerName {
@@ -755,9 +759,41 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		return nil, err
 	}
 
+	// if prometheus merge is enabled, try extracting and replace standared prometheus annotations.
+	// TODO: This duplicates the enablePrometheusMerge function in webhook injection,
+	// and should be cleaned when merging these two code paths.
+	if enablePrometheusMerge(meshconfig, metadata.Annotations) {
+		scrape := paStatus.PrometheusScrapeConfiguration{
+			Scrape: metadata.Annotations["prometheus.io/scrape"],
+			Path:   metadata.Annotations["prometheus.io/path"],
+			Port:   metadata.Annotations["prometheus.io/port"],
+		}
+		empty := paStatus.PrometheusScrapeConfiguration{}
+		if scrape != empty {
+			by, err := json.Marshal(scrape)
+			if err != nil {
+				return nil, err
+			}
+			for _, c := range podSpec.Containers {
+				if c.Name == ProxyContainerName {
+					if c.Env == nil {
+						c.Env = make([]corev1.EnvVar, 0)
+					}
+					c.Env = append(c.Env, corev1.EnvVar{Name: paStatus.PrometheusScrapingConfig.Name, Value: string(by)})
+				}
+			}
+		}
+		if metadata.Annotations == nil {
+			metadata.Annotations = make(map[string]string)
+		}
+		metadata.Annotations["prometheus.io/port"] = strconv.Itoa(int(meshconfig.GetDefaultConfig().GetStatusPort()))
+		metadata.Annotations["prometheus.io/path"] = "/stats/prometheus"
+		metadata.Annotations["prometheus.io/scrape"] = "true"
+	}
+
 	podSpec.InitContainers = append(podSpec.InitContainers, spec.InitContainers...)
 
-	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
+	podSpec.Containers = injectContainers(podSpec.Containers, spec)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
 
 	podSpec.DNSConfig = spec.DNSConfig
@@ -802,6 +838,29 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	}
 
 	return out, nil
+}
+
+func injectContainers(target []corev1.Container, sic *SidecarInjectionSpec) []corev1.Container {
+	containersToInject := sic.Containers
+	if sic.HoldApplicationUntilProxyStarts {
+		// inject sidecar at start of spec.containers
+		proxyIndex := -1
+		for i, c := range containersToInject {
+			if c.Name == ProxyContainerName {
+				proxyIndex = i
+				break
+			}
+		}
+		if proxyIndex != -1 {
+			result := make([]corev1.Container, 1, len(target)+len(containersToInject))
+			result[0] = containersToInject[proxyIndex]
+			result = append(result, target...)
+			result = append(result, containersToInject[:proxyIndex]...)
+			result = append(result, containersToInject[proxyIndex+1:]...)
+			return result
+		}
+	}
+	return append(target, containersToInject...)
 }
 
 func getPortsForContainer(container corev1.Container) []string {
@@ -888,11 +947,17 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if pc.BinaryPath == defaults.BinaryPath {
 		pc.BinaryPath = ""
 	}
+	if pc.ControlPlaneAuthPolicy == defaults.ControlPlaneAuthPolicy {
+		pc.ControlPlaneAuthPolicy = 0
+	}
 	if pc.ServiceCluster == defaults.ServiceCluster {
 		pc.ServiceCluster = ""
 	}
 	if reflect.DeepEqual(pc.DrainDuration, defaults.DrainDuration) {
 		pc.DrainDuration = nil
+	}
+	if reflect.DeepEqual(pc.TerminationDrainDuration, defaults.TerminationDrainDuration) {
+		pc.TerminationDrainDuration = nil
 	}
 	if reflect.DeepEqual(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
 		pc.ParentShutdownDuration = nil
@@ -918,8 +983,8 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if pc.StatusPort == defaults.StatusPort {
 		pc.StatusPort = 0
 	}
-	if pc.Concurrency == defaults.Concurrency {
-		pc.Concurrency = 0
+	if reflect.DeepEqual(pc.Concurrency, defaults.Concurrency) {
+		pc.Concurrency = nil
 	}
 	return proto.Message(&pc)
 }

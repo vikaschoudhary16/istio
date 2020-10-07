@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ const (
 	StateInstalling InstallState = iota
 	StatePruning
 	StateComplete
+	StateUninstallComplete
 )
 
 // Log records the progress of an installation
@@ -41,6 +42,7 @@ const (
 type Log struct {
 	components map[string]*ManifestLog
 	bar        *pb.ProgressBar
+	template   string
 	mu         sync.Mutex
 	state      InstallState
 }
@@ -116,21 +118,18 @@ func (p *Log) reportProgress(component string) func() {
 		// The component has completed
 		if cmp.finished || cmp.err != "" {
 			if cmp.finished {
-				p.bar.SetTemplateString(fmt.Sprintf(`{{ green "✔" }} %s installed`, cliName))
+				p.SetMessage(fmt.Sprintf(`{{ green "✔" }} %s installed`, cliName), true)
 			} else {
-				p.bar.SetTemplateString(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmp.err))
+				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmp.err), true)
 			}
 			// Close the bar out, outputting a new line
-			p.bar.Finish()
-			p.bar.Write()
 			delete(p.components, component)
 
 			// Now we create a new bar, which will have the remaining components
 			p.bar = createBar()
 			return
 		}
-		p.bar.SetTemplateString(p.createStatus(p.bar.Width()))
-		p.bar.Write()
+		p.SetMessage(p.createStatus(p.bar.Width()), false)
 	}
 }
 
@@ -145,6 +144,9 @@ func (p *Log) SetState(state InstallState) {
 	case StateComplete:
 		p.bar.SetTemplateString(`{{ green "✔" }} Installation complete`)
 		p.bar.Write()
+	case StateUninstallComplete:
+		p.bar.SetTemplateString(`{{ green "✔" }} Uninstall complete`)
+		p.bar.Write()
 	}
 }
 
@@ -156,6 +158,20 @@ func (p *Log) NewComponent(component string) *ManifestLog {
 	defer p.mu.Unlock()
 	p.components[component] = ml
 	return ml
+}
+
+func (p *Log) SetMessage(status string, finish bool) {
+	// if we are not a terminal and there is no change, do not write
+	// This avoids redundant lines
+	if !p.bar.GetBool(pb.Terminal) && status == p.template {
+		return
+	}
+	p.template = status
+	p.bar.SetTemplateString(p.template)
+	if finish {
+		p.bar.Finish()
+	}
+	p.bar.Write()
 }
 
 // ManifestLog records progress for a single component

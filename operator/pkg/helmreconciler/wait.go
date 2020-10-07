@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,8 @@ import (
 )
 
 const (
+	// defaultWaitResourceTimeout is the maximum wait time for all resources(namespace/deployment/pod) to be created.
+	defaultWaitResourceTimeout = 300 * time.Second
 	// cRDPollInterval is how often the state of CRDs is polled when waiting for their creation.
 	cRDPollInterval = 500 * time.Millisecond
 	// cRDPollTimeout is the maximum wait time for all CRDs to be created.
@@ -55,7 +57,7 @@ type deployment struct {
 // until all are ready or a timeout is reached
 func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kubernetes.Interface,
 	waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
-	if dryRun {
+	if dryRun || TestMode {
 		return nil
 	}
 

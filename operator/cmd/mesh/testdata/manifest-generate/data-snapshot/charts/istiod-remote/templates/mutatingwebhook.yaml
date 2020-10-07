@@ -16,14 +16,17 @@ webhooks:
   - name: sidecar-injector.istio.io
     clientConfig:
       {{- if .Values.istiodRemote.injectionURL }}
+      # the url doesn't take query params, so use inject/cluster/x/net/y format
       url: {{ .Values.istiodRemote.injectionURL }}/cluster/{{ .Values.global.multiCluster.clusterName | default "remote0" }}/net/{{ .Values.global.network | default "network0" }}
       {{- else }}
       service:
         name: istiod
         namespace: {{ .Values.global.istioNamespace }}
         path: "/inject"
-      {{- end }}      
+      {{- end }}
       caBundle: {{ .Values.sidecarInjectorWebhook.caBundle }}
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]

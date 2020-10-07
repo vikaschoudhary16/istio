@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,18 +28,18 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 
 	"istio.io/pkg/log"
 )
 
-// PatchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
-func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
+// patchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
+func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
 	webhookConfigName, webhookName string, caBundle []byte) error {
 	config, err := client.Get(context.TODO(), webhookConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -91,7 +91,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 	}
 
 	var retry bool
-	if err = PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+	if err = patchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 		injectionWebhookConfigName, webhookName, caCertPem); err != nil {
 		log.Warna("Error patching Webhook ", err)
 		retry = true
@@ -158,7 +158,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 
 func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caCertPem []byte) (retry bool) {
 	client := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-	if err := PatchMutatingWebhookConfig(client, webhookConfigName, webhookName, caCertPem); err != nil {
+	if err := patchMutatingWebhookConfig(client, webhookConfigName, webhookName, caCertPem); err != nil {
 		log.Errorf("Patch webhook failed: %v", err)
 		return true
 	}
@@ -166,7 +166,7 @@ func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caC
 	return false
 }
 
-func CreateValidationWebhookController(client kubernetes.Interface, dynamicInterface dynamic.Interface,
+func CreateValidationWebhookController(client kube.Client,
 	webhookConfigName, ns, caBundlePath string, remote bool) *controller.Controller {
 	o := controller.Options{
 		WatchedNamespace:    ns,
@@ -175,7 +175,7 @@ func CreateValidationWebhookController(client kubernetes.Interface, dynamicInter
 		ServiceName:         "istiod",
 		RemoteWebhookConfig: remote,
 	}
-	whController, err := controller.New(o, client, dynamicInterface)
+	whController, err := controller.New(o, client)
 	if err != nil {
 		log.Errorf("failed to create validationWebhookController controller: %v", err)
 	}

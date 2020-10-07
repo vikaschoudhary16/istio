@@ -42,28 +42,13 @@ jobs:
             export GOROOT=$(go env GOROOT)
             sudo rm -rf $(go env GOROOT)
             sudo mkdir -p $GOROOT
-            curl -sSL https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz | \
+            curl -sSL https://dl.google.com/go/go1.14.7.linux-amd64.tar.gz | \
             sudo tar xz -C $GOROOT --strip-components=1
       - checkout
       - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
       - run:
           no_output_timeout: 20m
-          command: BUILD_WITH_CONTAINER=1 DOCKER_BUILD_VARIANTS="default distroless" VERSION=${VERSION} make -k init docker.all push
-      ## CNI
-      - run:
-          name: Get CNI repo SHA
-          command: |
-            export CNI_REPO_SHA=$(jq -r '.[] | select(.name=="CNI_REPO_SHA") | .lastStableSHA' istio.deps)
-            echo "export CNI_REPO_SHA=${CNI_REPO_SHA}" >> $BASH_ENV
-      - run:
-          name: Clone CNI repo
-          command: git clone https://github.com/istio/cni.git cni
-      - run:
-          name: Build CNI image
-          command: |
-            cd cni/
-            git checkout ${CNI_REPO_SHA}
-            BUILD_WITH_CONTAINER=1 VERSION=${VERSION} make -k init docker.all docker.push
+          command: BUILD_WITH_CONTAINER=1 DOCKER_BUILD_VARIANTS="default distroless" VERSION=${CIRCLE_TAG:-${CIRCLE_SHA1}} make -k init gen-charts docker.all push
   # dockerpush:
   #   <<: *defaults
   #   resource_class: xlarge
@@ -95,3 +80,11 @@ workflows:
 
     jobs:
       - test
+
+  dockerpush:
+    jobs:
+      - dockerpush:
+          # run the job on both branches and tags
+          filters:
+            tags:
+              only: /.*/

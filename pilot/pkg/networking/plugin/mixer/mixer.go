@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ import (
 	"strings"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -114,7 +114,30 @@ func createOutboundListenerAttributes(in *plugin.InputParams) attributes {
 }
 
 func skipMixerHTTPFilter(dir direction, mesh *meshconfig.MeshConfig, node *model.Proxy) bool {
+	// nolint: staticcheck
 	return disablePolicyChecks(dir, mesh, node) && mesh.GetDisableMixerHttpReports()
+}
+
+func (mixerplugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
+		return nil
+	}
+	svc := util.FallThroughFilterChainBlackHoleService
+	if util.IsAllowAnyOutbound(in.Node) {
+		svc = util.FallThroughFilterChainPassthroughService
+	}
+	attrs := createOutboundListenerAttributes(in)
+	fallThroughFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, svc)
+
+	for _, filterChain := range mutable.FilterChains {
+		filterChain.TCP = append(filterChain.TCP, fallThroughFilter)
+		length := len(filterChain.TCP)
+		// swap
+		tmp := filterChain.TCP[length-1]
+		filterChain.TCP[length-2] = filterChain.TCP[length-1]
+		filterChain.TCP[length-1] = tmp
+	}
+	return nil
 }
 
 // OnOutboundListener implements the Callbacks interface method.
@@ -153,17 +176,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *networkin
 			}
 		} else {
 			for cnum := range mutable.FilterChains {
-				if mutable.FilterChains[cnum].IsFallThrough {
-					svc := util.FallThroughFilterChainBlackHoleService
-					if util.IsAllowAnyOutbound(in.Node) {
-						svc = util.FallThroughFilterChainPassthroughService
-					}
-					attrs := createOutboundListenerAttributes(in)
-					fallThroughFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, svc)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, fallThroughFilter)
-				} else {
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
-				}
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 			}
 		}
 		return nil
@@ -274,20 +287,20 @@ func (mixerplugin) OnVirtualListener(in *plugin.InputParams, mutable *networking
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, c *cluster.Cluster) {
 	if !in.Push.Mesh.SidecarToTelemetrySessionAffinity {
 		// if session affinity is not enabled, do nothing
 		return
 	}
 	withoutPort := strings.Split(in.Push.Mesh.MixerReportServer, ":")
-	if strings.Contains(cluster.Name, withoutPort[0]) {
+	if strings.Contains(c.Name, withoutPort[0]) {
 		// config telemetry service discovery to be strict_dns for session affinity.
 		// To enable session affinity, DNS needs to provide only one and the same telemetry instance IP
 		// (e.g. in k8s, telemetry service spec needs to have SessionAffinity: ClientIP)
-		cluster.ClusterDiscoveryType = &xdsapi.Cluster_Type{Type: xdsapi.Cluster_STRICT_DNS}
+		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}
 		addr := util.BuildAddress(in.Service.Address, uint32(in.Port.Port))
-		cluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
-			ClusterName: cluster.Name,
+		c.LoadAssignment = &endpoint.ClusterLoadAssignment{
+			ClusterName: c.Name,
 			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					LbEndpoints: []*endpoint.LbEndpoint{
@@ -300,31 +313,31 @@ func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Clu
 				},
 			},
 		}
-		cluster.EdsClusterConfig = nil
+		c.EdsClusterConfig = nil
 	}
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (mixerplugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnInboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
 	// do nothing
 }
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
-func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *route.RouteConfiguration) {
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
 		return
 	}
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		virtualHost := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(virtualHost.Routes); j++ {
-			virtualHost.Routes[j] = modifyOutboundRouteConfig(in.Push, in, virtualHost.Name, virtualHost.Routes[j])
+			virtualHost.Routes[j] = modifyOutboundRouteConfig(in, virtualHost.Name, virtualHost.Routes[j])
 		}
 		routeConfiguration.VirtualHosts[i] = virtualHost
 	}
 }
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
-func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *route.RouteConfiguration) {
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
 		return
 	}
@@ -436,7 +449,8 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 		DefaultDestinationService: defaultConfig,
 		ServiceConfigs: map[string]*mpb.ServiceConfig{
 			defaultConfig: {
-				DisableCheckCalls:  disablePolicyChecks(outbound, mesh, node),
+				DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
+				// nolint: staticcheck
 				DisableReportCalls: mesh.GetDisableMixerHttpReports(),
 			},
 		},
@@ -461,7 +475,8 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 		DefaultDestinationService: defaultConfig,
 		ServiceConfigs: map[string]*mpb.ServiceConfig{
 			defaultConfig: {
-				DisableCheckCalls:  disablePolicyChecks(inbound, mesh, node),
+				DisableCheckCalls: disablePolicyChecks(inbound, mesh, node),
+				// nolint: staticcheck
 				DisableReportCalls: mesh.GetDisableMixerHttpReports(),
 			},
 		},
@@ -480,7 +495,8 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attrs attributes,
 	quotaSpec []*mpb.QuotaSpec) {
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{
-		DisableCheckCalls:  disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+		DisableCheckCalls: disablePolicyChecks(outbound, in.Push.Mesh, in.Node),
+		// nolint: staticcheck
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 		MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 		ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
@@ -488,11 +504,12 @@ func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attr
 	})
 }
 
-func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
+func modifyOutboundRouteConfig(in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
 	isPolicyCheckDisabled := disablePolicyChecks(outbound, in.Push.Mesh, in.Node)
 	// default config, to be overridden by per-weighted cluster
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{
-		DisableCheckCalls:  isPolicyCheckDisabled,
+		DisableCheckCalls: isPolicyCheckDisabled,
+		// nolint: staticcheck
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 	})
 	switch action := httpRoute.Action.(type) {
@@ -504,17 +521,18 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
 				attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
 			} else {
-				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+				svc := in.Push.ServiceForHostname(in.Node, hostname)
 				attrs = addDestinationServiceAttributes(make(attributes), svc)
 			}
 			addFilterConfigToRoute(in, httpRoute, attrs, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
-				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+				svc := in.Push.ServiceForHostname(in.Node, hostname)
 				attrs := addDestinationServiceAttributes(make(attributes), svc)
 				weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mpb.ServiceConfig{
-					DisableCheckCalls:  isPolicyCheckDisabled,
+					DisableCheckCalls: isPolicyCheckDisabled,
+					// nolint: staticcheck
 					DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 					MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 					ForwardAttributes:  &mpb.Attributes{Attributes: attrs},
@@ -546,7 +564,8 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 
 	attrs := addDestinationServiceAttributes(make(attributes), instance.Service)
 	out := &mpb.ServiceConfig{
-		DisableCheckCalls:  disablePolicyChecks(inbound, in.Push.Mesh, in.Node),
+		DisableCheckCalls: disablePolicyChecks(inbound, in.Push.Mesh, in.Node),
+		// nolint: staticcheck
 		DisableReportCalls: in.Push.Mesh.GetDisableMixerHttpReports(),
 		MixerAttributes:    &mpb.Attributes{Attributes: attrs},
 	}

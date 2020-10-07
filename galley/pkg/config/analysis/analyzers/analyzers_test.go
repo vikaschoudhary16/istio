@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,13 +22,15 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/destinationrule"
+
 	. "github.com/onsi/gomega"
 
 	"istio.io/pkg/log"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/auth"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
@@ -82,32 +84,13 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "serviceRoleBindings",
-		inputFiles: []string{"testdata/servicerolebindings.yaml"},
-		analyzer:   &auth.ServiceRoleBindingAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "ServiceRoleBinding test-bogus-binding"},
-		},
-	},
-	{
-		name:       "serviceRoleServices",
-		inputFiles: []string{"testdata/serviceroleservices.yaml"},
-		analyzer:   &auth.ServiceRoleServicesAnalyzer{},
-		expected: []message{
-			{msg.ReferencedResourceNotFound, "ServiceRole bogus-short-name.default"},
-			{msg.ReferencedResourceNotFound, "ServiceRole bogus-fqdn.default"},
-			{msg.ReferencedResourceNotFound, "ServiceRole fqdn.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole short-name.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole fqdn-cross-ns.anothernamespace"},
-			{msg.ReferencedResourceNotFound, "ServiceRole namespace-wide.anothernamespace"},
-		},
-	},
-	{
 		name:       "deprecation",
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "ServiceRoleBinding bind-mongodb-viewer.default"},
+			{msg.Deprecated, "VirtualService productpage.foo"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "QuotaSpec request-count.istio-system"},
 		},
 	},
 	{
@@ -256,6 +239,7 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogushost.default"},
 			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogusport.default"},
 			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService reviews-2port-missing.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService cross-namespace-details.istio-system"},
 		},
 	},
 	{
@@ -314,6 +298,92 @@ var testGrid = []testCase{
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
 		},
+	},
+	{
+		name: "authorizationpolicies",
+		inputFiles: []string{
+			"testdata/authorizationpolicies.yaml",
+		},
+		analyzer: &authz.AuthorizationPoliciesAnalyzer{},
+		expected: []message{
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy meshwide-httpbin-v1.istio-system"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-empty-namespace-wide.httpbin-empty"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-nopods.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at destinationlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at destinationlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-mutual-destination.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at portlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at portlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-mutual-port.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at destinationlevel and simple at port level",
+		inputFiles: []string{
+			"testdata/destinationrule-compound-simple-mutual.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at destinationlevel and mutual at port level",
+		inputFiles: []string{
+			"testdata/destinationrule-compound-mutual-simple.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with both cacerts",
+		inputFiles: []string{
+			"testdata/destinationrule-with-ca.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
 	},
 }
 

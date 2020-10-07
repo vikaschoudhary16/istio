@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
@@ -51,7 +52,6 @@ import (
 )
 
 const (
-	domainSuffix       = "cluster.local"
 	meshConfigMapKey   = "mesh"
 	meshConfigMapName  = "istio"
 	meshNetworksMapKey = "meshNetworks"
@@ -209,7 +209,7 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 
 	processorSettings := processor.Settings{
 		Metadata:           sa.m,
-		DomainSuffix:       domainSuffix,
+		DomainSuffix:       constants.DefaultKubernetesDomain,
 		Source:             newPrecedenceSource(sa.sources),
 		TransformProviders: sa.transformerProviders,
 		Distributor:        distributor,
@@ -279,7 +279,8 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	if err := sa.addRunningKubeIstioConfigMapSource(client); err != nil {
 		_, err := client.CoreV1().Namespaces().Get(context.TODO(), sa.istioNamespace.String(), metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
-			scope.Analysis.Warnf("%v namespace not found. Istio may not be installed in the target cluster. "+
+			// An AnalysisMessage already show up to warn the absence of istio-system namespace, so making it debug level.
+			scope.Analysis.Debugf("%v namespace not found. Istio may not be installed in the target cluster. "+
 				"Using default mesh configuration values for analysis", sa.istioNamespace.String())
 		} else if err != nil {
 			scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)

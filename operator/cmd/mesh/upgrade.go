@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -63,14 +64,10 @@ const (
 type upgradeArgs struct {
 	// inFilenames is an array of paths to the input IstioOperator CR files.
 	inFilenames []string
-	// versionsURI is a URI pointing to a YAML formatted versions mapping.
-	versionsURI string
 	// kubeConfigPath is the path to kube config file.
 	kubeConfigPath string
 	// context is the cluster context in the kube config.
 	context string
-	// Deprecated: wait is flag that indicates whether to wait resources ready before exiting.
-	wait bool
 	// readinessTimeout is maximum time to wait for all Istio resources to be ready.
 	readinessTimeout time.Duration
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
@@ -80,29 +77,27 @@ type upgradeArgs struct {
 	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
 	force bool
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	manifestsPath string
 }
 
 // addUpgradeFlags adds upgrade related flags into cobra command
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename",
 		"f", nil, "Path to file containing IstioOperator custom resource")
-	cmd.PersistentFlags().StringVarP(&args.versionsURI, "versionsURI", "u",
-		"", "URI for operator versions to Istio versions map")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
 		"c", "", "Path to kube config")
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
 		"The name of the kubeconfig context to use")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false,
 		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
-	cmd.PersistentFlags().BoolVarP(&args.wait, "wait", "w", true,
-		"Wait, if set will wait until all Pods, Services, and minimum number of Pods "+
-			"of a Deployment are in a ready state before the command exits. DEPRECATED, will always be set to true in 1.7+.")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
-		"Maximum time to wait for Istio resources in each component to be ready."+
-			" The --wait flag must be set for this flag to apply")
+		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks
@@ -138,9 +133,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	setFlags := applyFlagAliases(args.set, "", "")
+	setFlags := applyFlagAliases(args.set, args.manifestsPath, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
+	targetIOPSYaml, targetIOPS, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
@@ -166,7 +161,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(kubeClient, currentVersion, targetVersion, args.versionsURI)
+	err = checkSupportedVersions(kubeClient, currentVersion)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
@@ -176,7 +171,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	// Read the overridden IOPS from args.inFilenames
 	overrideIOPSYaml := ""
 	if args.inFilenames != nil {
-		overrideIOPSYaml, err = ReadLayeredYAMLs(args.inFilenames)
+		overrideIOPSYaml, err = manifest.ReadLayeredYAMLs(args.inFilenames)
 		if err != nil {
 			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
@@ -200,7 +195,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	} else {
 		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
 	}
-	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", currentSets, true, nil, l)
+	currentProfileIOPSYaml, _, err := manifest.GenIOPSFromProfile(profile, "", currentSets, true, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
@@ -210,16 +205,10 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(applyFlagAliases(args.set, "", ""), args.inFilenames, args.force, rootArgs.dryRun,
-		args.kubeConfigPath, args.context, args.wait, args.readinessTimeout, l)
+	err = InstallManifests(applyFlagAliases(args.set, args.manifestsPath, ""), args.inFilenames, args.force, rootArgs.dryRun,
+		args.kubeConfigPath, args.context, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
-	}
-
-	if !args.wait {
-		l.LogAndPrintf("Upgrade submitted. Please use `istioctl version` to check the current versions.")
-		l.LogAndPrintf(upgradeSidecarMessage)
-		return nil
 	}
 
 	if !rootArgs.dryRun {
@@ -273,36 +262,19 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 	}
 }
 
-// checkSupportedVersions checks if the upgrade cur -> tar is supported by the tool
-func checkSupportedVersions(kubeClient *Client, cur, tar, versionsURI string) error {
-	tarGoVersion, err := goversion.NewVersion(tar)
+var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.8")
+
+func checkSupportedVersions(kubeClient *Client, currentVersion string) error {
+	curGoVersion, err := goversion.NewVersion(currentVersion)
 	if err != nil {
-		return fmt.Errorf("failed to parse the target version: %v", tar)
+		return fmt.Errorf("failed to parse the current version %q: %v", currentVersion, err)
 	}
 
-	compatibleMap, err := pkgversion.GetVersionCompatibleMap(versionsURI, tarGoVersion)
-	if err != nil {
-		return err
+	if !SupportedIstioVersions.Check(curGoVersion) {
+		return fmt.Errorf("upgrade is currently not supported from version: %v", currentVersion)
 	}
 
-	curGoVersion, err := goversion.NewVersion(cur)
-	if err != nil {
-		return fmt.Errorf("failed to parse the current version: %v, error: %v", cur, err)
-	}
-
-	if !compatibleMap.SupportedIstioVersions.Check(curGoVersion) {
-		return fmt.Errorf("upgrade is currently not supported: %v -> %v", cur, tar)
-	}
-
-	ver16, err := goversion.NewVersion("1.6")
-	if err != nil {
-		return fmt.Errorf("failed to parse version string %q: %v", "1.6", err)
-	}
-	if tarGoVersion.GreaterThanOrEqual(ver16) {
-		return kubeClient.CheckUnsupportedAlphaSecurityCRD()
-	}
-
-	return nil
+	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane

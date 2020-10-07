@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ func TestProgressLog(t *testing.T) {
 		// In buffer mode we don't overwrite old data, so we are constantly appending to the expected
 		newExpected := expected + "\n" + e
 		if newExpected != buf.String() {
-			t.Fatalf("expected '%v', got '%v'", e, buf.String())
+			t.Fatalf("expected '%v', \ngot '%v'", newExpected, buf.String())
 		}
 		expected = newExpected
 	}
@@ -51,9 +51,7 @@ func TestProgressLog(t *testing.T) {
 	// string buffer won't rewrite, so we append
 	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
 	bar.ReportProgress()
-	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
 	bar.ReportProgress()
-	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
 
 	bar.ReportWaiting([]string{"deployment"})
 	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `. Waiting for deployment`)
@@ -72,4 +70,7 @@ func TestProgressLog(t *testing.T) {
 
 	p.SetState(StateComplete)
 	expect(`✔ Installation complete`)
+
+	p.SetState(StateUninstallComplete)
+	expect(`✔ Uninstall complete`)
 }

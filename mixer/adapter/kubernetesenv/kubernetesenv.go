@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/kubernetesenv/config/config.proto -x "-n kubernetesenv"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/kubernetesenv/config/config.proto -x "-n kubernetesenv -d example"
 //go:generate $REPO_ROOT/bin/mixer_codegen.sh -t mixer/adapter/kubernetesenv/template/template.proto
 
 // Package kubernetesenv provides functionality to adapt mixer behavior to the
@@ -33,19 +33,19 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/dynamic"
 	k8s "k8s.io/client-go/kubernetes"
-	kubemeta "k8s.io/client-go/metadata"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // needed for auth
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/pkg/env"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
 	"istio.io/istio/mixer/adapter/metadata"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
-	"istio.io/pkg/env"
 )
 
 const (
@@ -372,8 +372,8 @@ func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface,
 	return k8s.NewForConfig(config)
 }
 
-func (b *builder) createCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, _ dynamic.Interface, clusterID string) error {
-	controller, err := runNewController(b, k8sInterface, b.kubeHandler.env)
+func (b *builder) createCacheController(clients kube.Client, clusterID string) error {
+	controller, err := runNewController(b, clients.Kube(), b.kubeHandler.env)
 	if err == nil {
 		b.Lock()
 		b.controllers[clusterID] = controller
@@ -390,11 +390,11 @@ func (b *builder) createCacheController(k8sInterface k8s.Interface, _ kubemeta.I
 	return b.kubeHandler.env.Logger().Errorf("error on creating remote controller %s err = %v", clusterID, err)
 }
 
-func (b *builder) updateCacheController(k8sInterface k8s.Interface, _ kubemeta.Interface, _ dynamic.Interface, clusterID string) error {
+func (b *builder) updateCacheController(clients kube.Client, clusterID string) error {
 	if err := b.deleteCacheController(clusterID); err != nil {
 		return err
 	}
-	return b.createCacheController(k8sInterface, nil, nil, clusterID)
+	return b.createCacheController(clients, clusterID)
 }
 
 func (b *builder) deleteCacheController(clusterID string) error {
@@ -426,6 +426,7 @@ func initMultiClusterSecretController(b *builder, kubeconfig string, env adapter
 	if err != nil {
 		return fmt.Errorf("could not create K8s client: %v", err)
 	}
+
 	_ = secretcontroller.StartSecretController(kubeClient, b.createCacheController,
 		b.updateCacheController, b.deleteCacheController, clusterNs)
 

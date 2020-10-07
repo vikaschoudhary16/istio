@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -176,10 +176,10 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		}
 
 		// This is K8S typically
+		service.Mutex.RLock()
 		if out == nil {
 			out = service.DeepCopy()
 		} else {
-			service.Mutex.RLock()
 			// ClusterExternalAddresses and ClusterExternalPorts are only used for getting gateway address
 			externalAddrs := service.Attributes.ClusterExternalAddresses[r.Cluster()]
 			if len(externalAddrs) > 0 {
@@ -195,32 +195,10 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 				}
 				out.Attributes.ClusterExternalPorts[r.Cluster()] = externalPorts
 			}
-			service.Mutex.RUnlock()
 		}
+		service.Mutex.RUnlock()
 	}
 	return out, errs
-}
-
-// ManagementPorts retrieves set of health check ports by instance IP
-// Return on the first hit.
-func (c *Controller) ManagementPorts(addr string) model.PortList {
-	for _, r := range c.GetRegistries() {
-		if portList := r.ManagementPorts(addr); portList != nil {
-			return portList
-		}
-	}
-	return nil
-}
-
-// WorkloadHealthCheckInfo returne the health check information for IP addr
-// Return on the first hit.
-func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	for _, r := range c.GetRegistries() {
-		if probeList := r.WorkloadHealthCheckInfo(addr); probeList != nil {
-			return probeList
-		}
-	}
-	return nil
 }
 
 // InstancesByPort retrieves instances for a service on a given port that match
@@ -279,7 +257,7 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	// TODO: if otherwise, warning or else what to do about it.
 	for _, r := range c.GetRegistries() {
 		nodeClusterID := nodeClusterID(node)
-		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName.Get()) {
+		if skipSearchingRegistryForProxy(nodeClusterID, r.Cluster(), features.ClusterName) {
 			log.Debugf("GetProxyServiceInstances(): not searching registry %v: proxy %v CLUSTER_ID is %v",
 				r.Cluster(), node.ID, nodeClusterID)
 			continue
@@ -290,7 +268,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 			errs = multierror.Append(errs, err)
 		} else if len(instances) > 0 {
 			out = append(out, instances...)
-			node.ClusterID = instances[0].Endpoint.Locality.ClusterID
 			break
 		}
 	}
@@ -341,6 +318,16 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	log.Info("Registry Aggregator terminated")
 }
 
+// HasSynced returns true when all registries have synced
+func (c *Controller) HasSynced() bool {
+	for _, r := range c.GetRegistries() {
+		if !r.HasSynced() {
+			return false
+		}
+	}
+	return true
+}
+
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	for _, r := range c.GetRegistries() {
@@ -357,6 +344,16 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	for _, r := range c.GetRegistries() {
 		if err := r.AppendInstanceHandler(f); err != nil {
 			log.Infof("Fail to append instance handler to adapter %s", r.Provider())
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
+	for _, r := range c.GetRegistries() {
+		if err := r.AppendWorkloadHandler(f); err != nil {
+			log.Infof("Fail to append workload handler to adapter %s", r.Provider())
 			return err
 		}
 	}

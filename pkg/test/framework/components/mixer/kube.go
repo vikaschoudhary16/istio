@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -15,18 +15,20 @@
 package mixer
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 
 	"google.golang.org/grpc"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istioMixerV1 "istio.io/api/mixer/v1"
 
 	"istio.io/istio/mixer/pkg/server"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -35,23 +37,18 @@ var _ io.Closer = &kubeComponent{}
 
 type kubeComponent struct {
 	id resource.ID
-
 	*client
-
-	env     *kube.Environment
-	cluster kube.Cluster
+	cluster resource.Cluster
 }
 
 // NewKubeComponent factory function for the component
 func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 	c := &kubeComponent{
-		env:     ctx.Environment().(*kube.Environment),
-		cluster: kube.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
+		cluster: ctx.Clusters().GetOrDefault(cfgIn.Cluster),
 	}
 
 	c.client = &client{
 		local: false,
-		env:   c.env,
 
 		// Use the DefaultArgs to get config identity attribute
 		args:    server.DefaultArgs(),
@@ -69,8 +66,8 @@ func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 		if serviceType == policyService {
 			ns = cfg.PolicyNamespace
 		}
-		fetchFn := c.cluster.NewSinglePodFetch(ns, "istio=mixer", "istio-mixer-type="+serviceType)
-		pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
+		fetchFn := kube2.NewSinglePodFetch(c.cluster, ns, "istio=mixer", "istio-mixer-type="+serviceType)
+		pods, err := kube2.WaitUntilPodsAreReady(fetchFn)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +81,7 @@ func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 		}
 		scopes.Framework.Debugf("extracted grpc port for service: %v", port)
 
-		forwarder, err := c.cluster.NewPortForwarder(pod, 0, port)
+		forwarder, err := c.cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(port))
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +127,7 @@ func (c *kubeComponent) Close() error {
 }
 
 func (c *kubeComponent) getGrpcPort(ns, serviceType string) (uint16, error) {
-	svc, err := c.cluster.GetService(ns, "istio-"+serviceType)
+	svc, err := c.cluster.CoreV1().Services(ns).Get(context.TODO(), "istio-"+serviceType, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", serviceType, err)
 	}

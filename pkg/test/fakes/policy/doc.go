@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,6 @@
 // limitations under the License.
 
 // nolint
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a pkg/test/fakes/policy/config.proto -x "-s=false -n policybackend -t checknothing -t keyval"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a pkg/test/fakes/policy/config.proto -x "-s=false -n policybackend -t checknothing -t keyval -d example"
 
 package policy

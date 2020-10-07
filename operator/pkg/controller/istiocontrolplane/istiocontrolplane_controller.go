@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,11 +44,11 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	version2 "istio.io/istio/operator/version"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -60,32 +60,34 @@ const (
 )
 
 var (
+	restConfig *rest.Config
 	// watchedResources contains all resources we will watch and reconcile when changed
 	// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
 	// a type that does not yet exist.
 	watchedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
-		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
-		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
-		{Group: "apps", Version: "v1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
-		{Group: "", Version: "v1", Kind: "Service"},
-		// {Group: "", Version: "v1", Kind: "Endpoints"},
-		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
-		{Group: "", Version: "v1", Kind: "Pod"},
-		{Group: "", Version: "v1", Kind: "Secret"},
-		{Group: "", Version: "v1", Kind: "ServiceAccount"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "Role"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
-		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
+		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
+		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
+		{Group: "apps", Version: "v1", Kind: name.StatefulSetStr},
+		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
+		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
+		{Group: "extensions", Version: "v1beta1", Kind: name.IngressStr},
+		{Group: "", Version: "v1", Kind: name.ServiceStr},
+		// Endpoints should not be pruned because these are generated and not in the manifest.
+		// {Group: "", Version: "v1", Kind: name.EndpointStr},
+		{Group: "", Version: "v1", Kind: name.CMStr},
+		{Group: "", Version: "v1", Kind: name.PVCStr},
+		{Group: "", Version: "v1", Kind: name.PodStr},
+		{Group: "", Version: "v1", Kind: name.SecretStr},
+		{Group: "", Version: "v1", Kind: name.SAStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: name.RoleStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.ValidatingWebhookConfigurationStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
+		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
 	}
 
 	ownedResourcePredicates = predicate.Funcs{
@@ -104,7 +106,6 @@ var (
 				return false
 			}
 			unsObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(e.Object)
-
 			if err != nil {
 				return false
 			}
@@ -112,7 +113,11 @@ var (
 				crName := obj.GetLabels()[helmreconciler.OwningResourceName]
 				crNamespace := obj.GetLabels()[helmreconciler.OwningResourceNamespace]
 				componentName := obj.GetLabels()[helmreconciler.IstioComponentLabelStr]
-				crHash := strings.Join([]string{crName, crNamespace, componentName}, "-")
+				var host string
+				if restConfig != nil {
+					host = restConfig.Host
+				}
+				crHash := strings.Join([]string{crName, crNamespace, componentName, host}, "-")
 				oh := object.NewK8sObject(&unstructured.Unstructured{Object: unsObj}, nil, nil).Hash()
 				cache.RemoveObject(crHash, oh)
 				return true
@@ -153,6 +158,15 @@ var (
 	}
 )
 
+// NewReconcileIstioOperator creates a new ReconcileIstioOperator and returns a ptr to it.
+func NewReconcileIstioOperator(client client.Client, config *rest.Config, scheme *runtime.Scheme) *ReconcileIstioOperator {
+	return &ReconcileIstioOperator{
+		client: client,
+		config: config,
+		scheme: scheme,
+	}
+}
+
 // ReconcileIstioOperator reconciles a IstioOperator object
 type ReconcileIstioOperator struct {
 	// This client, initialized using mgr.Client() above, is a split client
@@ -188,7 +202,9 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		log.Errorf("error getting IstioOperator iop: %s", err)
 		return reconcile.Result{}, err
 	}
-
+	if iop.Spec == nil {
+		iop.Spec = &v1alpha1.IstioOperatorSpec{Profile: name.DefaultProfileName}
+	}
 	deleted := iop.GetDeletionTimestamp() != nil
 	finalizers := sets.NewString(iop.GetFinalizers()...)
 	if deleted {
@@ -320,17 +336,13 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 	if err != nil {
 		return nil, err
 	}
-	mvs := version2.OperatorBinaryVersion.MinorVersion
-	t, err := translate.NewReverseTranslator(mvs)
-	if err != nil {
-		return nil, fmt.Errorf("error creating values.yaml translator: %s", err)
-	}
+	t := translate.NewReverseTranslator()
 	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
 	if err != nil {
 		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
 
-	mergedYAML, err := util.OverlayYAML(profileYAML, overlayYAML)
+	mergedYAML, err := util.OverlayIOP(profileYAML, overlayYAML)
 	if err != nil {
 		return nil, err
 	}
@@ -351,6 +363,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 // Add creates a new IstioOperator Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
+	restConfig = mgr.GetConfig()
 	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()})
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,11 @@ import (
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -76,7 +80,8 @@ type listenFunc func(network string, address string) (net.Listener, error)
 type patchTable struct {
 	newRuntime func(s store.Store, templates map[string]*template.Info, adapters map[string]*adapter.Info,
 		defaultConfigNamespace string, executorPool *pool.GoroutinePool,
-		handlerPool *pool.GoroutinePool, enableTracing bool) *runtime.Runtime
+		handlerPool *pool.GoroutinePool, enableTracing bool,
+		namespaces []string) *runtime.Runtime
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
 	startMonitor  func(port uint16, enableProfiling bool, lf listenFunc) (*monitor, error)
 	listen        listenFunc
@@ -207,6 +212,15 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 		return nil, fmt.Errorf("unable to initialize config store: %v", err)
 	}
 
+	var namespaces []string
+
+	if a.WatchedNamespaces != "" {
+		namespaces = strings.Split(a.WatchedNamespaces, ",")
+		namespaces = append(namespaces, a.ConfigDefaultNamespace)
+	} else {
+		namespaces = []string{metav1.NamespaceAll}
+	}
+
 	// block wait for the config store to sync
 	log.Info("Awaiting for config store sync...")
 	if err := st.WaitForSynced(a.ConfigWaitTimeout); err != nil {
@@ -215,7 +229,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	s.configStore = st
 	log.Info("Starting runtime config watch...")
 	rt := p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
-		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
+		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled(), namespaces)
 
 	if err = p.runtimeListen(rt); err != nil {
 		return nil, fmt.Errorf("unable to listen: %v", err)
@@ -253,6 +267,9 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
+	envoyServer := api.NewGRPCServerEnvoy(s.dispatcher, s.gp, s.checkCache, throttler)
+	authz.RegisterAuthorizationServer(s.server, envoyServer)
+	accesslog.RegisterAccessLogServiceServer(s.server, envoyServer)
 
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)

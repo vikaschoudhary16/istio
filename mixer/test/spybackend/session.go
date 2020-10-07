@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n spybackend-session -s=true -t metric -t quota -t listentry -o session.yaml
+//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n spybackend-session -s=true -t metric -t quota -t listentry -o session.yaml -d example
 
 package spybackend
 
