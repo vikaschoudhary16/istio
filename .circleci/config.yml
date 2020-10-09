@@ -48,7 +48,7 @@ jobs:
       - run: docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
       - run:
           no_output_timeout: 20m
-          command: BUILD_WITH_CONTAINER=1 DOCKER_BUILD_VARIANTS="default distroless" VERSION=${CIRCLE_TAG:-${CIRCLE_SHA1}} make -k init gen-charts docker.all push
+          command: BUILD_WITH_CONTAINER=1 DOCKER_BUILD_VARIANTS="default distroless" VERSION=${CIRCLE_TAG:-${CIRCLE_SHA1}} TAG=${CIRCLE_TAG:-${CIRCLE_SHA1}} make -k init gen-charts docker.all push
   # dockerpush:
   #   <<: *defaults
   #   resource_class: xlarge
