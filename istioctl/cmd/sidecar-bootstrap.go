@@ -50,13 +50,19 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istioconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+)
+
+const (
+	meshNetworksConfigMapKey = "meshNetworks"
 )
 
 type BootstrapBundle = bootstrapBundle.BootstrapBundle
@@ -139,6 +145,33 @@ func getConfigValuesFromConfigMap(kubeconfig string) (*istioconfig.Values, error
 		return nil, fmt.Errorf("failed to unmarshal Istio config values: %w", err)
 	}
 	return values, nil
+}
+
+func getMeshNetworksFromConfigMap(kubeconfig, command string) (*meshconfig.MeshNetworks, error) {
+	client, err := interfaceFactory(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not read valid configmap %q from namespace %q: %v - "+
+			"Use --meshConfigFile or re-run "+command+" with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
+			meshConfigMapName, istioNamespace, err)
+	}
+	// values in the data are strings, while proto might use a
+	// different data type.  therefore, we have to get a value by a
+	// key
+	configYaml, exists := meshConfigMap.Data[meshNetworksConfigMapKey]
+	if !exists {
+		return nil, fmt.Errorf("missing configuration map key %q", meshNetworksConfigMapKey)
+	}
+	cfg, err := mesh.ParseMeshNetworks(configYaml)
+	if err != nil {
+		err = multierror.Append(err, fmt.Errorf("istioctl version %s cannot parse mesh config.  Install istioctl from the latest Istio release",
+			version.Info.Version))
+	}
+	return cfg, err
 }
 
 func getExpansionProxyConfig(kubeClient kubernetes.Interface, namespace string) (string, error) {
@@ -270,6 +303,61 @@ func getIstioCaCert(kubeClient kubernetes.Interface, namespace string) ([]byte, 
 	return []byte(caCert), nil
 }
 
+func getIstioIngressGatewayAddress(kubeClient kubernetes.Interface, istioNamespace string,
+	meshConfig *meshconfig.MeshConfig,
+	meshNetworksConfig *meshconfig.MeshNetworks,
+	istioConfigValues *istioconfig.Values) (string, error) {
+	var istioGatewayServiceName, istioGatewayServiceNamespace, istioGatewayServiceSource string
+	var istioGatewayAddress string
+
+	if network := meshNetworksConfig.GetNetworks()[istioConfigValues.GetGlobal().GetNetwork()]; network != nil {
+		for _, gateway := range network.GetGateways() {
+			if svcName := gateway.GetRegistryServiceName(); svcName != "" && istioGatewayServiceName == "" {
+				istioGatewayServiceName, istioGatewayServiceNamespace = bootstrapBundle.SplitServiceAndNamespace(svcName, "")
+				istioGatewayServiceSource = "MeshNetworks"
+			}
+			if address := gateway.GetAddress(); address != "" && istioGatewayAddress == "" {
+				istioGatewayAddress = address
+			}
+		}
+	}
+
+	if istioGatewayServiceName == "" && istioGatewayAddress == "" {
+		if value := meshConfig.GetIngressService(); value != "" {
+			istioGatewayServiceName, istioGatewayServiceNamespace = value, istioNamespace
+			istioGatewayServiceSource = "MeshConfig.IngressService"
+		} else {
+			istioGatewayServiceName, istioGatewayServiceNamespace = "istio-ingressgateway", istioNamespace // fallback value according to Istio docs
+			istioGatewayServiceSource = "default"
+		}
+	}
+
+	if istioGatewayServiceName != "" {
+		ingressSvc, err := getIstioIngressGatewayService(kubeClient, istioGatewayServiceNamespace, istioGatewayServiceName)
+		if err != nil {
+			return "", fmt.Errorf("unable to find Istio Ingress Gateway inferred from %s settings: %w", istioGatewayServiceSource, err)
+		}
+
+		if err := verifyMeshExpansionPorts(ingressSvc); err != nil {
+			return "", fmt.Errorf("it appears that Istio Ingress Gateway inferred from %s settings is not configured for mesh expansion: %w",
+				istioGatewayServiceSource, err)
+		}
+
+		istioGatewayAddress, err = getLoadBalancerAddress(ingressSvc)
+		if err != nil {
+			return "", fmt.Errorf("unable to determine address of the Istio Ingress Gateway inferred from %s settings: %w",
+				istioGatewayServiceSource, err)
+		}
+	}
+
+	if istioGatewayAddress == "" {
+		return "", fmt.Errorf("unable to infer address of the Istio Ingress Gateway neither from MeshNetworks, nor from MeshConfig," +
+			" nor from default settings")
+	}
+
+	return istioGatewayAddress, nil
+}
+
 func getIstioIngressGatewayService(kubeClient kubernetes.Interface, namespace, service string) (*corev1.Service, error) {
 	svc, err := kubeClient.CoreV1().Services(namespace).Get(context.TODO(), service, metav1.GetOptions{})
 	if err != nil {
@@ -299,19 +387,19 @@ func verifyMeshExpansionPorts(svc *corev1.Service) error {
 	return nil
 }
 
-func getIstioIngressGatewayAddress(svc *corev1.Service) (string, error) {
+func getLoadBalancerAddress(svc *corev1.Service) (string, error) {
 	if len(svc.Status.LoadBalancer.Ingress) == 0 {
 		return "", fmt.Errorf("k8s Service %s has no ingress points", resourceURI("v1", "services", svc.Namespace, svc.Name))
 	}
-	// prefer ingress point with IP
+	// prefer ingress point with DNS name
 	for _, endpoint := range svc.Status.LoadBalancer.Ingress {
-		if value := endpoint.IP; value != "" {
+		if value := endpoint.Hostname; value != "" {
 			return value, nil
 		}
 	}
-	// fallback to ingress point with Hostname
+	// fallback to ingress point with IP
 	for _, endpoint := range svc.Status.LoadBalancer.Ingress {
-		if value := endpoint.Hostname; value != "" {
+		if value := endpoint.IP; value != "" {
 			return value, nil
 		}
 	}
@@ -830,6 +918,11 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 				return fmt.Errorf("failed to read Istio Mesh configuration: %w", err)
 			}
 
+			meshNetworksConfig, err := getMeshNetworksFromConfigMap(kubeconfig, c.CommandPath())
+			if err != nil {
+				return fmt.Errorf("failed to read Istio Mesh Networks configuration: %w", err)
+			}
+
 			istioConfigValues, err := getConfigValuesFromConfigMap(kubeconfig)
 			if err != nil {
 				return fmt.Errorf("failed to read Istio global values: %w", err)
@@ -858,22 +951,9 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 				return fmt.Errorf("unable to find Istio CA cert: %w", err)
 			}
 
-			ingressServiceName := "istio-ingressgateway" // fallback value according to Istio docs
-			if value := meshConfig.GetIngressService(); value != "" {
-				ingressServiceName = value
-			}
-			ingressSvc, err := getIstioIngressGatewayService(kubeClient, istioNamespace, ingressServiceName)
+			istioGatewayAddress, err := getIstioIngressGatewayAddress(kubeClient, istioNamespace, meshConfig, meshNetworksConfig, istioConfigValues)
 			if err != nil {
-				return fmt.Errorf("unable to find Istio Ingress Gateway: %w", err)
-			}
-
-			if err := verifyMeshExpansionPorts(ingressSvc); err != nil {
-				return fmt.Errorf("unable to proceed because Istio Ingress Gateway is not configured for mesh expansion: %w", err)
-			}
-
-			istioGatewayAddress, err := getIstioIngressGatewayAddress(ingressSvc)
-			if err != nil {
-				return fmt.Errorf("unable to find address of the Istio Ingress Gateway: %w", err)
+				return fmt.Errorf("unable to proceed because mesh expansion is either disabled or misconfigured: %w", err)
 			}
 
 			identities, err := getIdentityForEachWorkload(kubeClient, entries)

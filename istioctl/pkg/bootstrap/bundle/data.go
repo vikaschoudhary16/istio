@@ -523,7 +523,7 @@ func (d *SidecarData) GetIstioProxyHosts() []string {
 		if !isClusterLocal(host) {
 			continue // skip non- cluster local address
 		}
-		svc, ns := splitServiceAndNamespace(host, d.Workload.Namespace)
+		svc, ns := SplitServiceAndNamespace(host, d.Workload.Namespace)
 		hosts = append(hosts, getClusterLocalAliases(svc, ns)...)
 	}
 	return hosts
@@ -604,7 +604,7 @@ func isClusterLocal(host string) bool {
 	}
 }
 
-func splitServiceAndNamespace(host, workloadNamespace string) (string, string) {
+func SplitServiceAndNamespace(host, workloadNamespace string) (string, string) {
 	segments := strings.SplitN(host, ".", 3)
 	if len(segments) > 1 {
 		return segments[0], segments[1]
@@ -623,12 +623,12 @@ func getClusterLocalAliases(svc, ns string) []string {
 }
 
 func shortClusterLocalAlias(host, workloadNamespace string) string {
-	svc, ns := splitServiceAndNamespace(host, workloadNamespace)
+	svc, ns := SplitServiceAndNamespace(host, workloadNamespace)
 	return fmt.Sprintf("%s.%s.svc", svc, ns)
 }
 
 func canonicalClusterLocalAlias(host, workloadNamespace string) string {
-	svc, ns := splitServiceAndNamespace(host, workloadNamespace)
+	svc, ns := SplitServiceAndNamespace(host, workloadNamespace)
 	return fmt.Sprintf("%s.%s.svc.cluster.local", svc, ns)
 }
 

@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/gomega"
+
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -333,4 +335,205 @@ func TestVmBundleCreate(t *testing.T) {
 	// and with shell env variable.
 	testfunc(t, "$TEST_VM_DIR")
 
+}
+
+func TestVmBootstrap_IstioIngressGatewayAddress(t *testing.T) {
+	testCases := []struct {
+		name            string
+		k8sConfig       []runtime.Object
+		expectedAddress string
+	}{
+		{
+			name: "minial mesh expansion configuration (just `values.meshExpansion.enabled` flag)",
+			k8sConfig: []runtime.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "istio-system",
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istio",
+						Namespace: "istio-system",
+					},
+					Data: map[string]string{
+						"mesh":         "",
+						"meshNetworks": "networks: {}",
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istio-sidecar-injector",
+						Namespace: "istio-system",
+					},
+					Data: map[string]string{
+						"values": `{}`,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istio-ingressgateway",
+						Namespace: "istio-system",
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{Name: "tcp-istiod", Port: 15012},
+							{Name: "tls", Port: 15443},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{Hostname: "x.y.z"},
+								{IP: "1.2.3.4"},
+							},
+						},
+					},
+				},
+			},
+			expectedAddress: "x.y.z",
+		},
+		{
+			name: "mesh expansion configuration with an alternative network Gateway Service",
+			k8sConfig: []runtime.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "istio-system",
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istio",
+						Namespace: "istio-system",
+					},
+					Data: map[string]string{
+						"mesh": "",
+						"meshNetworks": `
+                          networks:
+                            "":
+                              endpoints:
+                              - fromRegistry: example
+                              gateways:
+                              - port: 15443
+                                registryServiceName: vmgateway.istio-system.svc.cluster.local
+`,
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istio-sidecar-injector",
+						Namespace: "istio-system",
+					},
+					Data: map[string]string{
+						"values": `{}`,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "vmgateway",
+						Namespace: "istio-system",
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{Name: "tcp-istiod", Port: 15012},
+							{Name: "tls", Port: 15443},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.2.3.4"},
+							},
+						},
+					},
+				},
+			},
+			expectedAddress: "1.2.3.4",
+		},
+		{
+			name: "mesh expansion configuration with a custom network gateway",
+			k8sConfig: []runtime.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "istio-system",
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istio",
+						Namespace: "istio-system",
+					},
+					Data: map[string]string{
+						"mesh": "",
+						"meshNetworks": `
+                          networks:
+                            "vpc1":
+                              gateways:
+                              - port: 15443
+                                address: a.b.c
+                            "irrelevant":
+                              endpoints:
+                              - fromRegistry: example
+                              gateways:
+                              - port: 15443
+                                registryServiceName: vmgateway.istio-system.svc.cluster.local
+`,
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "istio-sidecar-injector",
+						Namespace: "istio-system",
+					},
+					Data: map[string]string{
+						"values": `{
+                          "global": {
+                            "network": "vpc1"
+                          }
+                        }`,
+					},
+				},
+			},
+			expectedAddress: "a.b.c",
+		},
+	}
+
+	for i, testCase := range testCases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			backupInterfaceFactory := interfaceFactory
+			backupIstioNamespace := istioNamespace
+			backupMeshConfigMapName := meshConfigMapName
+			backupInjectConfigMapName := injectConfigMapName
+			defer func() {
+				interfaceFactory = backupInterfaceFactory
+				istioNamespace = backupIstioNamespace
+				meshConfigMapName = backupMeshConfigMapName
+				injectConfigMapName = backupInjectConfigMapName
+			}()
+
+			interfaceFactory = mockInterfaceFactoryGenerator(testCase.k8sConfig)
+			istioNamespace = "istio-system"
+			meshConfigMapName = defaultMeshConfigMapName
+			injectConfigMapName = defaultInjectConfigMapName
+
+			meshConfig, err := getMeshConfigFromConfigMap("", "")
+			g.Expect(err).NotTo(HaveOccurred())
+
+			meshNetworksConfig, err := getMeshNetworksFromConfigMap("", "")
+			g.Expect(err).NotTo(HaveOccurred())
+
+			istioConfigValues, err := getConfigValuesFromConfigMap("")
+			g.Expect(err).NotTo(HaveOccurred())
+
+			kubeClient, err := interfaceFactory("")
+			g.Expect(err).NotTo(HaveOccurred())
+
+			address, err := getIstioIngressGatewayAddress(kubeClient, istioNamespace, meshConfig, meshNetworksConfig, istioConfigValues)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			g.Expect(address).To(Equal(testCase.expectedAddress))
+		})
+	}
 }
