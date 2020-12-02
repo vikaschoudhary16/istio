@@ -299,3 +299,38 @@ func (f FakeKubeInterfaceGeneratorFunc) Configure(fn func(clientset *kubeFake.Cl
 		return clientset, nil
 	}
 }
+
+func TestVmBundleCreate(t *testing.T) {
+	var bundle BootstrapBundle
+
+	testfunc := func(t *testing.T, remoteDir string) {
+		items := processBundle(bundle, remoteDir)
+
+		// Verify that all files should go remote directory
+		for _, file := range items.filesToCopy {
+			if file.dir != remoteDir {
+				t.Fatal("Destination directory in bundle is not set properly")
+			}
+		}
+
+		// Verify that docker run command contains proper mapping for files.
+		filesToTest := []string{"istio-ca.pem", "istio-token", "k8s-ca.pem", "sidecar.env"}
+		for _, execCmd := range items.cmdsToExec {
+			if strings.Contains(execCmd.cmd, "docker run") {
+				// check all files.
+				for _, testFile := range filesToTest {
+					if !strings.Contains(execCmd.cmd, remoteDir+"/"+testFile) {
+						t.Fatalf("docker run command for file %s is not formatted properly: %s", testFile, execCmd.cmd)
+					}
+				}
+			}
+		}
+	}
+
+	// Now test with real directory
+	testfunc(t, "/var/sshtest/dir")
+
+	// and with shell env variable.
+	testfunc(t, "$TEST_VM_DIR")
+
+}

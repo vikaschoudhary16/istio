@@ -65,7 +65,8 @@ type SidecarData = bootstrapBundle.SidecarData
 var resourceURI = bootstrapUtil.ResourceURI
 
 const (
-	defaultProxyConfigDir = "/tmp/istio-proxy" // the most reliable default value for out-of-the-box experience
+	defaultProxyConfigDir    = "/tmp/istio-proxy" // the most reliable default value for out-of-the-box experience
+	offlineProxyConfigDirEnv = "VM_FILES_DIR"     // env variable used in scripts for offline onboarding
 )
 
 var (
@@ -401,13 +402,8 @@ func processWorkloads(
 	return nil
 }
 
-func processBundle(bundle BootstrapBundle) bootstrapItems {
+func processBundle(bundle BootstrapBundle, remoteDir string) bootstrapItems {
 	var files []fileToCopy
-
-	remoteDir := defaultProxyConfigDir
-	if value := bundle.Workload.Annotations[bootstrapAnnotation.ProxyConfigDir.Name]; value != "" {
-		remoteDir = value
-	}
 
 	configFilePerm := os.FileMode(0644)
 	secretFilePerm := os.FileMode(0640)
@@ -452,15 +448,15 @@ func processBundle(bundle BootstrapBundle) bootstrapItems {
 		"host", // you need to deal with Sidecar CR if you want it to be "non-captured" mode
 		"-v",
 		// "./var/run/secrets/istio/root-cert.pem" is a hardcoded value in `istio-agent` that corresponds to `PILOT_CERT_PROVIDER == istiod`
-		path.Join(remoteDir, "istio-ca.pem") + ":" + "/var/run/secrets/istio/root-cert.pem",
+		remoteDir + "/istio-ca.pem" + ":" + "/var/run/secrets/istio/root-cert.pem",
 		"-v",
 		// "./var/run/secrets/tokens/istio-token" is a hardcoded value in `istio-agent` that corresponds to `JWT_POLICY == third-party-jwt`
-		path.Join(remoteDir, "istio-token") + ":" + "/var/run/secrets/tokens/istio-token",
+		remoteDir + "/istio-token" + ":" + "/var/run/secrets/tokens/istio-token",
 		"-v",
 		// "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt" is a well-known k8s path heavily abused in k8s world
-		path.Join(remoteDir, "k8s-ca.pem") + ":" + "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+		remoteDir + "/k8s-ca.pem" + ":" + "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
 		"--env-file",
-		path.Join(remoteDir, "sidecar.env"),
+		remoteDir + "/sidecar.env",
 	}
 
 	for _, host := range bundle.IstioProxyHosts {
@@ -503,6 +499,8 @@ func dumpBootstrapBundle(outputDir string, items bootstrapItems) error {
 
 	// Create a script to start proxy.
 	content := "#!/usr/bin/env bash\n"
+	// setup offlineProxyConfigDirEnv to point to the directory where the script is located.
+	content += offlineProxyConfigDirEnv + "=$( cd $(dirname $0) >/dev/null 2>&1 ; pwd -P )\n"
 	for _, command := range items.cmdsToExec {
 		content += command.cmd + "\n"
 	}
@@ -891,7 +889,7 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 					if err != nil && !os.IsExist(err) {
 						return fmt.Errorf("failed to create a local output directory %q: %w", bundleDir, err)
 					}
-					return dumpBootstrapBundle(bundleDir, processBundle(bundle))
+					return dumpBootstrapBundle(bundleDir, processBundle(bundle, "$"+offlineProxyConfigDirEnv))
 				}
 			} else {
 				sshConfig, err := parseSSHConfig(c.InOrStdin(), c.ErrOrStderr())
@@ -924,7 +922,11 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 						client:   sshClient,
 						scp:      scpOpts,
 					}
-					return copyBootstrapBundle(*sshConfig, sshParams, processBundle(bundle))
+					remoteDir := defaultProxyConfigDir
+					if value := bundle.Workload.Annotations[bootstrapAnnotation.ProxyConfigDir.Name]; value != "" {
+						remoteDir = value
+					}
+					return copyBootstrapBundle(*sshConfig, sshParams, processBundle(bundle, remoteDir))
 				}
 			}
 
