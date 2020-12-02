@@ -47,6 +47,7 @@ import (
 	bootstrapSsh "istio.io/istio/istioctl/pkg/bootstrap/ssh"
 	bootstrapSshFake "istio.io/istio/istioctl/pkg/bootstrap/ssh/fake"
 	bootstrapUtil "istio.io/istio/istioctl/pkg/bootstrap/util"
+	"istio.io/istio/istioctl/pkg/help/markdown"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istioconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
@@ -803,12 +804,12 @@ In that case you will be able to transfer files to the remote node(s) using a me
 
 If you choose to copy generated files to the remote node(s) over SSH, you will be required to provide SSH credentials,
 i.e. either SSH Key or SSH Password.
-If you want to use SSH Password or passphrase-protected SSH Key, you must run this command on an interactive terminal to type the password in.
+If you want to use an SSH Password or a passphrase-protected SSH Key, you must run this command on an interactive terminal to type the password in.
 We do not accept passwords through command line options to avoid leaking secrets into shell history.
 
 File copying is performed over SCP protocol, and as such SCP binary must be installed on the remote node.
-If SCP is installed in a location other than "/usr/bin/scp", you have to provide absolute path to the SCP binary
-by adding %[1]q annotation to the respective WorkloadEntry resource.
+If SCP is installed in a location other than %[1]s, you have to provide absolute path to the SCP binary
+by adding %[2]s annotation to the respective WorkloadEntry resource.
 
 To start Istio Sidecar on the remote node you must have Docker installed there.
 Istio Sidecar will be started on the host network as a docker container in capture mode.
@@ -816,7 +817,7 @@ Istio Sidecar will be started on the host network as a docker container in captu
 While this command can work without any explicit configuration, it is also possible to fine tune its behavior
 by adding various annotations on a WorkloadEntry resource. E.g., consider the following real life example:
 
-  apiVersion: networking.istio.io/v1beta1
+`+markdown.CodeBlock("yaml", "  ", `  apiVersion: networking.istio.io/v1beta1
   kind: WorkloadEntry
   metadata:
     annotations:
@@ -838,9 +839,12 @@ by adding various annotations on a WorkloadEntry resource. E.g., consider the fo
                                                                     # to be able to narrow down label selectors to VM workloads only
     network: on-premise                                             # If your VM doesn't have L3 connectivity to k8s Pods,
                                                                     # make sure to fill in network field
-    serviceAccount: ratings-sa
+    serviceAccount: ratings-sa`)+`
 
-For a complete list of supported annotations run '%[2]s sidecar-bootstrap --docs'.`, bootstrapAnnotation.ScpPath.Name, opts.ParentCommandDocPath),
+For a complete list of supported annotations run %[3]s.`,
+			markdown.InlineCode("/usr/bin/scp"),
+			markdown.InlineCode(bootstrapAnnotation.ScpPath.Name),
+			markdown.InlineCode(fmt.Sprintf("%s sidecar-bootstrap --docs", opts.ParentCommandDocPath))),
 		Example: fmt.Sprintf(`  # Show under-the-hood actions to copy workload identity of a VM represented by a given WorkloadEntry:
   %[1]s sidecar-bootstrap my-vm.my-namespace --dry-run
 

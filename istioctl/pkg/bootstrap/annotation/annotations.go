@@ -16,6 +16,7 @@ package annotation
 
 import (
 	"istio.io/api/annotation"
+	"istio.io/istio/istioctl/pkg/help/markdown"
 )
 
 type Instance = annotation.Instance
@@ -29,7 +30,7 @@ By default, config map is considered undefined and thus the only way to find out
 the root cert of a k8s CA is
 1) either to read a k8s Secret with a ServiceAccountToken, which among other things
    holds the root cert of a k8s CA
-2) or to read the root cert of a k8s CA from the "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+2) or to read the root cert of a k8s CA from the ` + markdown.InlineCode("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt") + `
    file, which is auto-mounted into Pods by k8s`,
 	}
 
@@ -39,7 +40,7 @@ the root cert of a k8s CA is
 Istio Proxies that expand the mesh.
 
 This configuration is applied on top of mesh-wide default ProxyConfig,
-but prior to the workload-specific ProxyConfig from "proxy.istio.io/config" annotation
+but prior to the workload-specific ProxyConfig from ` + markdown.InlineCode("proxy.istio.io/config") + ` annotation
 on a WorkloadEntry.
 
 By default, config map is considered undefined and thus expansion proxies will
@@ -49,12 +50,12 @@ have the same configuration as the regular ones.`,
 	SSHHost = Instance{
 		Name: "sidecar-bootstrap.istio.io/ssh-host",
 		Description: `IP address or DNS name of the machine represented by this WorkloadEntry to use
-instead of WorkloadEntry.Address for SSH connections initiated by the "sidecar-bootstrap" command.
+instead of WorkloadEntry.Address for SSH connections initiated by the ` + markdown.InlineCode("sidecar-bootstrap") + ` command.
 
-This setting is intended for those scenarios where "sidecar-bootstrap" command
+This setting is intended for those scenarios where ` + markdown.InlineCode("sidecar-bootstrap") + ` command
 will be run on a machine without direct connectivity to the WorkloadEntry.Address.
-E.g., one might set WorkloadEntry.Address to the "internal IP" of a VM
-and set value of this annotation to the "external IP" of that VM.
+E.g., one might set WorkloadEntry.Address to the ` + markdown.InlineCode("Internal IP") + ` of a VM
+and set value of this annotation to the ` + markdown.InlineCode("External IP") + ` of that VM.
 
 By default, value of WorkloadEntry.Address is assumed.`,
 	}
@@ -62,7 +63,7 @@ By default, value of WorkloadEntry.Address is assumed.`,
 	SSHPort = Instance{
 		Name: "sidecar-bootstrap.istio.io/ssh-port",
 		Description: `Port of the SSH server on the machine represented by this WorkloadEntry to use
-for SSH connections initiated by the "sidecar-bootstrap" command.
+for SSH connections initiated by the ` + markdown.InlineCode("sidecar-bootstrap") + ` command.
 
 By default, "22" is assumed.`,
 	}
@@ -70,25 +71,25 @@ By default, "22" is assumed.`,
 	SSHUser = Instance{
 		Name: "sidecar-bootstrap.istio.io/ssh-user",
 		Description: `User on the machine represented by this WorkloadEntry to use for SSH connections
-initiated by the "sidecar-bootstrap" command.
+initiated by the ` + markdown.InlineCode("sidecar-bootstrap") + ` command.
 
 Make sure that user has enough permissions to create the config dir and
-to run Docker container without "sudo".
+to run Docker container without ` + markdown.InlineCode("sudo") + `.
 
-By default, a user running "sidecar-bootstrap" command is assumed.`,
+By default, a user running ` + markdown.InlineCode("sidecar-bootstrap") + ` command is assumed.`,
 	}
 
 	ScpPath = Instance{
 		Name: "sidecar-bootstrap.istio.io/scp-path",
-		Description: `Path to the "scp" binary on the machine represented by this WorkloadEntry to use
-in SSH connections initiated by the "sidecar-bootstrap" command.
+		Description: `Path to the ` + markdown.InlineCode("scp") + ` binary on the machine represented by this WorkloadEntry to use
+in SSH connections initiated by the ` + markdown.InlineCode("sidecar-bootstrap") + ` command.
 
 By default, "/usr/bin/scp" is assumed.`,
 	}
 
 	ProxyConfigDir = Instance{
 		Name: "sidecar-bootstrap.istio.io/proxy-config-dir",
-		Description: `Directory on the machine represented by this WorkloadEntry where "sidecar-bootstrap" command
+		Description: `Directory on the machine represented by this WorkloadEntry where ` + markdown.InlineCode("sidecar-bootstrap") + ` command
 should copy bootstrap bundle to.
 
 By default, "/tmp/istio-proxy" is assumed (the most reliable default value for out-of-the-box experience).`,
@@ -114,7 +115,7 @@ By default, "istio-proxy" is assumed.`,
 	ProxyInstanceIP = Instance{
 		Name: "sidecar-bootstrap.istio.io/proxy-instance-ip",
 		Description: `IP address of the machine represented by this WorkloadEntry that Istio Proxy
-should bind "inbound" listeners to.
+should bind ` + markdown.InlineCode("inbound") + ` listeners to.
 
 This setting is intended for those scenarios where Istio Proxy cannot bind to
 the IP address specified in the WorkloadEntry.Address (e.g., on AWS EC2 where
