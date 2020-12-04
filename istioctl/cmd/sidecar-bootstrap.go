@@ -15,7 +15,9 @@
 package cmd
 
 import (
+	"archive/tar"
 	"bufio"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -71,6 +73,11 @@ type SidecarData = bootstrapBundle.SidecarData
 
 var resourceURI = bootstrapUtil.ResourceURI
 
+var (
+	// overridable by unit tests
+	now = time.Now
+)
+
 const (
 	defaultProxyConfigDir    = "/tmp/istio-proxy" // the most reliable default value for out-of-the-box experience
 	offlineProxyConfigDirEnv = "VM_FILES_DIR"     // env variable used in scripts for offline onboarding
@@ -81,6 +88,8 @@ var (
 	all               bool
 	tokenDuration     time.Duration
 	outputDir         string
+	outputArchive     bool
+	outputArchivePath string
 	defaultSSHPort    int
 	defaultSSHUser    string
 	sshConnectTimeout time.Duration
@@ -600,30 +609,51 @@ func processBundle(bundle BootstrapBundle, remoteDir string) bootstrapItems {
 	return bootstrapItems{filesToCopy: files, cmdsToExec: commands}
 }
 
-func dumpBootstrapBundle(outputDir string, items bootstrapItems) error {
-	dump := func(filepath string, perm os.FileMode, content []byte) error {
-		err := ioutil.WriteFile(filepath, content, perm)
-		if err != nil {
-			return fmt.Errorf("failed to dump into a file %q: %w", filepath, err)
-		}
-		return nil
-	}
-	// Dump files.
+func writeBootstrapBundle(bundle BootstrapBundle, write func(filename string, perm os.FileMode, content []byte) error) error {
+	items := processBundle(bundle, fmt.Sprintf(`"${%s}"`, offlineProxyConfigDirEnv))
+
+	// write config files
 	for _, file := range items.filesToCopy {
-		if err := dump(path.Join(outputDir, file.name), file.perm, file.data); err != nil {
+		if err := write(path.Join("etc", file.name), file.perm, file.data); err != nil {
 			return err
 		}
 	}
 
-	// Create a script to start proxy.
-	content := "#!/usr/bin/env bash\n"
-	// setup offlineProxyConfigDirEnv to point to the directory where the script is located.
-	content += offlineProxyConfigDirEnv + "=$( cd $(dirname $0) >/dev/null 2>&1 ; pwd -P )\n"
+	// wrap individual commands into a start up script
+	content := fmt.Sprintf(`#!/usr/bin/env bash
+
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+SCRIPT_DIR=$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )
+
+BASE_DIR="${SCRIPT_DIR}/.."
+
+%s="${BASE_DIR}/etc"
+
+`, offlineProxyConfigDirEnv)
 	for _, command := range items.cmdsToExec {
-		content += command.cmd + "\n"
+		if command.required {
+			content += "set -e\n"
+		} else {
+			content += "set +e\n"
+		}
+		content += command.cmd + "\n\n"
 	}
 
-	if err := dump(path.Join(outputDir, "start-istio-proxy.sh"), os.FileMode(0755), []byte(content)); err != nil {
+	// write start up script
+	if err := write(path.Join("bin", "start-istio-proxy.sh"), os.FileMode(0755), []byte(content)); err != nil {
 		return err
 	}
 	return nil
@@ -811,6 +841,133 @@ func deriveSSHMethod(stdin io.Reader) (_ ssh.AuthMethod, errs error) {
 	return nil, errs
 }
 
+func writeToDir(outputDir string, multiEntry bool,
+	workloads []networking.WorkloadEntry, identities map[string]workloadIdentity, data *SidecarData) error {
+	action := func(bundle BootstrapBundle) error {
+		bundleDir := outputDir
+		if multiEntry {
+			bundleDir = filepath.Join(outputDir, bundle.Workload.Name)
+		}
+		err := os.MkdirAll(bundleDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create the output directory at %q: %w", bundleDir, err)
+		}
+		writeFunc := func(filename string, perm os.FileMode, content []byte) error {
+			filename = filepath.Join(bundleDir, filename)
+			dir := filepath.Dir(filename)
+			err := os.MkdirAll(dir, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create a directory at %q: %w", dir, err)
+			}
+			err = ioutil.WriteFile(filename, content, perm)
+			if err != nil {
+				return fmt.Errorf("failed to write to a file %q: %w", filename, err)
+			}
+			return nil
+		}
+		return writeBootstrapBundle(bundle, writeFunc)
+	}
+	return processWorkloads(workloads, identities, data, action)
+}
+
+func pickArchiveName(prefix string) (time.Time, string, error) {
+	maxAttempts := 15
+	for i := 0; i < maxAttempts; i++ {
+		creationTime := now()
+		outputPath := fmt.Sprintf("%s.%s.tgz", prefix, creationTime.Format("20060102150405"))
+		if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+			return creationTime, outputPath, nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return time.Time{}, "", fmt.Errorf("failed to automatically pick a name for the TGZ file after %d attempts", maxAttempts)
+}
+
+func writeToArchive(outputPath string, multiEntry bool, creationTime time.Time,
+	workloads []networking.WorkloadEntry, identities map[string]workloadIdentity, data *SidecarData) error {
+	dir := filepath.Dir(outputPath)
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create a directory with the output archive at %q: %w", dir, err)
+	}
+	outputFile, err := os.OpenFile(outputPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0640)
+	if err != nil {
+		return fmt.Errorf("failed to open file %q: %w", outputPath, err)
+	}
+	defer outputFile.Close()
+
+	gzipWriter, err := gzip.NewWriterLevel(outputFile, gzip.BestCompression)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip encoder %q: %w", outputPath, err)
+	}
+	defer gzipWriter.Close()
+
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer tarWriter.Close()
+
+	action := func(bundle BootstrapBundle) error {
+		bundleDir := ""
+		if multiEntry {
+			bundleDir = bundle.Workload.Name
+		}
+
+		writeFunc := func(filename string, perm os.FileMode, content []byte) error {
+			filename = path.Join(bundleDir, filename)
+			header := &tar.Header{
+				Name:    filename,
+				Mode:    int64(perm),
+				Size:    int64(len(content)),
+				ModTime: creationTime,
+			}
+			if err := tarWriter.WriteHeader(header); err != nil {
+				return fmt.Errorf("failed to add a file header %q to the TAR archive: %w", filename, err)
+			}
+			if _, err := tarWriter.Write(content); err != nil {
+				return fmt.Errorf("failed to write file contents %q to the TAR archive: %w", filename, err)
+			}
+			return nil
+		}
+		return writeBootstrapBundle(bundle, writeFunc)
+	}
+	return processWorkloads(workloads, identities, data, action)
+}
+
+func copyOverSSH(sshConfig *ssh.ClientConfig, stdout io.Writer, stderr io.Writer,
+	workloads []networking.WorkloadEntry, identities map[string]workloadIdentity, data *SidecarData) error {
+	action := func(bundle BootstrapBundle) error {
+		host := bundle.Workload.Spec.Address
+		if value := bundle.Workload.Annotations[bootstrapAnnotation.SSHHost.Name]; value != "" {
+			host = value
+		}
+		port := strconv.Itoa(defaultSSHPort)
+		if value := bundle.Workload.Annotations[bootstrapAnnotation.SSHPort.Name]; value != "" {
+			port = value
+		}
+		username := defaultSSHUser
+		if value := bundle.Workload.Annotations[bootstrapAnnotation.SSHUser.Name]; value != "" {
+			username = value
+		}
+		address := net.JoinHostPort(host, port)
+		scpOpts := defaultScpOpts
+		if value := bundle.Workload.Annotations[bootstrapAnnotation.ScpPath.Name]; value != "" {
+			scpOpts.RemoteScpPath = value
+		}
+		sshClient := sshClientFactory(stdout, stderr)
+		sshParams := sshParams{
+			address:  address,
+			username: username,
+			client:   sshClient,
+			scp:      scpOpts,
+		}
+		remoteDir := defaultProxyConfigDir
+		if value := bundle.Workload.Annotations[bootstrapAnnotation.ProxyConfigDir.Name]; value != "" {
+			remoteDir = value
+		}
+		return copyBootstrapBundle(*sshConfig, sshParams, processBundle(bundle, remoteDir))
+	}
+	return processWorkloads(workloads, identities, data, action)
+}
+
 type VMBootstrapCommandOpts struct {
 	// ParentCommandDocPath is a full path of the parent command that should be used in help messages.
 	//
@@ -886,8 +1043,11 @@ For a complete list of supported annotations run %[3]s.`,
   # Copy workload identity and start Istio Sidecar on a VM represented by a given WorkloadEntry:
   %[1]s sidecar-bootstrap my-vm.my-namespace --start-istio-proxy
 
-  # Generate workload identity for a VM represented by a given WorkloadEntry and save generated files locally
-  %[1]s sidecar-bootstrap my-vm.my-namespace --local-dir path/to/save/workload/identity
+  # Generate workload identity for a VM represented by a given WorkloadEntry and save generated files into an archive file (*.tgz) at a given path
+  %[1]s sidecar-bootstrap my-vm.my-namespace --output-file path/to/output/file.tgz
+
+  # Generate workload identity for a VM represented by a given WorkloadEntry and save generated files into a directory
+  %[1]s sidecar-bootstrap my-vm.my-namespace --output-dir path/to/output/dir
 
   # Print a list of supported annotations on the WorkloadEntry resource:
   %[1]s sidecar-bootstrap --docs`, opts.ParentCommandDocPath),
@@ -900,6 +1060,24 @@ For a complete list of supported annotations run %[3]s.`,
 			}
 			if len(args) > 0 && all {
 				return fmt.Errorf("sidecar-bootstrap command requires either a <workload-entry-name>[.<namespace>] argument or the --all flag but not both")
+			}
+			if cmd.Flags().ShorthandLookup("o").Changed && cmd.Flags().Lookup("output-file").Changed {
+				return fmt.Errorf("use either -o or --output-file but not both")
+			}
+			if cmd.Flags().ShorthandLookup("o").Changed && cmd.Flags().Lookup("output-dir").Changed {
+				return fmt.Errorf("use either -o or --output-dir but not both")
+			}
+			if cmd.Flags().Lookup("output-file").Changed && cmd.Flags().Lookup("output-dir").Changed {
+				return fmt.Errorf("use either --output-file or --output-dir but not both")
+			}
+			if cmd.Flags().ShorthandLookup("o").Changed && cmd.Flags().Lookup("dry-run").Changed {
+				return fmt.Errorf("it is not possible to use --dry-run flag together with -o")
+			}
+			if cmd.Flags().Lookup("output-file").Changed && cmd.Flags().Lookup("dry-run").Changed {
+				return fmt.Errorf("it is not possible to use --dry-run flag together with --output-file")
+			}
+			if cmd.Flags().Lookup("output-dir").Changed && cmd.Flags().Lookup("dry-run").Changed {
+				return fmt.Errorf("it is not possible to use --dry-run flag together with --output-dir")
 			}
 			return nil
 		},
@@ -944,6 +1122,10 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 			}
 			if err != nil {
 				return fmt.Errorf("unable to find WorkloadEntry(s): %w", err)
+			}
+			if len(entries) == 0 {
+				fmt.Fprintf(c.ErrOrStderr(), "There are no WorkloadEntry(s) to bootstrap\n")
+				return nil
 			}
 
 			meshConfig, err := getMeshConfigFromConfigMap(kubeconfig, c.CommandPath())
@@ -994,55 +1176,6 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 				return fmt.Errorf("failed to generate security token(s) for WorkloadEntry(s): %w", err)
 			}
 
-			var action func(bundle BootstrapBundle) error
-			if outputDir != "" {
-				action = func(bundle BootstrapBundle) error {
-					bundleDir := filepath.Join(outputDir, bundle.Workload.Namespace, bundle.Workload.Name)
-					err = os.MkdirAll(bundleDir, os.ModePerm)
-					if err != nil && !os.IsExist(err) {
-						return fmt.Errorf("failed to create a local output directory %q: %w", bundleDir, err)
-					}
-					return dumpBootstrapBundle(bundleDir, processBundle(bundle, "$"+offlineProxyConfigDirEnv))
-				}
-			} else {
-				sshConfig, err := parseSSHConfig(c.InOrStdin(), c.ErrOrStderr())
-				if err != nil {
-					return err
-				}
-
-				action = func(bundle BootstrapBundle) error {
-					host := bundle.Workload.Spec.Address
-					if value := bundle.Workload.Annotations[bootstrapAnnotation.SSHHost.Name]; value != "" {
-						host = value
-					}
-					port := strconv.Itoa(defaultSSHPort)
-					if value := bundle.Workload.Annotations[bootstrapAnnotation.SSHPort.Name]; value != "" {
-						port = value
-					}
-					username := defaultSSHUser
-					if value := bundle.Workload.Annotations[bootstrapAnnotation.SSHUser.Name]; value != "" {
-						username = value
-					}
-					address := net.JoinHostPort(host, port)
-					scpOpts := defaultScpOpts
-					if value := bundle.Workload.Annotations[bootstrapAnnotation.ScpPath.Name]; value != "" {
-						scpOpts.RemoteScpPath = value
-					}
-					sshClient := sshClientFactory(c.OutOrStdout(), c.ErrOrStderr())
-					sshParams := sshParams{
-						address:  address,
-						username: username,
-						client:   sshClient,
-						scp:      scpOpts,
-					}
-					remoteDir := defaultProxyConfigDir
-					if value := bundle.Workload.Annotations[bootstrapAnnotation.ProxyConfigDir.Name]; value != "" {
-						remoteDir = value
-					}
-					return copyBootstrapBundle(*sshConfig, sshParams, processBundle(bundle, remoteDir))
-				}
-			}
-
 			data := &SidecarData{
 				K8sCaCert:                  k8sCaCert,
 				OpenShiftCaCert:            openshiftCaCert,
@@ -1053,7 +1186,67 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 				IstioIngressGatewayAddress: istioGatewayAddress,
 				ExpansionProxyConfig:       expansionProxyConfig,
 			}
-			return processWorkloads(entries, identities, data, action)
+
+			multiEntry := len(args) == 0
+
+			if outputDir != "" {
+				err := writeToDir(outputDir, multiEntry, entries, identities, data)
+				if err != nil {
+					return nil
+				}
+				if abs, err := filepath.Abs(outputDir); err == nil {
+					outputDir = abs
+				}
+				fmt.Fprintf(c.ErrOrStderr(), `Generated files have been saved to the directory `+markdown.InlineCode(outputDir)+`
+
+Next steps:
+
+  1. Copy the contents of `+markdown.InlineCode(outputDir)+` directory to the remote host represented by the WorkloadEntry
+
+  2. Once on the remote host, run `+markdown.InlineCode("<dir>/bin/start-istio-proxy.sh")+` to start Istio Proxy in a Docker container
+`)
+			} else if outputArchive || outputArchivePath != "" {
+				creationTime := now()
+				outputPath := outputArchivePath
+				if outputPath == "" {
+					var prefix string
+					if multiEntry {
+						prefix = ns
+					} else {
+						prefix = strings.Join([]string{name, ns}, ".")
+					}
+					creationTime, outputPath, err = pickArchiveName(prefix)
+					if err != nil {
+						return err
+					}
+				}
+				err := writeToArchive(outputPath, multiEntry, creationTime, entries, identities, data)
+				if err != nil {
+					return nil
+				}
+				if abs, err := filepath.Abs(outputPath); err == nil {
+					outputPath = abs
+				}
+				fmt.Fprintf(c.ErrOrStderr(), `Generated files have been saved into the TGZ archive `+markdown.InlineCode(outputPath)+`
+
+Next steps:
+
+  1. Copy the file `+markdown.InlineCode(outputPath)+` to the remote host represented by the WorkloadEntry
+
+  2. Once on the remote host,
+
+     1. run `+markdown.InlineCode("tar -xvf "+filepath.Base(outputPath))+` to extract archive into the working directory
+
+     2. run `+markdown.InlineCode("./bin/start-istio-proxy.sh")+` to start Istio Proxy in a Docker container
+`)
+			} else {
+				sshConfig, err := parseSSHConfig(c.InOrStdin(), c.ErrOrStderr())
+				if err != nil {
+					return err
+				}
+				return copyOverSSH(sshConfig, c.OutOrStdout(), c.ErrOrStderr(), entries, identities, data)
+			}
+			return nil
 		},
 	}
 
@@ -1061,8 +1254,14 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 		"bootstrap all WorkloadEntry(s) in a given namespace")
 	vmBSCommand.PersistentFlags().DurationVar(&tokenDuration, "duration", 24*time.Hour,
 		"(experimental) amount of time that generated ServiceAccount tokens should be valid for")
-	vmBSCommand.PersistentFlags().StringVarP(&outputDir, "local-dir", "d", "",
+	vmBSCommand.PersistentFlags().StringVarP(&outputDir, "output-dir", "d", "",
 		"save generated files into a local directory instead of copying them to a remote machine")
+	vmBSCommand.PersistentFlags().BoolVarP(&outputArchive, "archive", "o", false,
+		"(experimental) save generated files into a local archive file (*.tgz) instead of copying them to a remote machine "+
+			"(file name will be picked automatically)")
+	vmBSCommand.PersistentFlags().StringVar(&outputArchivePath, "output-file", "",
+		"(experimental) save generated files into a local archive file (*.tgz) instead of copying them to a remote machine "+
+			"(file name is picked by the user)")
 	vmBSCommand.PersistentFlags().DurationVar(&defaultScpOpts.Timeout, "timeout", 60*time.Second,
 		"(experimental) timeout on copying a single file to a remote host")
 	vmBSCommand.PersistentFlags().BoolVar(&sshIgnoreHostKeys, "ignore-host-keys", false,

@@ -1,0 +1,103 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-ca-root-cert
+  namespace: istio-system
+data:
+  root-cert.pem: |-
+    -----BEGIN CERTIFICATE-----
+    MIIDnzCCAoegAwIBAgIJAON1ifrBZ2/BMA0GCSqGSIb3DQEBCwUAMIGLMQswCQYD
+    VQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTESMBAGA1UEBwwJU3Vubnl2YWxl
+    MQ4wDAYDVQQKDAVJc3RpbzENMAsGA1UECwwEVGVzdDEQMA4GA1UEAwwHUm9vdCBD
+    QTEiMCAGCSqGSIb3DQEJARYTdGVzdHJvb3RjYUBpc3Rpby5pbzAgFw0xODAxMjQx
+    OTE1NTFaGA8yMTE3MTIzMTE5MTU1MVowWTELMAkGA1UEBhMCVVMxEzARBgNVBAgT
+    CkNhbGlmb3JuaWExEjAQBgNVBAcTCVN1bm55dmFsZTEOMAwGA1UEChMFSXN0aW8x
+    ETAPBgNVBAMTCElzdGlvIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+    AQEAyzCxr/xu0zy5rVBiso9ffgl00bRKvB/HF4AX9/ytmZ6Hqsy13XIQk8/u/By9
+    iCvVwXIMvyT0CbiJq/aPEj5mJUy0lzbrUs13oneXqrPXf7ir3HzdRw+SBhXlsh9z
+    APZJXcF93DJU3GabPKwBvGJ0IVMJPIFCuDIPwW4kFAI7R/8A5LSdPrFx6EyMXl7K
+    M8jekC0y9DnTj83/fY72WcWX7YTpgZeBHAeeQOPTZ2KYbFal2gLsar69PgFS0Tom
+    ESO9M14Yit7mzB1WDK2z9g3r+zLxENdJ5JG/ZskKe+TO4Diqi5OJt/h8yspS1ck8
+    LJtCole9919umByg5oruflqIlQIDAQABozUwMzALBgNVHQ8EBAMCAgQwDAYDVR0T
+    BAUwAwEB/zAWBgNVHREEDzANggtjYS5pc3Rpby5pbzANBgkqhkiG9w0BAQsFAAOC
+    AQEAltHEhhyAsve4K4bLgBXtHwWzo6SpFzdAfXpLShpOJNtQNERb3qg6iUGQdY+w
+    A2BpmSkKr3Rw/6ClP5+cCG7fGocPaZh+c+4Nxm9suMuZBZCtNOeYOMIfvCPcCS+8
+    PQ/0hC4/0J3WJKzGBssaaMufJxzgFPPtDJ998kY8rlROghdSaVt423/jXIAYnP3Y
+    05n8TGERBj7TLdtIVbtUIx3JHAo3PWJywA6mEDovFMJhJERp9sDHIr1BbhXK1TFN
+    Z6HNH6gInkSSMtvC4Ptejb749PTaePRPF7ID//eq/3AH8UK50F3TQcLjEqWUsJUn
+    aFKltOc+RAjzDklcUPeG4Y6eMA==
+    -----END CERTIFICATE-----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: istio-system
+data:
+  mesh: ""
+  meshNetworks: |
+    networks: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-sidecar-injector
+  namespace: istio-system
+data:
+  values: |
+    {
+      "global": {
+        "jwtPolicy": "third-party-jwt",
+        "pilotCertProvider": "istiod"
+      }
+    }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: istio-system
+secrets:
+- name: default-token-6n2ql
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: default-token-6n2ql
+  namespace: istio-system
+type: kubernetes.io/service-account-token
+data:
+  ca.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5RENDQWJDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJd01UQXlNakUxTlRNMU1Wb1hEVE13TVRBeU1ERTFOVE0xTVZvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTEhqCjhsQjJhN2NHZTdEV2RmVXpWbHhEWVRONjNVYWhvZUpJT3RxaU1uNGE5eVhKSkZVd2VkbFJSaXYrR0RIVk5KNEkKTlNyaGFIMTNkT0daV0w2RFJRUlhCT1BTRVVaL1RKalhGUHRTNXkxQ3hkNm5BZ1BDYTFJK2V5RkdVOGU5cHNzOQovNnVvN1B5THg2enFjUURhd3RxWnRlOTBuSnlZanNZdU1UdlJ6TUZiQUF3QnQxT1RyTkYyUGJvQ0V1dWozZFRuCjI5Z2dldjVtajhKT3pIWU9qV0FTQWovenFtNzA2QXdXdjB5NTBJZk5LUjBqNXQrZllJKzFrajVRZnkwOUJ1UDUKa0NIcTlZVDhMVDRQZGRFMDV6dGFUa1NXMkRTSElIdDNhRWRzdmN6RDZWVTYzM3REbjVkUTY0UkNBWktuUUFFQgoxRlozeEhVcHBIOVJ1UXlZeUxrQ0F3RUFBYU1qTUNFd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFBbGx3NnhKZXUxK3RwMm04TmdQSnV4cEJ2QWYKWG8vL3lTUjY5amxEUXhtQ0lhZlIvMGxXTWt6UERReThnditJTmhwZU9LOTlnb29FVS9xQzlwanMxbTUzTXptUQprTTNSdS9HTTF1cU1uVW1UdXdMcHR4Rkp4RGpTS2NtWGNZbjYzazFCZHJpRXhzM1dsMklpRkRIalVkZkdhVW8wCnR3am5IbXRvbW12QUFiTWVHeU1Tb00xV2Q4bUl6Sk85QmswZDVsNHdFWmVBNGNvcmJBSUR5b0FoTTNweU5yeEwKeUZrSGs4dWwrQ3pEb1pTZGZRdWxvdkgvVDBHU2h6RTZXRlZPN0x6T1ZRd3lsSTFxWU1vVjIwLzhlNGNPL0wwSwpld1N0aThaQ0ZLRlNRY2ZTTUNqS0R6UEI1bW5YaWVjOW0rcXRuditjTlM3blo4RW1HWU1zZmZQMXJ4ND0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+spec:
+  ports:
+  - name: tls
+    nodePort: 30550
+    port: 15443
+    protocol: TCP
+    targetPort: 15443
+  - name: tcp-istiod
+    nodePort: 32115
+    port: 15012
+    protocol: TCP
+    targetPort: 15012
+  selector:
+    app: istio-ingressgateway
+    istio: ingressgateway
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 1.2.3.4

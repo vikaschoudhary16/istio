@@ -547,9 +547,9 @@ func (d *SidecarData) GetIstioProxyImage() string {
 		hub = value
 	}
 	return fmt.Sprintf("%s/%s:%s",
-		strings.TrimRight(hub, "/"),
-		d.IstioConfigValues.GetGlobal().GetProxy().GetImage(),
-		d.IstioConfigValues.GetGlobal().GetTag())
+		nonemptyOrDefault(strings.TrimRight(hub, "/"), "docker.io/istio"),
+		nonemptyOrDefault(d.IstioConfigValues.GetGlobal().GetProxy().GetImage(), "proxyv2"),
+		nonnilOrDefault(d.IstioConfigValues.GetGlobal().GetTag(), "latest"))
 }
 
 func getAppOrServiceAccount(workload *networkingCrd.WorkloadEntry) string {
@@ -567,7 +567,10 @@ func getServiceCluster(workload *networkingCrd.WorkloadEntry) string {
 }
 
 func (d *SidecarData) GetTrustDomain() string {
-	return d.IstioConfigValues.GetGlobal().GetTrustDomain()
+	if value := d.IstioConfigValues.GetGlobal().GetTrustDomain(); value != "" {
+		return value
+	}
+	return "cluster.local"
 }
 
 func (d *SidecarData) GetLogLevel() string {
@@ -647,4 +650,18 @@ func clusterLocalSni(address, defaultSni string) string {
 
 func addressToPodNameAddition(address string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(address)))[0:7]
+}
+
+func nonemptyOrDefault(value, defaultValue string) string {
+	if value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func nonnilOrDefault(value interface{}, defaultValue string) string {
+	if value != nil {
+		return fmt.Sprintf("%s", value)
+	}
+	return defaultValue
 }
