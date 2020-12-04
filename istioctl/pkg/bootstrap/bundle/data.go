@@ -38,6 +38,8 @@ import (
 type SidecarData struct {
 	/* k8s */
 	K8sCaCert []byte
+	/* OpenShift */
+	OpenShiftCaCert []byte
 	/* mesh */
 	IstioSystemNamespace       string
 	IstioMeshConfig            *meshconfig.MeshConfig

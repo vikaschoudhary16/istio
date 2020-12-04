@@ -24,20 +24,29 @@ type Instance = annotation.Instance
 var (
 	K8sCaRootCertConfigMapName = Instance{
 		Name: "sidecar-bootstrap.istio.io/k8s-ca-root-cert-configmap",
-		Description: `Name of the Kubernetes config map that holds the root cert of a k8s CA.
+		Description: `Name of the Kubernetes config map that holds root certs of a k8s CA and, if applicable, OpenShift Service CA.
+
+ConfigMap should include the following keys:
+* ` + markdown.InlineCode("ca.crt") + `         - (mandatory) root certs of a k8s CA
+* ` + markdown.InlineCode("service-ca.crt") + ` - (optional)  root certs of an OpenShift Service CA
 
 By default, config map is considered undefined and thus the only way to find out
-the root cert of a k8s CA is
+the root certs of a k8s CA and, if applicable, OpenShift Service CA is
 1) either to read a k8s Secret with a ServiceAccountToken, which among other things
-   holds the root cert of a k8s CA
-2) or to read the root cert of a k8s CA from the ` + markdown.InlineCode("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt") + `
-   file, which is auto-mounted into Pods by k8s`,
+   holds the root certs of a k8s CA and, if applicable, OpenShift Service CA
+2) or to read the root certs of a k8s CA from the ` + markdown.InlineCode("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt") + `
+   file, which is auto-mounted into Pods by k8s, and, if applicable, root certs of an OpenShift Service CA from the
+   ` + markdown.InlineCode("/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"),
 	}
 
 	MeshExpansionConfigMapName = Instance{
 		Name: "sidecar-bootstrap.istio.io/mesh-expansion-configmap",
 		Description: `Name of the Kubernetes config map that holds configuration intended for those
 Istio Proxies that expand the mesh.
+
+ConfigMap should include the following keys:
+* ` + markdown.InlineCode("PROXY_CONFIG") + ` - (mandatory) ProxyConfig in YAML format ` +
+			`(see https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#ProxyConfig)
 
 This configuration is applied on top of mesh-wide default ProxyConfig,
 but prior to the workload-specific ProxyConfig from ` + markdown.InlineCode("proxy.istio.io/config") + ` annotation

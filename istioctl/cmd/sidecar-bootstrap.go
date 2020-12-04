@@ -216,31 +216,34 @@ func fetchAllWorkloadEntries(client istioclient.Interface, namespace string) ([]
 	return list.Items, err
 }
 
-func getK8sCaCertFromConfigMap(kubeClient kubernetes.Interface, namespace string) ([]byte, error) {
+func getK8sCaCertFromConfigMap(kubeClient kubernetes.Interface, namespace string) ([]byte, []byte, error) {
 	ns, err := kubeClient.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to read Namespace %q: %w", namespace, err)
+		return nil, nil, fmt.Errorf("failed to read Namespace %q: %w", namespace, err)
 	}
 	configMapName := ns.Annotations[bootstrapAnnotation.K8sCaRootCertConfigMapName.Name]
 	if configMapName == "" {
-		return nil, fmt.Errorf("k8s Namespace %q has no a config map that would hold the root cert of a k8s CA", namespace)
+		return nil, nil, fmt.Errorf("k8s Namespace %q doesn't specify a ConfigMap that would hold root certs of a k8s CA and, "+
+			"if applicable, an OpenShift Service CA", namespace)
 	}
 	cm, err := kubeClient.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to read ConfigMap %s referred to from the %q annotation on the Namespace %q: %w",
+		return nil, nil, fmt.Errorf("failed to read ConfigMap %s that was referenced to by means of %q annotation on the %q Namespace: %w",
 			resourceURI("v1", "configmaps", namespace, configMapName), bootstrapAnnotation.MeshExpansionConfigMapName.Name, namespace, err)
 	}
-	value := cm.Data["ca.crt"] // well-known k8s constant
-	if value == "" {
-		return nil, fmt.Errorf("there is no root cert of a k8s CA in the ConfigMap %s", resourceURI("v1", "configmaps", cm.Namespace, cm.Name))
+	k8sCaCert := cm.Data["ca.crt"] // well-known k8s constant
+	if k8sCaCert == "" {
+		return nil, nil, fmt.Errorf("ConfigMap %s has no value for a mandatory key %q", // nolint:golint
+			resourceURI("v1", "configmaps", cm.Namespace, cm.Name), "ca.crt")
 	}
-	return []byte(value), nil
+	openshiftCaCert := cm.Data["service-ca.crt"] // well-known OpenShift constant
+	return []byte(k8sCaCert), []byte(openshiftCaCert), nil
 }
 
-func getK8sCaCertFromServiceAccountTokenSecret(kubeClient kubernetes.Interface, namespace string) ([]byte, error) {
+func getK8sCaCertFromServiceAccountTokenSecret(kubeClient kubernetes.Interface, namespace string) ([]byte, []byte, error) {
 	sa, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(context.Background(), "default", metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to read ServiceAccount %s: %w", resourceURI("v1", "serviceaccounts", namespace, "default"), err)
+		return nil, nil, fmt.Errorf("failed to read ServiceAccount %s: %w", resourceURI("v1", "serviceaccounts", namespace, "default"), err)
 	}
 	for _, ref := range sa.Secrets {
 		secret, err := kubeClient.CoreV1().Secrets(namespace).Get(context.Background(), ref.Name, metav1.GetOptions{})
@@ -248,46 +251,49 @@ func getK8sCaCertFromServiceAccountTokenSecret(kubeClient kubernetes.Interface, 
 			log.Debugf("%v", err)
 			continue
 		}
-		if secret.Type != "kubernetes.io/service-account-token" {
+		if secret.Type != "kubernetes.io/service-account-token" { // well-known k8s constant
 			continue
 		}
-		value := secret.Data["ca.crt"]
-		if len(value) == 0 {
+		k8sCaCert := secret.Data["ca.crt"] // well-known k8s constant
+		if len(k8sCaCert) == 0 {
 			continue
 		}
-		return value, nil
+		openshiftCaCert := secret.Data["service-ca.crt"] // well-known OpenShift constant
+		return k8sCaCert, openshiftCaCert, nil
 	}
-	return nil, fmt.Errorf("unable to find a Secret with the root cert of a k8s CA among ServiceAccountToken Secrets of the ServiceAccount %s",
+	return nil, nil, fmt.Errorf("unable to find a Secret with the root cert of a k8s CA in the ServiceAccount %s",
 		resourceURI("v1", "serviceaccounts", sa.Namespace, sa.Name))
 }
 
-func getK8sCaCert(kubeClient kubernetes.Interface, namespace, istioNamespace string) ([]byte, error) {
-	type K8sCaRootCertSource func(kubeClient kubernetes.Interface) ([]byte, error)
+func getK8sCaCert(kubeClient kubernetes.Interface, namespace, istioNamespace string) ([]byte, []byte, error) {
+	type K8sCaRootCertSource func(kubeClient kubernetes.Interface) ([]byte, []byte, error)
 	sources := []K8sCaRootCertSource{
-		func(kubeClient kubernetes.Interface) ([]byte, error) {
+		func(kubeClient kubernetes.Interface) ([]byte, []byte, error) {
 			return getK8sCaCertFromConfigMap(kubeClient, istioNamespace)
 		},
-		func(kubeClient kubernetes.Interface) ([]byte, error) {
+		func(kubeClient kubernetes.Interface) ([]byte, []byte, error) {
 			return getK8sCaCertFromServiceAccountTokenSecret(kubeClient, istioNamespace)
 		},
-		func(kubeClient kubernetes.Interface) ([]byte, error) {
+		func(kubeClient kubernetes.Interface) ([]byte, []byte, error) {
 			return getK8sCaCertFromServiceAccountTokenSecret(kubeClient, namespace)
 		},
-		func(kubeClient kubernetes.Interface) ([]byte, error) {
+		func(kubeClient kubernetes.Interface) ([]byte, []byte, error) {
 			return getK8sCaCertFromServiceAccountTokenSecret(kubeClient, "kube-public")
 		},
 	}
 	for _, source := range sources {
-		value, err := source(kubeClient)
+		k8sCaCert, openshiftCaCert, err := source(kubeClient)
 		if err != nil {
 			log.Debugf("%v", err)
 			continue
 		}
-		return value, nil
+		return k8sCaCert, openshiftCaCert, nil
 	}
-	return nil, fmt.Errorf("all supported strategies to find a k8s CA have failed.\n"+
-		"To overcome this, either grant the user permissions to read k8s Secrets in one of the Namespaces %v,\n"+
-		"or create a ConfigMap with the root cert of a k8s CA in the %q Namespace and use %q annotation to give this command a hint where to find such a ConfigMap",
+	return nil, nil, fmt.Errorf("all supported strategies to find k8s CA certs have failed.\n"+
+		"To overcome this, either grant the user permissions to read k8s Secrets in one of the following Namespaces %v,\n"+
+		"or create a ConfigMap with the root certs of a k8s CA (and, if applicable, an OpenShift Service CA)\n"+
+		"in the %q Namespace and use %q annotation\n"+
+		"to give this command a hint where to find such a ConfigMap",
 		[]string{istioNamespace, namespace, "kube-public"}, istioNamespace, bootstrapAnnotation.K8sCaRootCertConfigMapName.Name)
 }
 
@@ -470,6 +476,8 @@ func processWorkloads(
 		bundle := BootstrapBundle{
 			/* k8s */
 			K8sCaCert: data.K8sCaCert,
+			/* OpenShift */
+			OpenShiftCaCert: data.OpenShiftCaCert,
 			/* mesh */
 			IstioCaCert:                data.IstioCaCert,
 			IstioIngressGatewayAddress: data.IstioIngressGatewayAddress,
@@ -523,6 +531,16 @@ func processBundle(bundle BootstrapBundle, remoteDir string) bootstrapItems {
 			data: bundle.ServiceAccountToken,
 		},
 	)
+	if len(bundle.OpenShiftCaCert) > 0 {
+		files = append(files,
+			fileToCopy{
+				name: "openshift-ca.pem",
+				dir:  remoteDir,
+				perm: configFilePerm,
+				data: bundle.OpenShiftCaCert,
+			},
+		)
+	}
 
 	var commands []cmdToExec
 	cmd := []string{
@@ -544,9 +562,20 @@ func processBundle(bundle BootstrapBundle, remoteDir string) bootstrapItems {
 		"-v",
 		// "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt" is a well-known k8s path heavily abused in k8s world
 		remoteDir + "/k8s-ca.pem" + ":" + "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
-		"--env-file",
-		remoteDir + "/sidecar.env",
 	}
+
+	if len(bundle.OpenShiftCaCert) > 0 {
+		cmd = append(cmd,
+			"-v",
+			// "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt" is a well-known OpenShift path
+			remoteDir+"/openshift-ca.pem"+":"+"/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt",
+		)
+	}
+
+	cmd = append(cmd,
+		"--env-file",
+		remoteDir+"/sidecar.env",
+	)
 
 	for _, host := range bundle.IstioProxyHosts {
 		cmd = append(cmd,
@@ -945,7 +974,7 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 				return fmt.Errorf("pilot cert provider is set to %q. At the moment, %q command only supports pilot cert provider %q", actual, c.CommandPath(), expected)
 			}
 
-			k8sCaCert, err := getK8sCaCert(kubeClient, ns, istioNamespace)
+			k8sCaCert, openshiftCaCert, err := getK8sCaCert(kubeClient, ns, istioNamespace)
 			if err != nil {
 				return fmt.Errorf("unable to find the root cert of a k8s CA: %w", err)
 			}
@@ -1016,6 +1045,7 @@ Hint: make sure that "kubectl" or "istioctl" run successfully in this environmen
 
 			data := &SidecarData{
 				K8sCaCert:                  k8sCaCert,
+				OpenShiftCaCert:            openshiftCaCert,
 				IstioSystemNamespace:       istioNamespace,
 				IstioMeshConfig:            meshConfig,
 				IstioConfigValues:          istioConfigValues,
@@ -1076,14 +1106,14 @@ func printSidecarBootstrapDocs(out io.Writer, cmd string) {
 		fmt.Fprintf(out, "\n")
 	}
 
-	fmt.Fprintf(out, "List of annotations on a WorkloadEntry resource supported by the %q command:\n\n", cmd)
+	fmt.Fprintf(out, "List of annotations on a WorkloadEntry resource supported by the %s command:\n\n", markdown.InlineCode(cmd))
 
 	fmt.Fprintf(out, "Standard Istio annotations:\n\n")
 	for _, item := range bootstrapAnnotation.SupportedIstioAnnotations() {
 		format(item)
 	}
 
-	fmt.Fprintf(out, "Annotations specific to %q command:\n\n", cmd)
+	fmt.Fprintf(out, "Annotations specific to %s command:\n\n", markdown.InlineCode(cmd))
 	for _, item := range bootstrapAnnotation.SupportedCustomAnnotations() {
 		format(item)
 	}
