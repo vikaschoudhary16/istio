@@ -113,6 +113,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 			UID:             formatUID(svc.Namespace, svc.Name),
 			ExportTo:        exportTo,
 			LabelSelectors:  labelSelectors,
+			// TODO(vikas): update ExternalTrafficPolicy in the istio svc from the kube svc
 		},
 	}
 

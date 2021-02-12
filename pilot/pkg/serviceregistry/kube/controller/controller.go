@@ -651,6 +651,11 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) bool {
 		return false
 	}
 	for _, svc := range svcs {
+		// TODO(vikas)
+		// if svc.ExternalTrafficPolicy is local {
+		// 	updateSvcClusterExternalAddressForLocalPolicy(svc)
+		// return
+		//}
 		c.RLock()
 		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 		c.RUnlock()
@@ -674,6 +679,13 @@ func (c *Controller) updateServiceExternalAddr(svcs ...*model.Service) bool {
 		svc.Mutex.Unlock()
 	}
 	return true
+}
+
+func updateSvcClusterExternalAddressForLocalPolicy(svc *model.Service) {
+	// get all pods for this service
+	// find out nodes from pods
+	// update svc.Attributes.ClusterExternalAddresses from the nodes collected from the pods
+	// return
 }
 
 // getPodLocality retrieves the locality for a pod.
@@ -950,6 +962,11 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	switch event {
 	case model.EventDelete:
 		delete(c.workloadInstancesByIP, si.Endpoint.Address)
+		// TODO(vikas)
+		// if service.ExternalTrafficPolicy == local{
+		// 	figure out node address from wi(pod) and remove it from the service.Attriutes.ClusterExternalAddress
+		// }
+		// fire off c.xdsUpdater.SvcUpdate for this svc
 	default: // add or update
 		// Check to see if the workload entry changed. If it did, clear the old entry
 		k := si.Name + "~" + si.Namespace
@@ -1001,6 +1018,12 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 					endpoints = append(endpoints, inst.Endpoint)
 				}
 			}
+			// TODO(vikas)
+			// if service.ExternalTrafficPolicy == local{
+			// 	figure out node address from wi(pod) and add it to the service.Attriutes.ClusterExternalAddress
+			// }
+			// fire off c.xdsUpdater.SvcUpdate for this svc
+
 			// fire off eds update
 			_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
