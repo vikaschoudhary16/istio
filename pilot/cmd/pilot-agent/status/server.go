@@ -198,6 +198,11 @@ func FormatProberURL(container string) (string, string, string) {
 // Run opens a the status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
 	log.Infof("Opening status port %d\n", s.statusPort)
+	log.Info("Starting pprof at 6060 \n")
+
+	go func() {
+		log.Info(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	mux := http.NewServeMux()
 
