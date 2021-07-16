@@ -33,6 +33,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
 	"google.golang.org/protobuf/proto"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -495,6 +496,22 @@ func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
 	return SupportsTunnel(ep.Labels, tunnelType)
 }
 
+type ExternalTrafficPolicy string
+
+const (
+	ExternalTrafficPolicyCluster = "CLUSTER"
+	ExternalTrafficPolicyLocal   = "LOCAL"
+)
+
+func ConvertToModelExternalTrafficPolicy(policy v1.ServiceExternalTrafficPolicyType) ExternalTrafficPolicy {
+	switch policy {
+	case v1.ServiceExternalTrafficPolicyTypeLocal:
+		return ExternalTrafficPolicyLocal
+	default:
+		return ExternalTrafficPolicyCluster
+	}
+}
+
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.
 func (ep *IstioEndpoint) GetLoadBalancingWeight() uint32 {
 	if ep.LbWeight > 0 {
@@ -647,6 +664,10 @@ type K8sAttributes struct {
 	// NodeLocal means the proxy will only forward traffic to node local endpoints
 	// spec.InternalTrafficPolicy == Local
 	NodeLocal bool
+	// ExternalTrafficPolicy affects the list of available endpoints available in case
+	// of NodePort services. This is useful to preserve source IP address. If the traffic
+	// is sent to a node which does not have a workload then it would be dropped.
+	ExternalTrafficPolicy ExternalTrafficPolicy
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
