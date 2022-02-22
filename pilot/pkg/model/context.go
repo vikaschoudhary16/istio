@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/dns"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -72,6 +73,9 @@ type Environment struct {
 	// routable L3 network. A single routable L3 network can have one or more
 	// service registries.
 	mesh.NetworksWatcher
+
+	// Resolver resolves DNS names, e.g. DNS name of a LoadBalancer.
+	dns.Resolver
 
 	// PushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.

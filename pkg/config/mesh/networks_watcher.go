@@ -63,7 +63,6 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 		return nil, fmt.Errorf("failed to read mesh networks configuration from %q: %v", filename, err)
 	}
 
-	ResolveHostsInNetworksConfig(meshNetworks)
 	networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "   ")
 	log.Infof("mesh networks configuration: %s", networksdump)
 
@@ -95,7 +94,6 @@ func (w *InternalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetwor
 
 	w.mutex.Lock()
 	if !reflect.DeepEqual(meshNetworks, w.networks) {
-		ResolveHostsInNetworksConfig(meshNetworks)
 		networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "    ")
 		log.Infof("mesh networks configuration updated to: %s", networksdump)
 

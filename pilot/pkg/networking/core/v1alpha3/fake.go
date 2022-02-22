@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/dns"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
@@ -66,6 +67,7 @@ type TestOptions struct {
 	// If provided, this mesh config will be used
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
+	DNSResolver     dns.Resolver
 
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
@@ -149,6 +151,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	env.ServiceDiscovery = serviceDiscovery
 	env.IstioConfigStore = model.MakeIstioStore(configController)
 	env.NetworksWatcher = opts.NetworksWatcher
+	env.Resolver = opts.DNSResolver
 	env.Init()
 
 	if opts.Plugins == nil {

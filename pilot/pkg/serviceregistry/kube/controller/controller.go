@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/dns"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -131,6 +132,9 @@ type Options struct {
 
 	// NetworksWatcher observes changes to the mesh networks config.
 	NetworksWatcher mesh.NetworksWatcher
+
+	// DNSResolver resolves DNS names, e.g. DNS name of a LoadBalancer.
+	DNSResolver dns.Resolver
 
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher mesh.Watcher
@@ -277,6 +281,11 @@ type Controller struct {
 	// gateways for each network, indexed by the service that runs them so we clean them up later
 	networkGateways map[host.Name]map[network.ID]gatewaySet
 
+	// an index of network gateways according to Istio MeshNetworks configuration
+	fixedGateways fixedGateways
+	// an index of network gateways according to labels on k8s Services
+	dynamicGateways dynamicGateways
+
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
 	informerInit *atomic.Bool
@@ -301,6 +310,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		workloadInstancesIPsByName:  make(map[string]string),
 		registryServiceNameGateways: make(map[host.Name]uint32),
 		networkGateways:             make(map[host.Name]map[network.ID]gatewaySet),
+		fixedGateways:               newFixedGateways(),
+		dynamicGateways:             newDynamicGateways(),
 		informerInit:                atomic.NewBool(false),
 		beginSync:                   atomic.NewBool(false),
 		initialSync:                 atomic.NewBool(false),
@@ -541,6 +552,8 @@ func (c *Controller) deleteService(svc *model.Service) {
 	delete(c.externalNameSvcInstanceMap, svc.Hostname)
 	_, isNetworkGateway := c.networkGateways[svc.Hostname]
 	delete(c.networkGateways, svc.Hostname)
+	c.forgetFixedGatewayServiceDNSNames(svc.Hostname)
+	c.forgetDynamicGatewayServiceDNSNames(svc.Hostname)
 	c.Unlock()
 
 	if isNetworkGateway {
@@ -578,6 +591,12 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	c.servicesMap[svcConv.Hostname] = svcConv
 	if len(instances) > 0 {
 		c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
+	}
+	c.watchFixedGatewayServiceDNSNames(svcConv.Hostname)
+	if c.isDynamicGatewayService(svcConv) {
+		c.watchDynamicGatewayServiceDNSNames(svcConv.Hostname)
+	} else {
+		c.forgetDynamicGatewayServiceDNSNames(svcConv.Hostname)
 	}
 	c.Unlock()
 
@@ -827,6 +846,9 @@ func (c *Controller) syncEndpoints() error {
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	st := time.Now()
+	if c.opts.DNSResolver != nil {
+		c.opts.DNSResolver.AddUpdateHandler(c.refreshGatewayEndpoints)
+	}
 	if c.opts.NetworksWatcher != nil {
 		c.opts.NetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadMeshNetworks()

@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/dns"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 )
@@ -141,6 +142,7 @@ func (fx *FakeXdsUpdater) Clear() {
 type FakeControllerOptions struct {
 	Client                    kubelib.Client
 	NetworksWatcher           mesh.NetworksWatcher
+	DNSResolver               dns.Resolver
 	MeshWatcher               mesh.Watcher
 	ServiceHandler            func(service *model.Service, event model.Event)
 	Mode                      EndpointMode
@@ -183,6 +185,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		XDSUpdater:                xdsUpdater,
 		Metrics:                   &model.Environment{},
 		NetworksWatcher:           opts.NetworksWatcher,
+		DNSResolver:               opts.DNSResolver,
 		MeshWatcher:               opts.MeshWatcher,
 		EndpointMode:              opts.Mode,
 		ClusterID:                 opts.ClusterID,

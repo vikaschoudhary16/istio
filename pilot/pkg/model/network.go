@@ -15,11 +15,13 @@
 package model
 
 import (
+	"fmt"
 	"net"
 	"sort"
 	"strings"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/dns"
 	"istio.io/istio/pkg/network"
 )
 
@@ -50,17 +52,14 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		for nw, networkConf := range meshNetworks.Networks {
 			gws := networkConf.Gateways
 			for _, gw := range gws {
-				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
+				addresses := getGatewayAddresses(gw.GetAddress(), env.Resolver)
+				for _, address := range addresses {
 					gatewaySet[NetworkGateway{
 						Cluster: "", /* TODO(nmittler): Add Cluster to the API */
 						Network: network.ID(nw),
-						Addr:    gw.GetAddress(),
+						Addr:    address,
 						Port:    gw.Port,
 					}] = struct{}{}
-				} else {
-					log.Warnf("Failed parsing gateway address %s in MeshNetworks config. "+
-						"Hostnames are not supported for gateways",
-						gw.GetAddress())
 				}
 			}
 		}
@@ -68,14 +67,13 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 
 	// Second, load registry-specific gateways.
 	for _, gw := range env.NetworkGateways() {
-		if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
+		addresses := getGatewayAddresses(gw.Addr, env.Resolver)
+		for _, address := range addresses {
+			gwInstance := gw
+			gwInstance.Addr = address
 			// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
 			// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
-			gatewaySet[gw] = struct{}{}
-		} else {
-			log.Warnf("Failed parsing gateway address %s from Service Registry. "+
-				"Hostnames are not supported for gateways",
-				gw.Addr)
+			gatewaySet[gwInstance] = struct{}{}
 		}
 	}
 
@@ -86,6 +84,19 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		byNetwork[gw.Network] = append(byNetwork[gw.Network], gw)
 		nc := networkAndClusterForGateway(&gw)
 		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], gw)
+	}
+
+	if log.DebugEnabled() && len(byNetwork) > 0 {
+		log.Debug("Network gateways:")
+		for network, gateways := range byNetwork {
+			addresses := make([]string, len(gateways))
+			for i, gateway := range gateways {
+				addresses[i] = fmt.Sprintf("%s:%d", gateway.Addr, gateway.Port)
+			}
+			log.Debugf("  %q: %v", network, addresses)
+		}
+	} else {
+		log.Debug("Network gateways: none")
 	}
 
 	gwNum := []int{}
@@ -113,6 +124,26 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		byNetwork:           byNetwork,
 		byNetworkAndCluster: byNetworkAndCluster,
 	}
+}
+
+func getGatewayAddresses(address string, dnsResolver dns.Lookup) []string {
+	if address == "" {
+		return nil
+	}
+	// First, if a gateway address is an IP, use it.
+	if gwIP := net.ParseIP(address); gwIP != nil {
+		log.Debugf("Network gateway is defined using a static IP address %q", address)
+		return []string{address}
+	}
+
+	gwIPs := dns.LookupOrNoop(dnsResolver).LookupIP(address)
+	log.Debugf("Network gateway is defined using a DNS name %q which resolves into IPs %v", address, gwIPs)
+	if len(gwIPs) > 0 {
+		return gwIPs
+	}
+
+	log.Warnf("Failed to resolve network gateway address: %s", address)
+	return nil
 }
 
 // NetworkManager provides gateway details for accessing remote networks.
