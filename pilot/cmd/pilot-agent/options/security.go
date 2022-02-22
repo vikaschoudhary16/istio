@@ -100,6 +100,12 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		o.CAEndpointSAN = istiodSAN.Get()
 	}
 
+	// NOTES(yskopets): Unlike upstream Istio, we do support separate
+	//                  SAN values for Istiod and CA.
+	if override := caSNI.Get(); override != "" {
+		o.CAEndpointSAN = override
+	}
+
 	// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
 	// GCE is the only supported plugin at the moment.
 	if credFetcherTypeEnv == security.GCE {
