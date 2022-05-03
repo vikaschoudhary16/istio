@@ -98,7 +98,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	if err != nil {
 		l.LogAndFatal(err)
 	}
-	if err := reconciler.DeleteObjectsList(rs); err != nil {
+	if err := reconciler.DeleteObjectsList(rs, string(name.IstioOperatorComponentName)); err != nil {
 		l.LogAndFatal(err)
 	}
 
