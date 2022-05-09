@@ -81,6 +81,10 @@ jobs:
       with:
         fetch-depth: 0 # fetch all history for all tags and branches
 
+    - name: "Fix git commands failing with 'fatal: unsafe repository (... is owned by someone else)'"
+      # see https://github.com/actions/checkout/issues/766
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
     - name: "Docker login"
       env:
         DOCKER_HUB_USER: ${{ secrets.TETRATE_CI_DOCKER_HUB_USER }}
