@@ -590,7 +590,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		// and that no two non-HTTPS servers can be on same port or share port names.
 		// Validation is done per gateway and also during merging
 		sniHosts:   node.MergedGateway.TLSServerInfo[server].SNIHosts,
-		tlsContext: buildGatewayListenerTLSContext(server, node, transportProtocol),
+		tlsContext: buildGatewayListenerTLSContext(server, node, transportProtocol, gateway.IsTCPServerWithTLSTermination(server)),
 		httpOpts: &httpListenerOpts{
 			rds:               routeName,
 			useRemoteAddress:  true,
@@ -657,7 +657,9 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 //
 // Note that ISTIO_MUTUAL TLS mode and ingressSds should not be used simultaneously on the same ingress gateway.
 func buildGatewayListenerTLSContext(
-	server *networking.Server, proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *tls.DownstreamTlsContext {
+	server *networking.Server, proxy *model.Proxy,
+	transportProtocol istionetworking.TransportProtocol,
+	gatewayTCPServerWithTerminatingTLS bool) *tls.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
@@ -666,6 +668,10 @@ func buildGatewayListenerTLSContext(
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
 		alpnByTransport = util.ALPNHttp3OverQUIC
+	} else if transportProtocol == istionetworking.TransportProtocolTCP &&
+		server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL &&
+		gatewayTCPServerWithTerminatingTLS {
+		alpnByTransport = util.ALPNDownstream
 	}
 	ctx := &tls.DownstreamTlsContext{
 		CommonTlsContext: &tls.CommonTlsContext{
@@ -770,7 +776,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			return []*filterChainOpts{
 				{
 					sniHosts:       node.MergedGateway.TLSServerInfo[server].SNIHosts,
-					tlsContext:     buildGatewayListenerTLSContext(server, node, istionetworking.TransportProtocolTCP),
+					tlsContext:     buildGatewayListenerTLSContext(server, node, istionetworking.TransportProtocolTCP, gateway.IsTCPServerWithTLSTermination(server)),
 					networkFilters: filters,
 				},
 			}

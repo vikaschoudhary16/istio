@@ -39,7 +39,9 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/proto"
@@ -56,6 +58,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
 				},
@@ -120,6 +125,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode: networking.ServerTLSSettings_SIMPLE,
 				},
@@ -158,6 +166,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:           networking.ServerTLSSettings_SIMPLE,
 					CredentialName: "ingress-sds-resource-name",
@@ -181,6 +192,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name subject alternative name no key no cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:            networking.ServerTLSSettings_SIMPLE,
 					CredentialName:  "ingress-sds-resource-name",
@@ -209,6 +223,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:              networking.ServerTLSSettings_SIMPLE,
 					ServerCertificate: "server-cert.crt",
@@ -248,6 +265,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:              networking.ServerTLSSettings_MUTUAL,
 					ServerCertificate: "server-cert.crt",
@@ -313,6 +333,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert subject alt names tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:              networking.ServerTLSSettings_MUTUAL,
 					ServerCertificate: "server-cert.crt",
@@ -383,6 +406,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name subject alternative name key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:              networking.ServerTLSSettings_MUTUAL,
 					CredentialName:    "ingress-sds-resource-name",
@@ -421,6 +447,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name verify spki key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:                  networking.ServerTLSSettings_MUTUAL,
 					CredentialName:        "ingress-sds-resource-name",
@@ -457,6 +486,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "credential name verify hash key and cert tls MUTUAL",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:                  networking.ServerTLSSettings_MUTUAL,
 					CredentialName:        "ingress-sds-resource-name",
@@ -491,6 +523,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "no credential name key and cert tls PASSTHROUGH",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:              networking.ServerTLSSettings_PASSTHROUGH,
 					ServerCertificate: "server-cert.crt",
@@ -503,6 +538,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "Downstream TLS settings for QUIC transport",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:           networking.ServerTLSSettings_SIMPLE,
 					CredentialName: "httpbin-cred",
@@ -526,6 +564,9 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			name: "duplicated cipher suites with tls SIMPLE",
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.HTTPS),
+				},
 				Tls: &networking.ServerTLSSettings{
 					Mode:              networking.ServerTLSSettings_SIMPLE,
 					ServerCertificate: "server-cert.crt",
@@ -565,13 +606,81 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolFalse,
 			},
 		},
+		{
+			// tcp server is istio mtls, istio-peer-exchange in the alpns
+			name: "mesh SDS enabled, tcp server, tls mode ISTIO_MUTUAL",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com"},
+				Port: &networking.Port{
+					Protocol: string(protocol.TLS),
+				},
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+				},
+			},
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNDownstream,
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name: "default",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
+								ResourceApiVersion:  core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "ROOTCA",
+								SdsConfig: &core.ConfigSource{
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
+									ResourceApiVersion:  core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:                   core.ApiConfigSource_GRPC,
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolTrue,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ret := buildGatewayListenerTLSContext(tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
-			}, tc.transportProtocol)
+			}, tc.transportProtocol, gateway.IsTCPServerWithTLSTermination(tc.server))
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
@@ -642,7 +751,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				sniHosts: []string{"example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNHttp,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -732,7 +841,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				sniHosts: []string{"example.org", "test.org"},
 				tlsContext: &auth.DownstreamTlsContext{
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNHttp,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -822,7 +931,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				sniHosts: []string{"*.example.org", "example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNHttp,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -952,7 +1061,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				sniHosts: []string{"example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNHttp,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
@@ -1049,7 +1158,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				tlsContext: &auth.DownstreamTlsContext{
 					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
-						AlpnProtocols: []string{"h2", "http/1.1"},
+						AlpnProtocols: util.ALPNHttp,
 						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 							{
 								Name: "default",
