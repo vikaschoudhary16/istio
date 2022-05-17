@@ -2410,33 +2410,6 @@ spec:
                     local:
                       inline_string: "envoy.wasm.stats"
 ---
-# Source: istiod/templates/telemetryv2_1.12.yaml
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: tcp-metadata-exchange-1.12
-  namespace: istio-system
-  labels:
-    istio.io/rev: default
-spec:
-  configPatches:
-    - applyTo: NETWORK_FILTER
-      match:
-        context: GATEWAY
-        proxy:
-          proxyVersion: '^1\.12.*'
-        listener: {}
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          filters:
-          - name: istio.metadata_exchange
-            typed_config:
-              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-              type_url: type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange
-              value:
-                protocol: istio-peer-exchange
----
 # Source: istiod/templates/mutatingwebhook.yaml
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
