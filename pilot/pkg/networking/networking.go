@@ -203,6 +203,7 @@ const (
 	ListenerClassSidecarInbound
 	ListenerClassSidecarOutbound
 	ListenerClassGateway
+	ListenerClassTCPIstioMTLSGateway
 )
 
 func BuildCatchAllVirtualHost(allowAnyoutbound bool, sidecarDestination string) *route.VirtualHost {

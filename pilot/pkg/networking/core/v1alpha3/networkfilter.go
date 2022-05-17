@@ -47,7 +47,8 @@ func buildMetadataExchangeNetworkFilters(push *model.PushContext, class istionet
 		return filterstack
 	}
 	// We add metadata exchange on inbound only; outbound is handled in cluster filter
-	if class == istionetworking.ListenerClassSidecarInbound {
+	if class == istionetworking.ListenerClassSidecarInbound ||
+		class == istionetworking.ListenerClassTCPIstioMTLSGateway {
 		filterstack = append(filterstack, xdsfilters.TCPListenerMx)
 	}
 
