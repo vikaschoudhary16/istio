@@ -170,6 +170,10 @@ var (
 	MultiNetworkGatewayAPI = env.Register("PILOT_MULTI_NETWORK_DISCOVER_GATEWAY_API", false,
 		"If true, Pilot will discover labeled Kubernetes gateway objects as multi-network gateways.").Get()
 
+	IgnoreRequestedNetworkViewForSniDnat = env.RegisterBoolVar("IGNORE_REQUESTED_NETWORK_VIEW_FOR_SNI_DNAT_CLUSTERS", false,
+		"If enabled, the endpoints in the SNI-DNAT clusters would be the endpoints in the proxy's network irrespective of "+
+			"the ISTIO_META_REQUESTED_NETWORK_VIEW setting on it").Get()
+
 	InsecureKubeConfigOptions = func() sets.String {
 		v := env.Register(
 			"PILOT_INSECURE_MULTICLUSTER_KUBECONFIG_OPTIONS",
