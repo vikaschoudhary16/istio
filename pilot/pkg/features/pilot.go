@@ -645,10 +645,6 @@ var (
 		"If false, TCP probes will not be rewritten and therefor always succeed when a sidecar is used.",
 	).Get()
 
-	IgnoreRequestedNetworkViewForSniDnat = env.RegisterBoolVar("IGNORE_REQUESTED_NETWORK_VIEW_FOR_SNI_DNAT_CLUSTERS", false,
-		"If enabled, the endpoints in the SNI-DNAT clusters would be the endpoints in the proxy's network irrespective of "+
-			"the ISTIO_META_REQUESTED_NETWORK_VIEW setting on it").Get()
-
 	EnableQUICListeners = env.Register("PILOT_ENABLE_QUIC_LISTENERS", false,
 		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways "+
 			"if the gateway service exposes a UDP port with the same number (for example 443/TCP and 443/UDP)").Get()
@@ -709,6 +705,8 @@ var (
 
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
 		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
+	ExcludeRemoteEndpointsForSniDnatClusters = env.RegisterBoolVar("EXCLUDE_REMOTE_ENDPOINTS_FOR_SNI_DNAT_CLUSTERS", false,
+		"If enabled, the endpoints in the SNI-DNAT clusters would be the endpoints in the proxy's network").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
