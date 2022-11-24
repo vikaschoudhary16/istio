@@ -813,7 +813,7 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 					if pa.IsMtlsDisabled {
 						tests = casesMtlsDisabled
 					} else {
-						features.IgnoreRequestedNetworkViewForSniDnat = true
+						features.ExcludeRemoteEndpointsForSniDnatClusters = true
 						tests = networkFilteredForSniDnat
 					}
 					runMTLSFilterTest(t, env, tests, pa.SubsetName)

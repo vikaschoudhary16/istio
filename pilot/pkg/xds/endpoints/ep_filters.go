@@ -92,9 +92,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			epNetwork := istioEndpoint.Network
 
 			// For the SNI-DNAT clusters, skip endpoints which are not local to
-			// the network where the proxy resides irrespective of the requested
-			// network view settings set via ISTIO_META_REQUESTED_NETWORK_VIEW.
-			//
+			// the network where the proxy resides.
 			// This enables the usecase where the same gateway workload can be
 			// used for both north-south and east-west traffic. But why is this needed?
 			// For the north-south traffic, non SNI-DNAT cluster containing endpoints
@@ -102,10 +100,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// this causes circular routing for east-west traffic which uses SNI-DNAT
 			// cluster. Hence, we have to make sure that the endpoints in the SNI-DNAT
 			// cluster reside in the SAME network so that the traffic is not routed
-			// across networks. Effectively, it is using ISTIO_META_REQUESTED_NETWORK_VIEW
-			// for north-south traffic and using current network as requested network view
+			// across networks. Effectively, it is using local and remote endpoints
+			// for north-south traffic and using local endpoints
 			// for the east-west traffic.
-			if features.IgnoreRequestedNetworkViewForSniDnat && isSniDnatCluster && !b.proxy.InNetwork(epNetwork) {
+			if features.ExcludeRemoteEndpointsForSniDnatClusters && isSniDnatCluster && !b.proxy.InNetwork(epNetwork) {
 				continue
 			}
 
