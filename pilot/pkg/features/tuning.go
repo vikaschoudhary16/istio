@@ -74,7 +74,7 @@ var (
 		return min(float64(15+5*procs), 100.0)
 	}()
 
-	DebounceAfter = env.Register(
+	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
 		100*time.Millisecond,
 		"The delay added to config/registry events for debouncing. This will delay the push by "+
