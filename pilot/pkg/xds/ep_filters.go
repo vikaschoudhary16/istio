@@ -42,7 +42,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	}
 
 	isSniDnatCluster := model.IsDNSSrvSubsetKey(b.clusterName)
-	
+
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
 	filtered := make([]*LocalityEndpoints, 0)
