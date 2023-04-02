@@ -15,13 +15,13 @@
 package controller
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	"net"
 	"strconv"
 
 	"github.com/yl2chen/cidranger"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
