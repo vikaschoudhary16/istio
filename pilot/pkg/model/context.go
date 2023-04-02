@@ -995,7 +995,7 @@ func ParseServiceNodeWithMetadata(nodeID string, metadata *NodeMetadata) (*Proxy
 		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", nodeID)
 	}
 	out.Type = NodeType(parts[0])
-	if isValidIPAddress(parts[1]) {
+	if netutil.IsValidIPAddress(parts[1]) {
 		out.ServiceNodeIP = parts[1]
 	}
 
