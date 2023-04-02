@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	"reflect"
 	"sort"
 	"testing"
@@ -25,6 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
