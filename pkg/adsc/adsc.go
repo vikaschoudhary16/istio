@@ -612,7 +612,7 @@ func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 		},
 	}
 
-	if !config.ObjectInRevision(c, a.cfg.Revision) { // In case upstream does not support rev in node meta.
+	if !config.ObjectInRevisions(c, sets.New(a.cfg.Revision)) { // In case upstream does not support rev in node meta.
 		return nil, nil
 	}
 

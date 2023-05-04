@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages")
@@ -67,6 +68,9 @@ type Client struct {
 
 	// revision for this control plane instance. We will only read configs that match this revision.
 	revision string
+
+	// discoveryRevisions provides a set of revisions for which this control plane instance can read configs.
+	discoveryRevisions sets.Set[string]
 
 	// kinds keeps track of all cache handlers for known types
 	kinds   map[config.GroupVersionKind]kclient.Untyped
@@ -93,6 +97,7 @@ type Option struct {
 	Identifier       string
 	NamespacesFilter func(obj interface{}) bool
 	FiltersByGVK     map[config.GroupVersionKind]kubetypes.Filter
+	DiscoveryRevisions sets.Set[string]
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -122,6 +127,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		kinds:            map[config.GroupVersionKind]kclient.Untyped{},
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
 		client:           client,
+		discoveryRevisions: opts.DiscoveryRevisions,
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		namespacesFilter: opts.NamespacesFilter,
 		filtersByGVK:     opts.FiltersByGVK,
@@ -275,6 +281,10 @@ func (cl *Client) allKinds() map[config.GroupVersionKind]kclient.Untyped {
 	return maps.Clone(cl.kinds)
 }
 
+func (cl *Client) objectInRevision(o *config.Config) bool {
+	return config.ObjectInRevisions(o, cl.discoveryRevisions)
+}
+
 func (cl *Client) kind(r config.GroupVersionKind) (kclient.Untyped, bool) {
 	cl.kindsMu.RLock()
 	defer cl.kindsMu.RUnlock()
@@ -353,7 +363,7 @@ func (cl *Client) addCRD(name string) {
 		if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
 			return false
 		}
-		return config.LabelsInRevision(t.(controllers.Object).GetLabels(), cl.revision)
+		return config.LabelsInRevisions(t.(controllers.Object).GetLabels(), cl.discoveryRevisions)
 	}
 	var kc kclient.Untyped
 	if s.IsBuiltin() {
