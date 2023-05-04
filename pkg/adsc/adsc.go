@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -620,7 +621,7 @@ func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 		},
 	}
 
-	if !config.ObjectInRevision(c, a.cfg.Revision) { // In case upstream does not support rev in node meta.
+	if !config.ObjectInRevisions(c, sets.New(a.cfg.Revision)) { // In case upstream does not support rev in node meta.
 		return nil, nil
 	}
 

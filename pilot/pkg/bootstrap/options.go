@@ -17,12 +17,14 @@ package bootstrap
 import (
 	"crypto/tls"
 	"fmt"
+	"strings"
 	"time"
 
 	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/env"
 )
@@ -56,6 +58,7 @@ type PilotArgs struct {
 	PodName            string
 	Namespace          string
 	Revision           string
+	DiscoveryRevisions sets.Set[string]
 	MeshConfigFile     string
 	NetworksConfigFile string
 	RegistryOptions    RegistryOptions
@@ -121,6 +124,10 @@ var (
 // and is the value used by the "istio.io/rev" label.
 var Revision = env.Register("REVISION", "", "").Get()
 
+// DiscoveryRevisions is a comma separated list of revisions, that this Istio control
+// plane watches for, in Istio configs.
+var DiscoveryRevisions = env.RegisterStringVar("DISCOVERY_REVISIONS", "", "").Get()
+
 // NewPilotArgs constructs pilotArgs with default values.
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 	p := &PilotArgs{}
@@ -141,6 +148,7 @@ func (p *PilotArgs) applyDefaults() {
 	p.Namespace = PodNamespace
 	p.PodName = PodName
 	p.Revision = Revision
+	p.DiscoveryRevisions = getDiscoveryRevisions()
 	p.JwtRule = JwtRule
 	p.KeepaliveOptions = keepalive.DefaultOption()
 	p.RegistryOptions.DistributionTrackingEnabled = features.EnableDistributionTracking
@@ -183,4 +191,19 @@ func TLSCipherSuites(cipherNames []string) ([]uint16, error) {
 		ciphersIntSlice = append(ciphersIntSlice, intValue)
 	}
 	return ciphersIntSlice, nil
+}
+
+func getDiscoveryRevisions() sets.Set[string] {
+	discoveryRevisions := strings.ReplaceAll(DiscoveryRevisions, " ", "")
+
+	// If DiscoveryRevisions are not provided, try to default to the singular Revision.
+	if discoveryRevisions == "" {
+		if Revision == "" {
+			return sets.Set[string]{}
+		}
+
+		discoveryRevisions = Revision
+	}
+
+	return sets.New(strings.Split(discoveryRevisions, ",")...)
 }

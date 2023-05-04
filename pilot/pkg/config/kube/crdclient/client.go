@@ -55,6 +55,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -72,6 +73,9 @@ type Client struct {
 
 	// revision for this control plane instance. We will only read configs that match this revision.
 	revision string
+
+	// discoveryRevisions provides a set of revisions for which this control plane instance can read configs.
+	discoveryRevisions sets.Set[string]
 
 	// kinds keeps track of all cache handlers for known types
 	kinds   map[config.GroupVersionKind]*cacheHandler
@@ -104,10 +108,11 @@ type Client struct {
 }
 
 type Option struct {
-	Revision         string
-	DomainSuffix     string
-	Identifier       string
-	NamespacesFilter func(obj interface{}) bool
+	Revision           string
+	DomainSuffix       string
+	Identifier         string
+	NamespacesFilter   func(obj interface{}) bool
+	DiscoveryRevisions sets.Set[string]
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -157,16 +162,17 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		schemasByCRDName[name] = s
 	}
 	out := &Client{
-		domainSuffix:     opts.DomainSuffix,
-		schemas:          schemas,
-		schemasByCRDName: schemasByCRDName,
-		revision:         opts.Revision,
-		queue:            queue.NewQueue(1 * time.Second),
-		kinds:            map[config.GroupVersionKind]*cacheHandler{},
-		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
-		client:           client,
-		istioClient:      client.Istio(),
-		gatewayAPIClient: client.GatewayAPI(),
+		domainSuffix:       opts.DomainSuffix,
+		schemas:            schemas,
+		schemasByCRDName:   schemasByCRDName,
+		revision:           opts.Revision,
+		discoveryRevisions: opts.DiscoveryRevisions,
+		queue:              queue.NewQueue(1 * time.Second),
+		kinds:              map[config.GroupVersionKind]*cacheHandler{},
+		handlers:           map[config.GroupVersionKind][]model.EventHandler{},
+		client:             client,
+		istioClient:        client.Istio(),
+		gatewayAPIClient:   client.GatewayAPI(),
 		crdMetadataInformer: client.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
 			GroupVersionResource()).Informer(),
 		beginSync:        atomic.NewBool(false),
@@ -417,7 +423,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 }
 
 func (cl *Client) objectInRevision(o *config.Config) bool {
-	return config.ObjectInRevision(o, cl.revision)
+	return config.ObjectInRevisions(o, cl.discoveryRevisions)
 }
 
 func (cl *Client) allKinds() []*cacheHandler {
