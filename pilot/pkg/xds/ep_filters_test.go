@@ -24,6 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -170,6 +171,90 @@ var networkFiltered = []networkFilterCase{
 					{address: "2.2.2.21", weight: 6},
 				},
 				weight: 36,
+			},
+		},
+	},
+}
+
+var networkFilteredForSniDnat = []networkFilterCase{
+	{
+		name: "from_network1_cluster1a",
+		conn: xdsConnection("network1", "cluster1a"),
+		want: []LocLbEpInfo{
+			{
+				lbEps: []LbEpInfo{
+					// 2 local endpoints on network1
+					{address: "10.0.0.1", weight: 6},
+					{address: "10.0.0.2", weight: 6},
+				},
+				weight: 12,
+			},
+		},
+	},
+	{
+		name: "from_network1_cluster1b",
+		conn: xdsConnection("network1", "cluster1b"),
+		want: []LocLbEpInfo{
+			{
+				lbEps: []LbEpInfo{
+					// 2 local endpoints on network1
+					{address: "10.0.0.1", weight: 6},
+					{address: "10.0.0.2", weight: 6},
+				},
+				weight: 12,
+			},
+		},
+	},
+	{
+		name: "from_network2_cluster2a",
+		conn: xdsConnection("network2", "cluster2a"),
+		want: []LocLbEpInfo{
+			{
+				lbEps: []LbEpInfo{
+					// 3 local endpoints in network2
+					{address: "20.0.0.1", weight: 6},
+					{address: "20.0.0.2", weight: 6},
+					{address: "20.0.0.3", weight: 6},
+				},
+				weight: 18,
+			},
+		},
+	},
+	{
+		name: "from_network2_cluster2b",
+		conn: xdsConnection("network2", "cluster2b"),
+		want: []LocLbEpInfo{
+			{
+				lbEps: []LbEpInfo{
+					// 3 local endpoints in network2
+					{address: "20.0.0.1", weight: 6},
+					{address: "20.0.0.2", weight: 6},
+					{address: "20.0.0.3", weight: 6},
+				},
+				weight: 18,
+			},
+		},
+	},
+	{
+		name: "from_network3_cluster3",
+		conn: xdsConnection("network3", "cluster3"),
+		want: []LocLbEpInfo{
+			{
+				lbEps:  []LbEpInfo{},
+				weight: 0,
+			},
+		},
+	},
+	{
+		name: "from_network4_cluster4",
+		conn: xdsConnection("network4", "cluster4"),
+		want: []LocLbEpInfo{
+			{
+				lbEps: []LbEpInfo{
+					// 1 local endpoint on network4
+					{address: "40.0.0.1", weight: 6},
+				},
+				weight: 6,
 			},
 		},
 	},
@@ -699,7 +784,8 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 					if pa.IsMtlsDisabled {
 						tests = casesMtlsDisabled
 					} else {
-						tests = networkFiltered
+						features.ExcludeRemoteEndpointsForSniDnatClusters = true
+						tests = networkFilteredForSniDnat
 					}
 					runMTLSFilterTest(t, env, tests)
 				})

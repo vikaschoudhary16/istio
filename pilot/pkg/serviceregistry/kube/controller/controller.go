@@ -267,6 +267,12 @@ type Controller struct {
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 	// index over workload instances from workload entries
 	workloadInstancesIndex workloadinstances.Index
+	// serviceToWorkloadNodesMap is a mapping of NodePort services to the list of kubernetes node names
+	// on which there is at least one workload belonging to the service is running. This is needed to handle
+	// node-port services with external traffic policy type set to Local (default is Cluster). This is because
+	// when it is set to local and traffic is sent to a node not hosting a workload, it will be dropped. This
+	// happens intermittently based on the node which takes the traffic.
+	serviceToWorkloadNodesMap map[host.Name]map[string]struct{}
 
 	multinetwork
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
@@ -287,6 +293,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		workloadInstancesIndex:     workloadinstances.NewIndex(),
+		serviceToWorkloadNodesMap:  make(map[host.Name]map[string]struct{}),
 		beginSync:                  atomic.NewBool(false),
 		initialSync:                atomic.NewBool(false),
 
@@ -542,6 +549,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	delete(c.externalNameSvcInstanceMap, svc.Hostname)
 	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
 	delete(c.networkGatewaysBySvc, svc.Hostname)
+	delete(c.serviceToWorkloadNodesMap, svc.Hostname)
 	c.Unlock()
 
 	if isNetworkGateway {
@@ -631,6 +639,12 @@ func (c *Controller) onNodeEvent(_, obj any, event model.Event) error {
 		updatedNeeded = true
 		c.Lock()
 		delete(c.nodeInfoMap, node.Name)
+
+		// We should remove the node for all the services that
+		// had a workload there as we don't want to route traffic
+		for h := range c.serviceToWorkloadNodesMap {
+			delete(c.serviceToWorkloadNodesMap[h], node.Name)
+		}
 		c.Unlock()
 	} else {
 		k8sNode := kubernetesNode{labels: node.Labels}
@@ -638,6 +652,14 @@ func (c *Controller) onNodeEvent(_, obj any, event model.Event) error {
 			if address.Type == v1.NodeExternalIP && address.Address != "" {
 				k8sNode.address = address.Address
 				break
+			}
+		}
+		if k8sNode.address == "" {
+			for _, address := range node.Status.Addresses {
+				if address.Type == v1.NodeInternalIP && address.Address != "" {
+					k8sNode.address = address.Address
+					break
+				}
 			}
 		}
 		if k8sNode.address == "" {
@@ -659,7 +681,7 @@ func (c *Controller) onNodeEvent(_, obj any, event model.Event) error {
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.ServiceUpdate},
+			Reason: []model.TriggerReason{model.ServiceUpdate, model.NodeTrigger},
 		})
 	}
 	return nil
@@ -1050,8 +1072,8 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
-	if len(proxy.IPAddresses) > 0 {
-		proxyIP := proxy.IPAddresses[0]
+	if len(proxy.IdentityIP()) > 0 {
+		proxyIP := proxy.IdentityIP()
 		// look up for a WorkloadEntry; if there are multiple WorkloadEntry(s)
 		// with the same IP, choose one deterministically
 		workload := workloadinstances.GetInstanceForProxy(c.workloadInstancesIndex, proxy, proxyIP)
@@ -1302,7 +1324,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			for _, tp := range tpsList {
 				svcPort := tps[tp]
 				// consider multiple IP scenarios
-				for _, ip := range proxy.IPAddresses {
+				for _, ip := range proxy.AllIPAddresses() {
 					// Construct the ServiceInstance
 					out = append(out, &model.ServiceInstance{
 						Service:     modelService,
@@ -1356,7 +1378,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 		for _, tp := range tpsList {
 			svcPort := tps[tp]
 			// consider multiple IP scenarios
-			for _, ip := range proxy.IPAddresses {
+			for _, ip := range proxy.AllIPAddresses() {
 				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy)
 				out = append(out, &model.ServiceInstance{
 					Service:     svc,
