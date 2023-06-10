@@ -199,10 +199,21 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return res
 	}
 
+	res := s.mayBeGetEnvoyTlsCertificate(secretController, sr, proxy)
+	if res == nil {
+		res = s.mayBeGetEnvoyGenericSecret(secretController, sr, proxy)
+	}
+	if res == nil {
+		log.Debugf("no secret found for %s", sr.ResourceName)
+	}
+	return res
+}
+
+func (s *SecretGen) mayBeGetEnvoyTlsCertificate(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
 	key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
-		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
+		log.Warnf("mayBeGetEnvoyTlsCertificate failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
 		return nil
 	}
 	if features.VerifySDSCertificate {
@@ -211,8 +222,17 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 	}
-	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, proxy, s.meshConfig)
-	return res
+	return toEnvoyKeyCertSecret(sr.ResourceName, key, cert, proxy, s.meshConfig)
+}
+
+func (s *SecretGen) mayBeGetEnvoyGenericSecret(secretController credscontroller.Controller, sr SecretResource, proxy *model.Proxy) *discovery.Resource {
+	key, value, err := secretController.GetDataSourceKeyAndValue(sr.Name, sr.Namespace)
+	if err != nil {
+		pilotSDSCertificateErrors.Increment()
+		log.Warnf("mayBeGetEnvoyGenericSecret failed to fetch data source key and value for %s: %v", sr.ResourceName, err)
+		return nil
+	}
+	return toEnvoyGenericSecret(sr.ResourceName, key, value, proxy, s.meshConfig)
 }
 
 func validateCertificate(data []byte) error {
@@ -408,6 +428,31 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, mes
 				},
 			},
 		})
+	}
+	return &discovery.Resource{
+		Name:     name,
+		Resource: res,
+	}
+}
+
+func toEnvoyGenericSecret(name string, key, value []byte, proxy *model.Proxy, meshConfig *mesh.MeshConfig) *discovery.Resource {
+	var res *anypb.Any
+	switch string(key) {
+	case "inline_bytes":
+		res = protoconv.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_GenericSecret{
+				GenericSecret: &envoytls.GenericSecret{
+					Secret: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: value,
+						},
+					},
+				},
+			},
+		})
+	default:
+		log.Warnf("Unsupported generic secret key: %s", key)
 	}
 	return &discovery.Resource{
 		Name:     name,

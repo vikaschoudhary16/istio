@@ -55,6 +55,9 @@ const (
 	TLSSecretKey = "tls.key"
 	// The ID/name for the CA certificate in kubernetes tls secret
 	TLSSecretCaCert = "ca.crt"
+
+	DataSourceInlineBytes = "inline_bytes"
+	//TODO: add support for file_name, inline_string and environment_variable
 )
 
 type CredentialsController struct {
@@ -185,6 +188,15 @@ func (s *CredentialsController) GetKeyAndCert(name, namespace string) (key []byt
 	return extractKeyAndCert(k8sSecret)
 }
 
+func (s *CredentialsController) GetDataSourceKeyAndValue(name, namespace string) (key []byte, value []byte, err error) {
+	k8sSecret, err := s.secretLister.Secrets(namespace).Get(name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
+	}
+
+	return extractDataSourceKeyAndValue(k8sSecret)
+}
+
 func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, err error) {
 	strippedName := strings.TrimSuffix(name, securitymodel.SdsCaSuffix)
 	k8sSecret, err := s.secretLister.Secrets(namespace).Get(name)
@@ -251,6 +263,17 @@ func extractKeyAndCert(scrt *v1.Secret) (key, cert []byte, err error) {
 	found := truncatedKeysMessage(scrt.Data)
 	return nil, nil, fmt.Errorf("found secret, but didn't have expected keys (%s and %s) or (%s and %s); found: %s",
 		GenericScrtCert, GenericScrtKey, TLSSecretCert, TLSSecretKey, found)
+}
+
+// extractDataSourceKeyAndValue extracts server key(one of inline_bytes, inline_string, file_name, environment_variable) and value
+func extractDataSourceKeyAndValue(scrt *v1.Secret) (key, value []byte, err error) {
+	if hasValue(scrt.Data, DataSourceInlineBytes) {
+		return []byte(DataSourceInlineBytes), scrt.Data[DataSourceInlineBytes], nil
+	}
+	//TODO: add support for file_name, inline_string and environment_variable
+	found := truncatedKeysMessage(scrt.Data)
+	return nil, nil, fmt.Errorf("found secret, but didn't have expected key (%s); found: %s",
+		DataSourceInlineBytes, found)
 }
 
 func truncatedKeysMessage(data map[string][]byte) string {

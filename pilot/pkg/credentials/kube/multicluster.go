@@ -132,6 +132,22 @@ func (a *AggregateController) GetKeyAndCert(name, namespace string) (key []byte,
 	return nil, nil, firstError
 }
 
+func (a *AggregateController) GetDataSourceKeyAndValue(name, namespace string) (key []byte, value []byte, err error) {
+	// Search through all clusters, find first non-empty result
+	var firstError error
+	for _, c := range a.controllers {
+		k, c, err := c.GetDataSourceKeyAndValue(name, namespace)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+		} else {
+			return k, c, nil
+		}
+	}
+	return nil, nil, firstError
+}
+
 func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte, err error) {
 	// Search through all clusters, find first non-empty result
 	var firstError error
