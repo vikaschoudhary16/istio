@@ -200,7 +200,8 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	if err != nil {
 		pilotSDSCertificateErrors.Increment()
 		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
-		return nil
+
+		return s.mayBeGetEnvoyGenericSecret(secretController, sr)
 	}
 	if features.VerifySDSCertificate {
 		if err := ValidateCertificate(certInfo.Cert); err != nil {
