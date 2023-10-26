@@ -51,7 +51,6 @@ import (
 	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
