@@ -74,7 +74,10 @@ var (
 	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
 		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
-	DebounceAfter = env.Register(
+	FilterEastWestGatewayClusterConfig = env.RegisterBoolVar("PILOT_XCP_FILTER_EAST_WEST_GATEWAY_CLUSTER_CONFIG", false,
+		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to AUTO_PASSTHROUGH gateway").Get()
+
+	DebounceAfter = env.RegisterDurationVar(
 		"PILOT_DEBOUNCE_AFTER",
 		100*time.Millisecond,
 		"The delay added to config/registry events for debouncing. This will delay the push by "+
@@ -639,7 +642,9 @@ var (
 		"If true, Istio will enable the Dual Stack feature.").Get()
 
 	EnableOptimizedServicePush = env.RegisterBoolVar("ISTIO_ENABLE_OPTIMIZED_SERVICE_PUSH", true,
-		"If enabled, Istiod will not push changes on arbitrary annotation change.").Get()
+		"If enabled, Istiod will not push changes on arbitraty annotation change.").Get()
+	ExcludeRemoteEndpointsForSniDnatClusters = env.RegisterBoolVar("EXCLUDE_REMOTE_ENDPOINTS_FOR_SNI_DNAT_CLUSTERS", false,
+		"If enabled, the endpoints in the SNI-DNAT clusters would be the endpoints in the proxy's network").Get()
 
 	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
 		"If set, limit Kubernetes watches to a single namespace. "+

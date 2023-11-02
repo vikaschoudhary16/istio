@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Meta is metadata attached to each configuration unit.
@@ -106,23 +107,23 @@ type Config struct {
 	Status Status
 }
 
-func LabelsInRevision(lbls map[string]string, rev string) bool {
+func LabelsInRevisions(lbls map[string]string, rev sets.Set[string]) bool {
 	configEnv, f := lbls[label.IoIstioRev.Name]
 	if !f {
 		// This is a global object, and always included
 		return true
 	}
-	// If the revision is empty, this means we don't specify a revision, and
+	// If the revisions is empty, this means we don't specify a revision, and
 	// we should always include it
-	if rev == "" {
+	if len(rev) == 0 {
 		return true
 	}
-	// Otherwise, only return true if revisions equal
-	return configEnv == rev
+	// Otherwise, only return true if revision is present in rev
+	return rev.Contains(configEnv)
 }
 
-func ObjectInRevision(o *Config, rev string) bool {
-	return LabelsInRevision(o.Labels, rev)
+func ObjectInRevisions(o *Config, rev sets.Set[string]) bool {
+	return LabelsInRevisions(o.Labels, rev)
 }
 
 // Spec defines the spec for the config. In order to use below helper methods,
