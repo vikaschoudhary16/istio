@@ -1110,7 +1110,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 		for _, tp := range tpsList {
 			svcPort := tps[tp]
 			// consider multiple IP scenarios
-			for _, ip := range proxy.IPAddresses {
+			for _, ip := range proxy.AllIPAddresses() {
 				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy, model.Healthy)
 				out = append(out, &model.ServiceInstance{
 					Service:     svc,
