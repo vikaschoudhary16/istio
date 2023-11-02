@@ -18,13 +18,10 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
-
-	"istio.io/istio/pkg/log"
 )
 
 const (
 	DefaultIstioGenericSecretKey = "istio_generic_secret"
-	IstioGenericSecretAnnotation = "security.istio.io/genericSecret"
 )
 
 func (a *AggregateController) GetIstioGenericSecretValue(name, namespace string) (value []byte, err error) {
@@ -52,40 +49,27 @@ func (s *CredentialsController) GetIstioGenericSecretValue(name, namespace strin
 	return extractGenericSecretValue(k8sSecret)
 }
 
-// extractGenericSecretValue tries to get the value set for the key specified
-// by `security.istio.io/genericSecret` annotation in the Kubernetes Secret.
-// If the annotation is not set, it looks for `istio_generic_secret` key in the secret.
+// extractGenericSecretValue tries to get the value set for `istio_generic_secret` key in the secret.
 func extractGenericSecretValue(scrt *v1.Secret) (value []byte, err error) {
-	// Kubernetes generic opaque secret should be annotated with `security.istio.io/genericSecret: <key_name_containing_secret>`
-	//
 	// For example:
 	// ---
 	// apiVersion: v1
 	// data:
-	//   client_secret: e2Jhc2U2NF9lbmNcDvZGVkX3Rva2VuX3sdfgfdldH0=
+	//   istio_generic_secret: e2Jhc2U2NF9lbmNcDvZGVkX3Rva2VuX3sdfgfdldH0=
 	// kind: Secret
 	// metadata:
 	//   name: bar
 	//   namespace: foo
-	//   annotations:
-	//     security.istio.io/genericSecret: "client_secret"
 	// type: Opaque
 	//
-	genericSecretKey, ok := scrt.Annotations[IstioGenericSecretAnnotation]
-	if !ok {
-		log.Warnf("found secret, but didn't have the expected annotation (%q), trying key %q",
-			IstioGenericSecretAnnotation, DefaultIstioGenericSecretKey)
-		genericSecretKey = DefaultIstioGenericSecretKey
-	}
-
-	value, found := scrt.Data[genericSecretKey]
+	value, found := scrt.Data[DefaultIstioGenericSecretKey]
 	if !found {
 		return nil, fmt.Errorf("found secret, but didn't have the expected key (%s); found: %s",
-			genericSecretKey, truncatedKeysMessage(scrt.Data))
+			DefaultIstioGenericSecretKey, truncatedKeysMessage(scrt.Data))
 	}
 	if len(value) > 0 {
 		return value, nil
 	}
 
-	return nil, fmt.Errorf("found key %q but it was empty", genericSecretKey)
+	return nil, fmt.Errorf("found key %q but it was empty", DefaultIstioGenericSecretKey)
 }
