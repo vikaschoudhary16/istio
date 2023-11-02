@@ -119,6 +119,9 @@ func TestBinarySizes(t *testing.T) {
 
 	runBinariesTest(t, func(t *testing.T, name string) {
 		tt, f := cases[name]
+		if os.Getenv("BUILD_FIPS") == "true" {
+			t.Skip("Skipping TestBinarySizes test in FIPS mode")
+		}
 		if !f {
 			t.Fatalf("min/max binary size not specified for %v", name)
 		}

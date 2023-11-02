@@ -23,6 +23,23 @@ CONTAINER_OPTIONS = --mount type=bind,source=/tmp,destination=/tmp --net=host
 
 export COMMONFILES_POSTPROCESS = tools/commonfiles-postprocess.sh
 
+BUILD_FIPS ?= false
+
+TAG ?= $(shell git rev-parse --verify HEAD)$(if $(findstring true,$(BUILD_FIPS)),-fips,)
+ifeq ($(TAG),)
+  $(error "TAG cannot be empty")
+endif
+
+ifeq ($(BUILD_FIPS),true)
+ifeq ($(findstring -fips,$(TAG)),)
+  $(error "TAG value MUST have suffix '-fips' when `BUILD_FIPS=true`")
+endif
+else
+ifneq ($(findstring -fips,$(TAG)),)
+  $(error "TAG value MUST NOT have suffix '-fips' when `BUILD_FIPS=false`")
+endif
+endif
+
 ifeq ($(BUILD_WITH_CONTAINER),1)
 # create phony targets for the top-level items in the repo
 PHONYS := $(shell ls | grep -v Makefile)
