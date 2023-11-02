@@ -600,7 +600,7 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 		log.Errorf("auto-registration of %v failed: missing namespace", proxy.ID)
 		return ""
 	}
-	p := []string{proxy.Metadata.AutoRegisterGroup, sanitizeIP(proxy.IPAddresses[0])}
+	p := []string{proxy.Metadata.AutoRegisterGroup, sanitizeIP(proxy.IdentityIP())}
 	if proxy.Metadata.Network != "" {
 		p = append(p, string(proxy.Metadata.Network))
 	}
@@ -636,7 +636,7 @@ var workloadGroupIsController = true
 func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Config) *config.Config {
 	group := groupCfg.Spec.(*v1alpha3.WorkloadGroup)
 	entry := group.Template.DeepCopy()
-	entry.Address = proxy.IPAddresses[0]
+	entry.Address = proxy.IdentityIP()
 	// TODO move labels out of entry
 	// node metadata > WorkloadGroup.Metadata > WorkloadGroup.Template
 	if group.Metadata != nil && group.Metadata.Labels != nil {
@@ -691,7 +691,7 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 func makeProxyKey(proxy *model.Proxy) string {
 	key := strings.Join([]string{
 		string(proxy.Metadata.Network),
-		proxy.IPAddresses[0],
+		proxy.IdentityIP(),
 		proxy.WorkloadEntryName,
 		proxy.Metadata.Namespace,
 	}, "~")

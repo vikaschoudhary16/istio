@@ -98,7 +98,11 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		o.CAEndpoint = proxyConfig.DiscoveryAddress
 		o.CAEndpointSAN = istiodSAN.Get()
 	}
-
+	// NOTES(yskopets): Unlike upstream Istio, we do support separate
+	//                  SAN values for Istiod and CA.
+	if override := caSNI.Get(); override != "" {
+		o.CAEndpointSAN = override
+	}
 	o.CredIdentityProvider = credIdentityProvider
 	credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
 	if err != nil {

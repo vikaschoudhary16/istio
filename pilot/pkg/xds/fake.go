@@ -412,7 +412,7 @@ func (f *FakeDiscoveryServer) ConnectUnstarted(p *model.Proxy, watch []string) *
 		}))
 	}
 	adscConn, err := adsc.New(f.Listener.Addr().String(), &adsc.Config{
-		IP:                       p.IPAddresses[0],
+		IP:                       p.IdentityIP(),
 		NodeType:                 string(p.Type),
 		Meta:                     p.Metadata.ToStruct(),
 		Locality:                 p.Locality,
