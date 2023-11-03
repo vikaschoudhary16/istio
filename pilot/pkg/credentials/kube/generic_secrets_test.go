@@ -21,7 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	cluster2 "istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
@@ -71,37 +71,36 @@ func TestGenericSecretController(t *testing.T) {
 		{
 			name:        "generic-wrong-key",
 			namespace:   "default",
-			value:       "my_generic_secret_value",
+			value:       "",
 			expectError: true,
 		},
 		{
 			name:        "secret-not-found",
 			namespace:   "default",
-			value:       "some_value",
+			value:       "",
 			expectError: true,
 		},
 	}
 
 	for _, tc := range testCases {
-		value, err := sc.GetIstioGenericSecretValue(tc.name, tc.namespace)
-		if err != nil {
-			if !tc.expectError {
-				t.Errorf("error occurred: %v", err)
+		t.Run(tc.name, func(t *testing.T) {
+			value, err := sc.GetIstioGenericSecretValue(tc.name, tc.namespace)
+			if err != nil {
+				if !tc.expectError {
+					t.Fatalf("error occurred: %v", err)
+				}
+			} else if tc.expectError {
+				t.Fatalf("expected error to have occurred, but it did not")
 			}
-			continue // we expect the error and it occurred
-		} else if tc.expectError {
-			t.Errorf("expected error to have occurred, but it did not")
-		}
 
-		if tc.value != string(value) {
-			t.Errorf("secret value does not match, got %q, expected %q", value, tc.value)
-		}
+			if !tc.expectError && tc.value != string(value) {
+				t.Fatalf("secret value does not match, got %q, expected %q", value, tc.value)
+			}
+		})
 	}
 }
 
 func TestGenericSecretsControllerMulticluster(t *testing.T) {
-	stop := make(chan struct{})
-	defer close(stop)
 	secretsLocal := []runtime.Object{
 		genericSecret,
 	}
@@ -122,14 +121,14 @@ func TestGenericSecretsControllerMulticluster(t *testing.T) {
 	sc.ClusterAdded(&multicluster.Cluster{ID: "other", Client: otherRemoteClient}, nil)
 
 	// normally the remote secrets controller would start these
-	localClient.RunAndWait(stop)
-	remoteClient.RunAndWait(stop)
-	otherRemoteClient.RunAndWait(stop)
+	localClient.RunAndWait(test.NewStop(t))
+	remoteClient.RunAndWait(test.NewStop(t))
+	otherRemoteClient.RunAndWait(test.NewStop(t))
 
 	cases := []struct {
 		name      string
 		namespace string
-		cluster   cluster2.ID
+		cluster   cluster.ID
 		value     string
 	}{
 		// From local cluster
@@ -156,7 +155,7 @@ func TestGenericSecretsControllerMulticluster(t *testing.T) {
 			}
 			value, _ := con.GetIstioGenericSecretValue(tt.name, tt.namespace)
 			if tt.value != string(value) {
-				t.Errorf("got %q, wanted %q", string(value), tt.value)
+				t.Fatalf("got %q, wanted %q", string(value), tt.value)
 			}
 		})
 	}

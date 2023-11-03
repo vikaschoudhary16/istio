@@ -26,7 +26,6 @@ import (
 func (s *SecretGen) mayBeGetEnvoyGenericSecret(secretController credscontroller.Controller, sr SecretResource) *discovery.Resource {
 	value, err := secretController.GetIstioGenericSecretValue(sr.Name, sr.Namespace)
 	if err != nil {
-		pilotSDSCertificateErrors.Increment()
 		log.Warnf("mayBeGetEnvoyGenericSecret failed to fetch value for %s: %v", sr.ResourceName, err)
 		return nil
 	}
