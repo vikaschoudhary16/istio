@@ -777,12 +777,10 @@ func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.
 	if targetPort.name != "" {
 		// This is a named port, find the corresponding port in the port map
 		matchedPort := wi.PortMap[targetPort.name]
-		if matchedPort != 0 {
-			istioEndpoint.EndpointPort = matchedPort
-		} else if targetPort.explicitName {
-			// No match found, and we expect the name explicitly in the service, skip this endpoint
+		if matchedPort == 0 || targetPort.explicitName {
 			return nil
 		}
+		istioEndpoint.EndpointPort = matchedPort
 	}
 
 	istioEndpoint.ServicePortName = servicePort.Name
