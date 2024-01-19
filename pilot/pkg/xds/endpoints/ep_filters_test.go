@@ -209,83 +209,83 @@ var networkFiltered = []networkFilterCase{
 
 var networkFilteredForSniDnat = []networkFilterCase{
 	{
-		name: "from_network1_cluster1a",
-		conn: xdsConnection("network1", "cluster1a"),
-		want: []LocLbEpInfo{
+		name:  "from_network1_cluster1a",
+		proxy: makeProxy("network1", "cluster1a"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 2 local endpoints on network1
-					{address: "10.0.0.1", weight: 6},
-					{address: "10.0.0.2", weight: 6},
+					{Address: "10.0.0.1", Weight: 6},
+					{Address: "10.0.0.2", Weight: 6},
 				},
-				weight: 12,
+				Weight: 12,
 			},
 		},
 	},
 	{
-		name: "from_network1_cluster1b",
-		conn: xdsConnection("network1", "cluster1b"),
-		want: []LocLbEpInfo{
+		name:  "from_network1_cluster1b",
+		proxy: makeProxy("network1", "cluster1b"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 2 local endpoints on network1
-					{address: "10.0.0.1", weight: 6},
-					{address: "10.0.0.2", weight: 6},
+					{Address: "10.0.0.1", Weight: 6},
+					{Address: "10.0.0.2", Weight: 6},
 				},
-				weight: 12,
+				Weight: 12,
 			},
 		},
 	},
 	{
-		name: "from_network2_cluster2a",
-		conn: xdsConnection("network2", "cluster2a"),
-		want: []LocLbEpInfo{
+		name:  "from_network2_cluster2a",
+		proxy: makeProxy("network2", "cluster2a"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 6},
-					{address: "20.0.0.2", weight: 6},
-					{address: "20.0.0.3", weight: 6},
+					{Address: "20.0.0.1", Weight: 6},
+					{Address: "20.0.0.2", Weight: 6},
+					{Address: "20.0.0.3", Weight: 6},
 				},
-				weight: 18,
+				Weight: 18,
 			},
 		},
 	},
 	{
-		name: "from_network2_cluster2b",
-		conn: xdsConnection("network2", "cluster2b"),
-		want: []LocLbEpInfo{
+		name:  "from_network2_cluster2b",
+		proxy: makeProxy("network2", "cluster2b"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 6},
-					{address: "20.0.0.2", weight: 6},
-					{address: "20.0.0.3", weight: 6},
+					{Address: "20.0.0.1", Weight: 6},
+					{Address: "20.0.0.2", Weight: 6},
+					{Address: "20.0.0.3", Weight: 6},
 				},
-				weight: 18,
+				Weight: 18,
 			},
 		},
 	},
 	{
-		name: "from_network3_cluster3",
-		conn: xdsConnection("network3", "cluster3"),
-		want: []LocLbEpInfo{
+		name:  "from_network3_cluster3",
+		proxy: makeProxy("network3", "cluster3"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps:  []LbEpInfo{},
-				weight: 0,
+				LbEps:  []xdstest.LbEpInfo{},
+				Weight: 0,
 			},
 		},
 	},
 	{
-		name: "from_network4_cluster4",
-		conn: xdsConnection("network4", "cluster4"),
-		want: []LocLbEpInfo{
+		name:  "from_network4_cluster4",
+		proxy: makeProxy("network4", "cluster4"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 1 local endpoint on network4
-					{address: "40.0.0.1", weight: 6},
+					{Address: "40.0.0.1", Weight: 6},
 				},
-				weight: 6,
+				Weight: 6,
 			},
 		},
 	},
