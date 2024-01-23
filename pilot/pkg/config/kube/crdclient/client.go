@@ -281,10 +281,6 @@ func (cl *Client) allKinds() map[config.GroupVersionKind]kclient.Untyped {
 	return maps.Clone(cl.kinds)
 }
 
-func (cl *Client) objectInRevision(o *config.Config) bool {
-	return config.ObjectInRevisions(o, cl.discoveryRevisions)
-}
-
 func (cl *Client) kind(r config.GroupVersionKind) (kclient.Untyped, bool) {
 	cl.kindsMu.RLock()
 	defer cl.kindsMu.RUnlock()
@@ -362,6 +358,9 @@ func (cl *Client) addCRD(name string) {
 		}
 		if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
 			return false
+		}
+		if cl.discoveryRevisions == nil && cl.revision != "" {
+			cl.discoveryRevisions = sets.Set[string]{}.Insert(cl.revision)
 		}
 		return config.LabelsInRevisions(t.(controllers.Object).GetLabels(), cl.discoveryRevisions)
 	}
