@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"istio.io/istio/pilot/pkg/features"
 	"net"
 	"strconv"
 	"sync"
