@@ -943,7 +943,7 @@ func (c *Controller) workloadInstanceHandler(si *model.WorkloadInstance, event m
 	matchedHostnames := slices.Map(matchedServices, func(e *v1.Service) host.Name {
 		return kube.ServiceHostname(e.Name, e.Namespace, c.opts.DomainSuffix)
 	})
-	c.endpoints.pushEDS(matchedHostnames, si.Namespace)
+	c.endpoints.pushEDS(matchedHostnames, si.Namespace, event)
 }
 
 func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event) error {

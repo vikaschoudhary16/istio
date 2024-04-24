@@ -465,7 +465,7 @@ func getWorkloadNodeLocations(endpoints []*model.IstioEndpoint) map[string]struc
 	nodesWithEndpoints := make(map[string]struct{})
 	for _, ep := range endpoints {
 		nodeName := ep.NodeName
-		if nodeName == "" {
+		if nodeName == "" || ep.HealthStatus == model.UnHealthy {
 			continue
 		}
 		nodesWithEndpoints[nodeName] = struct{}{}
