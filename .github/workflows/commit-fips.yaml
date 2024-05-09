@@ -1,0 +1,22 @@
+# `name` value will appear "as is" in the badge.
+# See https://docs.github.com/en/actions/configuring-and-managing-workflows/configuring-a-workflow#adding-a-workflow-status-badge-to-your-repository
+name: "FIPS: build"
+
+on:
+  push:
+    branches:
+      - tcc-1.21*
+    tags:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+  # Allows triggering the workflow manually in github actions page
+  workflow_dispatch:
+
+jobs:
+  build-fips:
+    uses: ./.github/workflows/commit.yaml
+    with:
+      build_fips: true
+    secrets: inherit

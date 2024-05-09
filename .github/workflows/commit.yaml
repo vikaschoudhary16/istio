@@ -11,6 +11,26 @@ on:
   pull_request:
     branches:
       - '**'
+  workflow_call:
+    inputs:
+      build_fips:
+        description: 'Build FIPS-compliant version'
+        type: boolean
+        default: false
+        required: false
+
+env:
+  BUILD_FIPS: ${{ inputs.build_fips }}
+  # below variables are used to pull envoy binary from GCS bucket
+
+  # ENVOY_PROXY_GCA_BUCKET_URL_FROM_TID_FIPS needs to be updated only if the URL changes in future
+  ENVOY_PROXY_GCA_BUCKET_URL_FROM_TID_FIPS: 'https://storage.googleapis.com/getistio-build/proxy-fips'
+
+  # ENVOY_PROXY_SHA_FROM_TID_FIPS needs to be specified when FIPS build should use a different version
+  # of Istio Proxy (Envoy) than non-FIPS build.
+  # In general, we want to reuse FIPS version of Istio Proxy (Envoy) built for TID.
+  # To achieve that, use SHA from istio.deps file in https://github.com/tetratelabs/istio.
+  ENVOY_PROXY_SHA_FROM_TID_FIPS: 'bcf6c19288e9d4a133f815657c951539018bc9bb' # TID 1.21.0
 
 jobs:
 
@@ -34,6 +54,9 @@ jobs:
           TAG=
           if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
             TAG=$( echo "${GITHUB_REF}" | tail -c +11 )
+          fi
+          if [[ "${TAG}" != "" && "${BUILD_FIPS:-false}" == "true" ]]; then
+            TAG="${TAG}-fips"
           fi
           echo "::set-output name=tag::${TAG}"
   build:
@@ -91,6 +114,8 @@ jobs:
           GCS_BUCKET: ${{ secrets.TETRATE_CI_GCS_BUCKET }}
           PUBLISH_GCS_ALIASES: "0" # don't publish aliases to GCS
           VERSION: ${{ needs.config.outputs.tag }}
+          ISTIO_ENVOY_BASE_URL: ${{ env.BUILD_FIPS == 'true' && env.ENVOY_PROXY_GCA_BUCKET_URL_FROM_TID_FIPS || '' }}
+          PROXY_REPO_SHA: ${{ env.BUILD_FIPS == 'true' && env.ENVOY_PROXY_SHA_FROM_TID_FIPS || '' }}
         run: prow/release-commit.sh
 
   lint:

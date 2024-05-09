@@ -81,3 +81,33 @@ time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
         "${OPTIMIZATION_FLAGS[@]}" \
         -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
         -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${@}"
+
+
+if [[ "${BUILD_FIPS:-false}" == "true" && "${VERIFY_FIPS:-false}" == "true" ]]; then
+    for package in "${@}"; do
+        if [[ ! -e "${package}" ]]; then
+            # skip non-filepath arguments, e.g. `-tags=agent`
+            continue
+        fi
+        [[ $OUT != */ ]] && OUT="${OUT}/"
+        command=$(basename "${package}")
+        binary="${OUT}${command}"
+
+        echo "Checking whether compiled binaries have BoringSSL enabled ..."
+        echo "* checking ${binary} ..."
+
+        echo "  * checking 'go version' ..."
+        if ! go version "${binary}" | grep 'X:boringcrypto' ; then
+            echo "  ! 'go version <binary>' returned value without 'X:boringcrypto': $(go version "${binary}")"
+            exit 2
+        fi
+
+        echo "  * checking 'strings' ..."
+        if ! strings "${binary}" | grep --quiet '_Cfunc__goboringcrypto_' ; then
+            echo "  ! 'strings <binary>' did not return expected BoringSSL symbol names"
+            exit 2
+        fi
+
+        echo "  + BoringSSL is enabled in ${binary}"
+    done
+fi

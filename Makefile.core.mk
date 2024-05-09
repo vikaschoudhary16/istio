@@ -210,6 +210,18 @@ else
 RELEASE_LDFLAGS='-extldflags -static -s -w'
 endif
 
+# extra environment variables to pass into all `go build` and `go test` commands
+GO_BUILD_ENV_FIPS :=
+RELEASE_LDFLAGS_FIPS :=
+# extra link options to pass into all `go build` commands
+ifeq ($(BUILD_FIPS),true)
+  # as per https://projectcontour.io/docs/1.24/guides/fips/
+  GO_BUILD_ENV_FIPS += CGO_ENABLED=1 GOEXPERIMENT=boringcrypto VERIFY_FIPS=true
+ifneq ($(DEBUG),1)
+  RELEASE_LDFLAGS_FIPS += -extldflags -static -s -w -linkmode=external
+endif
+endif
+
 # List of all binaries to build
 # We split the binaries into "agent" binaries and standard ones. This corresponds to build "agent".
 # This allows conditional compilation to avoid pulling in costly dependencies to the agent, such as XDS and k8s.
@@ -242,8 +254,13 @@ STANDARD_TAGS=disable_pgv,vtprotobuf
 
 .PHONY: build
 build: depend ## Builds all go binaries.
+ifeq ($(BUILD_FIPS), true)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) $(GO_BUILD_ENV_FIPS) LDFLAGS='$(RELEASE_LDFLAGS_FIPS)' common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) $(GO_BUILD_ENV_FIPS) LDFLAGS='$(RELEASE_LDFLAGS_FIPS)' common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(AGENT_TAGS) $(AGENT_BINARIES)
+else
 	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
 	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(AGENT_TAGS) $(AGENT_BINARIES)
+endif
 
 # The build-linux target is responsible for building binaries used within containers.
 # This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
@@ -251,8 +268,13 @@ build: depend ## Builds all go binaries.
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
+ifeq ($(BUILD_FIPS), true)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) $(GO_BUILD_ENV_FIPS) LDFLAGS='$(RELEASE_LDFLAGS_FIPS)' common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) $(GO_BUILD_ENV_FIPS) LDFLAGS='$(RELEASE_LDFLAGS_FIPS)' common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(AGENT_TAGS) $(LINUX_AGENT_BINARIES)
+else
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(AGENT_TAGS) $(LINUX_AGENT_BINARIES)
+endif
 
 # Create targets for TARGET_OUT_LINUX/binary
 # There are two use cases here:
@@ -266,7 +288,11 @@ $(TARGET_OUT_LINUX)/$(shell basename $(1)): build-linux
 	@:
 else
 $(TARGET_OUT_LINUX)/$(shell basename $(1)): $(TARGET_OUT_LINUX)
+ifeq ($(BUILD_FIPS), true)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) $(GO_BUILD_ENV_FIPS) LDFLAGS='$(RELEASE_LDFLAGS_FIPS)' common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(2) $(1)
+else
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(2) $(1)
+endif
 endif
 endef
 
@@ -436,7 +462,11 @@ BENCH_TARGETS ?= ./pilot/...
 PKG ?= ./...
 .PHONY: racetest
 racetest: $(JUNIT_REPORT)
+ifeq ($(BUILD_FIPS), true)
+	$(GO_BUILD_ENV_FIPS) go test ${GOBUILDFLAGS} ${T} -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+else
 	go test ${GOBUILDFLAGS} ${T} -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+endif
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks

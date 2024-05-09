@@ -20,6 +20,9 @@ ROOT=$(dirname "$WD")
 
 set -eux
 
+echo "ISTIO_ENVOY_BASE_URL=${ISTIO_ENVOY_BASE_URL}"
+echo "PROXY_REPO_SHA=${PROXY_REPO_SHA}"
+
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 
@@ -42,6 +45,9 @@ BUILDER_SHA=7077025726f52330bbdfafb39118acc544aebada
 # This will create a version like 1.4-alpha.sha
 NEXT_VERSION=$(cat "${ROOT}/VERSION")
 TAG=$(git rev-parse HEAD)
+if [[ "${TAG}" != "" && "${BUILD_FIPS:-false}" == "true" ]]; then
+  TAG="${TAG}-fips"
+fi
 VERSION="${VERSION:-${NEXT_VERSION}-alpha.${TAG}}"
 
 # In CI we want to store the outputs to artifacts, which will preserve the build
@@ -79,7 +85,7 @@ ${DEPENDENCIES:-$(cat <<EOD
   ztunnel:
     git: https://github.com/istio/ztunnel
     auto: deps
-architectures: [linux/amd64, linux/arm64]
+architectures: $(if [[ "$BUILD_FIPS" == "true" ]]; then echo "[linux/amd64]"; else echo "[linux/amd64, linux/arm64]"; fi)
 EOD
 )}
 dashboards:
