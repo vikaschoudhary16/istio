@@ -507,6 +507,14 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 			}
 		}
 		if k8sNode.address == "" {
+			for _, address := range node.Status.Addresses {
+				if address.Type == v1.NodeInternalIP && address.Address != "" {
+					k8sNode.address = address.Address
+					break
+				}
+			}
+		}
+		if k8sNode.address == "" {
 			return nil
 		}
 
