@@ -107,7 +107,7 @@ type proxyKey struct {
 func makeProxyKey(proxy *model.Proxy) proxyKey {
 	return proxyKey{
 		Network:   string(proxy.Metadata.Network),
-		IP:        proxy.IPAddresses[0],
+		IP:        proxy.IdentityIP(),
 		GroupName: proxy.Metadata.AutoRegisterGroup,
 		Namespace: proxy.Metadata.Namespace,
 	}

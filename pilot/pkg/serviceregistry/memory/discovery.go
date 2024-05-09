@@ -287,7 +287,7 @@ func (sd *ServiceDiscovery) GetProxyServiceTargets(node *model.Proxy) []model.Se
 		return sd.WantGetProxyServiceTargets
 	}
 	out := make([]model.ServiceTarget, 0)
-	for _, ip := range node.IPAddresses {
+	for _, ip := range node.AllIPAddresses() {
 		si, found := sd.ip2instance[ip]
 		if found {
 			out = append(out, slices.Map(si, model.ServiceInstanceToTarget)...)
@@ -300,7 +300,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.In
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 
-	for _, ip := range proxy.IPAddresses {
+	for _, ip := range proxy.AllIPAddresses() {
 		if l, found := sd.ip2workloadLabels[ip]; found {
 			return l
 		}

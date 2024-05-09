@@ -322,7 +322,7 @@ func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
 
 	// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 	// because multiple ips belong to the same pod
-	proxyIP := proxy.IPAddresses[0]
+	proxyIP := proxy.IdentityIP()
 	// just in case the proxy ID is bad formatted
 	pods := pc.getPodsByIP(proxyIP)
 	switch len(pods) {
