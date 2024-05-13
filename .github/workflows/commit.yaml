@@ -24,7 +24,7 @@ env:
   # below variables are used to pull envoy binary from GCS bucket
 
   # ENVOY_PROXY_GCA_BUCKET_URL_FROM_TID_FIPS needs to be updated only if the URL changes in future
-  ENVOY_PROXY_GCA_BUCKET_URL_FROM_TID_FIPS: 'https://storage.googleapis.com/tetrate-istio-subscription-build/proxy-fips'
+  ENVOY_PROXY_GCA_BUCKET_URL_FROM_TID_FIPS: 'https://storage.googleapis.com/getistio-build/proxy-fips'
 
   # ENVOY_PROXY_SHA_FROM_TID_FIPS needs to be specified when FIPS build should use a different version
   # of Istio Proxy (Envoy) than non-FIPS build.
