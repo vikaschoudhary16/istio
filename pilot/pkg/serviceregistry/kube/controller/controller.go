@@ -791,8 +791,8 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
-	if len(proxy.IPAddresses) > 0 {
-		proxyIP := proxy.IPAddresses[0]
+	if len(proxy.IdentityIP()) > 0 {
+		proxyIP := proxy.IdentityIP()
 		// look up for a WorkloadEntry; if there are multiple WorkloadEntry(s)
 		// with the same IP, choose one deterministically
 		workload := workloadinstances.GetInstanceForProxy(c.workloadInstancesIndex, proxy, proxyIP)

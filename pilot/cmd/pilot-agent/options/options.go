@@ -27,11 +27,14 @@ import (
 )
 
 var (
-	InstanceIPVar        = env.Register("INSTANCE_IP", "", "")
-	PodNameVar           = env.Register("POD_NAME", "", "")
-	PodNamespaceVar      = env.Register("POD_NAMESPACE", "", "")
-	kubeAppProberNameVar = env.Register(status.KubeAppProberEnvName, "", "")
-	ProxyConfigEnv       = env.Register(
+	IdentityIPVar = env.RegisterStringVar("IDENTITY_IP", "",
+		"IP address that uniquely identifies that proxy to the control plane, "+
+			"even though the proxy might not be able to bind to it (e.g., External IP of an AWS EC2 instance)")
+	InstanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
+	PodNameVar           = env.RegisterStringVar("POD_NAME", "", "")
+	PodNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	ProxyConfigEnv       = env.RegisterStringVar(
 		"PROXY_CONFIG",
 		"",
 		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
@@ -144,7 +147,16 @@ var (
 		"Override the ServerName used to validate Istiod certificate. "+
 			"Can be used as an alternative to setting /etc/hosts for VMs - discovery address will be an IP:port")
 
-	minimumDrainDurationEnv = env.Register("MINIMUM_DRAIN_DURATION",
+	// NOTES(yskopets): Unlike upstream Istio, we do support separate SAN values
+	//                  for Istiod and CA.
+	//                  `CA_SNI` variable plays the same role for connections
+	//                  between `pilot-agent` and `CA` as `ISTIOD_SAN` variable
+	//                  plays for connections between `pilot-agent` and `istiod`.
+	caSNI = env.RegisterStringVar("CA_SNI", "",
+		"Override the ServerName used to validate CA certificate. "+
+			"Can be used as an alternative to setting /etc/hosts for VMs - discovery address will be an IP:port")
+
+	minimumDrainDurationEnv = env.RegisterDurationVar("MINIMUM_DRAIN_DURATION",
 		5*time.Second,
 		"The minimum duration for which agent waits before it checks for active connections and terminates proxy "+
 			"when number of active connections become zero").Get()
