@@ -250,7 +250,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		workloadInstancesIndex:   workloadinstances.NewIndex(),
 		initialSyncTimedout:      atomic.NewBool(false),
 
-		configCluster: options.ConfigCluster,
+		configCluster:             options.ConfigCluster,
+		serviceToWorkloadNodesMap: make(map[host.Name]map[string]struct{}),
 	}
 	c.networkManager = initNetworkManager(c, options)
 
