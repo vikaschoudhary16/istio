@@ -486,6 +486,9 @@ func (c *Controller) updateClusterExternalAddressesForNodePortServices(nodeSelec
 			}
 			extAddresses = append(extAddresses, n.address)
 		}
+		if svc.Attributes.ClusterExternalAddresses == nil {
+			svc.Attributes.ClusterExternalAddresses = &model.AddressMap{}
+		}
 		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), extAddresses)
 	} else {
 		var nodeAddresses []string
@@ -497,6 +500,9 @@ func (c *Controller) updateClusterExternalAddressesForNodePortServices(nodeSelec
 				}
 				nodeAddresses = append(nodeAddresses, n.address)
 			}
+		}
+		if svc.Attributes.ClusterExternalAddresses == nil {
+			svc.Attributes.ClusterExternalAddresses = &model.AddressMap{}
 		}
 		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), nodeAddresses)
 	}
