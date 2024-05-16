@@ -352,22 +352,35 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
-	if ctx.Clusters().IsMulticluster() {
-		// Need to determine if there is a setting to watch cluster secret in config cluster
-		// or in external cluster. The flag is named LOCAL_CLUSTER_SECRET_WATCHER and set as
-		// an environment variable for istiod.
-		watchLocalNamespace := false
-		if i.primaryIOP.spec != nil && i.primaryIOP.spec.Values != nil {
-			values := OperatorValues(i.primaryIOP.spec.Values.Fields)
-			localClusterSecretWatcher := values.GetConfigValue("pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
-			if localClusterSecretWatcher.GetStringValue() == "true" && i.externalControlPlane {
-				watchLocalNamespace = true
-			}
-		}
-		if err := i.configureDirectAPIServerAccess(watchLocalNamespace); err != nil {
-			return nil, err
-		}
-	}
+	//NOTE(vikas): We are commenting following lines because we do not want istiods
+	// to watch all the k8s apis servers in the multicluster environment.
+	// Following logic creates secrets for each of the remote cluster's kubeconfig
+	// Each istiod then starts watching these remote apiservers.
+	// We need to comment out this because:
+	// 1. our multicluster model does not expect istiod watching remote apiservers and
+	//    lead unexpected configs in the test cases
+	// 2. In xcp e2e, this leads to flakes where istiod fails to become ready.
+	//    apiserver endpoint in the secrets uses localhost and thus not not reachable from within
+	//    istiod. istiod readiness probe is enabled only after remote apiserver cache has got syched,
+	//    which keeps failing because of non-reachable apiserver endpoint. Sometimes if istiod
+	//    starts fast enough that kubeconfig secrets are not created by the the istiod does
+	//    first cache sync, istiod luckily does not get stuck at bootstrap and becomes ready.
+	//if ctx.Clusters().IsMulticluster() {
+	//	// Need to determine if there is a setting to watch cluster secret in config cluster
+	//	// or in external cluster. The flag is named LOCAL_CLUSTER_SECRET_WATCHER and set as
+	//	// an environment variable for istiod.
+	//	watchLocalNamespace := false
+	//	if i.primaryIOP.spec != nil && i.primaryIOP.spec.Values != nil {
+	//		values := OperatorValues(i.primaryIOP.spec.Values.Fields)
+	//		localClusterSecretWatcher := values.GetConfigValue("pilot.env.LOCAL_CLUSTER_SECRET_WATCHER")
+	//		if localClusterSecretWatcher.GetStringValue() == "true" && i.externalControlPlane {
+	//			watchLocalNamespace = true
+	//		}
+	//	}
+	//if err := i.configureDirectAPIServerAccess(watchLocalNamespace); err != nil {
+	//	return nil, err
+	//}
+	//}
 
 	// Configure gateways for remote clusters.
 	for _, c := range ctx.Clusters().Kube().Remotes() {
