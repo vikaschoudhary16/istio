@@ -546,7 +546,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: model.NewReasonStats(model.ServiceUpdate),
+			Reason: model.NewReasonStats(model.ServiceUpdate, model.NodeTrigger),
 		})
 	}
 	return nil
