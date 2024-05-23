@@ -432,6 +432,10 @@ func TestGetProxyServiceTargets(t *testing.T) {
 				K8sAttributes: model.K8sAttributes{
 					Type: string(corev1.ServiceTypeClusterIP),
 				},
+				Annotations: map[string]string{
+					"alpha.istio.io/canonical-serviceaccounts":  "acctvm2@gserviceaccount2.com",
+					"alpha.istio.io/kubernetes-serviceaccounts": "acct4",
+				},
 			},
 		},
 		Port: model.ServiceInstancePort{
@@ -492,6 +496,10 @@ func TestGetProxyServiceTargets(t *testing.T) {
 				K8sAttributes: model.K8sAttributes{
 					Type: string(corev1.ServiceTypeClusterIP),
 				},
+				Annotations: map[string]string{
+					"alpha.istio.io/canonical-serviceaccounts":  "acctvm2@gserviceaccount2.com",
+					"alpha.istio.io/kubernetes-serviceaccounts": "acct4",
+				},
 			},
 		},
 		Port: model.ServiceInstancePort{
@@ -545,6 +553,10 @@ func TestGetProxyServiceTargets(t *testing.T) {
 				LabelSelectors:  map[string]string{"app": "prod-app"},
 				K8sAttributes: model.K8sAttributes{
 					Type: string(corev1.ServiceTypeClusterIP),
+				},
+				Annotations: map[string]string{
+					"alpha.istio.io/canonical-serviceaccounts":  "acctvm2@gserviceaccount2.com",
+					"alpha.istio.io/kubernetes-serviceaccounts": "acct4",
 				},
 			},
 		},

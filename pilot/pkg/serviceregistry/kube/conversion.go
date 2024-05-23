@@ -112,6 +112,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 			ServiceRegistry: provider.Kubernetes,
 			Name:            svc.Name,
 			Namespace:       svc.Namespace,
+			Annotations:     svc.Annotations,
 			Labels:          svc.Labels,
 			ExportTo:        exportTo,
 			LabelSelectors:  svc.Spec.Selector,
