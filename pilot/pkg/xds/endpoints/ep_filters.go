@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -41,6 +42,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
 	}
+
+	isSniDnatCluster := model.IsDNSSrvSubsetKey(b.clusterName)
 
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
@@ -87,6 +90,23 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			}
 
 			epNetwork := istioEndpoint.Network
+
+			// For the SNI-DNAT clusters, skip endpoints which are not local to
+			// the network where the proxy resides.
+			// This enables the usecase where the same gateway workload can be
+			// used for both north-south and east-west traffic. But why is this needed?
+			// For the north-south traffic, non SNI-DNAT cluster containing endpoints
+			// from other clusters are used so that failing over works seamlessly. But
+			// this causes circular routing for east-west traffic which uses SNI-DNAT
+			// cluster. Hence, we have to make sure that the endpoints in the SNI-DNAT
+			// cluster reside in the SAME network so that the traffic is not routed
+			// across networks. Effectively, it is using local and remote endpoints
+			// for north-south traffic and using local endpoints
+			// for the east-west traffic.
+			if features.ExcludeRemoteEndpointsForSniDnatClusters && isSniDnatCluster && !b.proxy.InNetwork(epNetwork) {
+				continue
+			}
+
 			epCluster := istioEndpoint.Locality.ClusterID
 			gateways := b.selectNetworkGateways(epNetwork, epCluster)
 

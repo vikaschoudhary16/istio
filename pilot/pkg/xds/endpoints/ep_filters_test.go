@@ -207,6 +207,90 @@ var networkFiltered = []networkFilterCase{
 	},
 }
 
+var networkFilteredForSniDnat = []networkFilterCase{
+	{
+		name:  "from_network1_cluster1a",
+		proxy: makeProxy("network1", "cluster1a"),
+		want: []xdstest.LocLbEpInfo{
+			{
+				LbEps: []xdstest.LbEpInfo{
+					// 2 local endpoints on network1
+					{Address: "10.0.0.1", Weight: 6},
+					{Address: "10.0.0.2", Weight: 6},
+				},
+				Weight: 12,
+			},
+		},
+	},
+	{
+		name:  "from_network1_cluster1b",
+		proxy: makeProxy("network1", "cluster1b"),
+		want: []xdstest.LocLbEpInfo{
+			{
+				LbEps: []xdstest.LbEpInfo{
+					// 2 local endpoints on network1
+					{Address: "10.0.0.1", Weight: 6},
+					{Address: "10.0.0.2", Weight: 6},
+				},
+				Weight: 12,
+			},
+		},
+	},
+	{
+		name:  "from_network2_cluster2a",
+		proxy: makeProxy("network2", "cluster2a"),
+		want: []xdstest.LocLbEpInfo{
+			{
+				LbEps: []xdstest.LbEpInfo{
+					// 3 local endpoints in network2
+					{Address: "20.0.0.1", Weight: 6},
+					{Address: "20.0.0.2", Weight: 6},
+					{Address: "20.0.0.3", Weight: 6},
+				},
+				Weight: 18,
+			},
+		},
+	},
+	{
+		name:  "from_network2_cluster2b",
+		proxy: makeProxy("network2", "cluster2b"),
+		want: []xdstest.LocLbEpInfo{
+			{
+				LbEps: []xdstest.LbEpInfo{
+					// 3 local endpoints in network2
+					{Address: "20.0.0.1", Weight: 6},
+					{Address: "20.0.0.2", Weight: 6},
+					{Address: "20.0.0.3", Weight: 6},
+				},
+				Weight: 18,
+			},
+		},
+	},
+	{
+		name:  "from_network3_cluster3",
+		proxy: makeProxy("network3", "cluster3"),
+		want: []xdstest.LocLbEpInfo{
+			{
+				LbEps:  []xdstest.LbEpInfo{},
+				Weight: 0,
+			},
+		},
+	},
+	{
+		name:  "from_network4_cluster4",
+		proxy: makeProxy("network4", "cluster4"),
+		want: []xdstest.LocLbEpInfo{
+			{
+				LbEps: []xdstest.LbEpInfo{
+					// 1 local endpoint on network4
+					{Address: "40.0.0.1", Weight: 6},
+				},
+				Weight: 6,
+			},
+		},
+	},
+}
+
 var mtlsCases = map[string]map[string]struct {
 	Config         config.Config
 	Configs        []config.Config
@@ -729,7 +813,8 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 					if pa.IsMtlsDisabled {
 						tests = casesMtlsDisabled
 					} else {
-						tests = networkFiltered
+						features.ExcludeRemoteEndpointsForSniDnatClusters = true
+						tests = networkFilteredForSniDnat
 					}
 					runMTLSFilterTest(t, env, tests, pa.SubsetName)
 				})

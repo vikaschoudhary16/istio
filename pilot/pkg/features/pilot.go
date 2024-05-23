@@ -187,6 +187,9 @@ var (
 	LocalClusterSecretWatcher = env.Register("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 
+	ExcludeRemoteEndpointsForSniDnatClusters = env.RegisterBoolVar("EXCLUDE_REMOTE_ENDPOINTS_FOR_SNI_DNAT_CLUSTERS", false,
+		"If enabled, the endpoints in the SNI-DNAT clusters would be the endpoints in the proxy's network").Get()
+
 	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
 		"If set, limit Kubernetes watches to a single namespace. "+
 			"Warning: only a single namespace can be set.").Get()
