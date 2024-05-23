@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/kclient"
@@ -435,13 +436,68 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 		return false
 	}
 	for _, svc := range svcs {
+		if c.isNodePortGatewayService(svc) && svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal {
+			endpoints := c.endpoints.buildIstioEndpointsWithService(
+				svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname, true)
+			fep := c.collectWorkloadInstanceEndpoints(svc)
+			endpoints = append(endpoints, fep...)
+			nodesWithEndpoints := getWorkloadNodeLocations(endpoints)
+			log.Debugf("---> svc:%s nodesWithEndpoints = %#v", svc.Hostname, nodesWithEndpoints)
+			c.Lock()
+			c.serviceToWorkloadNodesMap[svc.Hostname] = nodesWithEndpoints
+			c.Unlock()
+		}
+
 		c.RLock()
 		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 		c.RUnlock()
+
 		// update external address
+		c.updateClusterExternalAddressesForNodePortServices(nodeSelector, svc)
+
+		// update gateways that use the service
+		c.extractGatewaysFromService(svc)
+	}
+	return true
+}
+
+func getWorkloadNodeLocations(endpoints []*model.IstioEndpoint) map[string]struct{} {
+	nodesWithEndpoints := make(map[string]struct{})
+	for _, ep := range endpoints {
+		nodeName := ep.NodeName
+		if nodeName == "" || ep.HealthStatus == model.UnHealthy {
+			continue
+		}
+		nodesWithEndpoints[nodeName] = struct{}{}
+	}
+	return nodesWithEndpoints
+}
+
+func (c *Controller) updateClusterExternalAddressesForNodePortServices(nodeSelector labels.Instance, svc *model.Service) {
+	if nodeSelector == nil {
+		var extAddresses []string
+		for nodeName, n := range c.nodeInfoMap {
+			// When traffic policy is set to local, add the cluster external address if and only
+			// if there is at least one workload/pod on that node. Otherwise, the traffic will be
+			// dropped leading to bad end-user experience and weird intermittent issues.
+			if svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal &&
+				!c.containsWorkloadForLocalTrafficService(svc, nodeName) {
+				continue
+			}
+			extAddresses = append(extAddresses, n.address)
+		}
+		if svc.Attributes.ClusterExternalAddresses == nil {
+			svc.Attributes.ClusterExternalAddresses = &model.AddressMap{}
+		}
+		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), extAddresses)
+	} else {
 		var nodeAddresses []string
-		for _, n := range c.nodeInfoMap {
+		for nodeName, n := range c.nodeInfoMap {
 			if nodeSelector.SubsetOf(n.labels) {
+				if svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal &&
+					!c.containsWorkloadForLocalTrafficService(svc, nodeName) {
+					continue
+				}
 				nodeAddresses = append(nodeAddresses, n.address)
 			}
 		}
@@ -449,10 +505,12 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 			svc.Attributes.ClusterExternalAddresses = &model.AddressMap{}
 		}
 		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), nodeAddresses)
-		// update gateways that use the service
-		c.extractGatewaysFromService(svc)
 	}
-	return true
+}
+
+func (c *Controller) containsWorkloadForLocalTrafficService(svc *model.Service, nodeName string) bool {
+	_, f := c.serviceToWorkloadNodesMap[svc.Hostname][nodeName]
+	return f
 }
 
 // getNodePortServices returns nodePort type gateway service
@@ -468,4 +526,11 @@ func (c *Controller) getNodePortGatewayServices() []*model.Service {
 	}
 
 	return out
+}
+
+func (c *Controller) isNodePortGatewayService(svc *model.Service) bool {
+	c.RLock()
+	defer c.RUnlock()
+	_, f := c.nodeSelectorsForServices[svc.Hostname]
+	return f && c.servicesMap[svc.Hostname] != nil
 }

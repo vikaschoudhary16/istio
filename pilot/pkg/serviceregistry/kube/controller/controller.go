@@ -214,6 +214,12 @@ type Controller struct {
 	nodeInfoMap map[string]kubernetesNode
 	// index over workload instances from workload entries
 	workloadInstancesIndex workloadinstances.Index
+	// serviceToWorkloadNodesMap is a mapping of NodePort services to the list of kubernetes node names
+	// on which there is at least one workload belonging to the service is running. This is needed to handle
+	// node-port services with external traffic policy type set to Local (default is Cluster). This is because
+	// when it is set to local and traffic is sent to a node not hosting a workload, it will be dropped. This
+	// happens intermittently based on the node which takes the traffic.
+	serviceToWorkloadNodesMap map[host.Name]map[string]struct{}
 
 	*networkManager
 
@@ -244,7 +250,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		workloadInstancesIndex:   workloadinstances.NewIndex(),
 		initialSyncTimedout:      atomic.NewBool(false),
 
-		configCluster: options.ConfigCluster,
+		configCluster:             options.ConfigCluster,
+		serviceToWorkloadNodesMap: make(map[host.Name]map[string]struct{}),
 	}
 	c.networkManager = initNetworkManager(c, options)
 
@@ -409,6 +416,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	delete(c.nodeSelectorsForServices, svc.Hostname)
 	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
 	delete(c.networkGatewaysBySvc, svc.Hostname)
+	delete(c.serviceToWorkloadNodesMap, svc.Hostname)
 	c.Unlock()
 
 	if isNetworkGateway {
@@ -497,6 +505,12 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 		updatedNeeded = true
 		c.Lock()
 		delete(c.nodeInfoMap, node.Name)
+
+		// We should remove the node for all the services that
+		// had a workload there as we don't want to route traffic
+		for h := range c.serviceToWorkloadNodesMap {
+			delete(c.serviceToWorkloadNodesMap[h], node.Name)
+		}
 		c.Unlock()
 	} else {
 		k8sNode := kubernetesNode{labels: node.Labels}
@@ -533,7 +547,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: model.NewReasonStats(model.ServiceUpdate),
+			Reason: model.NewReasonStats(model.ServiceUpdate, model.NodeTrigger),
 		})
 	}
 	return nil
@@ -929,7 +943,7 @@ func (c *Controller) workloadInstanceHandler(si *model.WorkloadInstance, event m
 	matchedHostnames := slices.Map(matchedServices, func(e *v1.Service) host.Name {
 		return kube.ServiceHostname(e.Name, e.Namespace, c.opts.DomainSuffix)
 	})
-	c.endpoints.pushEDS(matchedHostnames, si.Namespace)
+	c.endpoints.pushEDS(matchedHostnames, si.Namespace, event)
 }
 
 func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event) error {

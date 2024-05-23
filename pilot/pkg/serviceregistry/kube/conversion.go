@@ -130,6 +130,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 			portMap[uint32(p.Port)] = uint32(p.NodePort)
 		}
 		istioService.Attributes.ClusterExternalPorts = map[cluster.ID]map[uint32]uint32{clusterID: portMap}
+		istioService.Attributes.ExternalTrafficPolicy = model.ConvertToModelExternalTrafficPolicy(svc.Spec.ExternalTrafficPolicy)
 		// address mappings will be done elsewhere
 	case corev1.ServiceTypeLoadBalancer:
 		if len(svc.Status.LoadBalancer.Ingress) > 0 {

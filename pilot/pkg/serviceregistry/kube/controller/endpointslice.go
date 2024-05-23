@@ -115,8 +115,7 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	}
 	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
 	// Trigger EDS push for all hostnames.
-	esc.pushEDS(hostnames, namespacedName.Namespace)
-
+	esc.pushEDS(hostnames, namespacedName.Namespace, event)
 	name := serviceNameForEndpointSlice(esLabels)
 	namespace := ep.GetNamespace()
 	svc := esc.c.services.Get(name, namespace)
@@ -414,7 +413,7 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
 }
 
-func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace string) {
+func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace string, event model.Event) {
 	shard := model.ShardKeyFromRegistry(esc.c)
 	// Even though we just read from the cache, we need the full lock to ensure pushEDS
 	// runs sequentially when `EnableK8SServiceSelectWorkloadEntries` is enabled. Otherwise,
@@ -433,6 +432,20 @@ func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace str
 			} else {
 				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/ has not been populated",
 					hostname)
+			}
+
+			// Handle external address update for NodePort services whose external
+			// traffic policy is set to Local.
+			if svc != nil && len(svc.Attributes.ClusterExternalPorts) > 0 &&
+				svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal {
+				if esc.c.updateServiceNodePortAddresses(svc) {
+					esc.c.opts.XDSUpdater.SvcUpdate(
+						model.ShardKeyFromRegistry(esc.c),
+						string(svc.Hostname),
+						svc.Attributes.Namespace,
+						event,
+					)
+				}
 			}
 		}
 
