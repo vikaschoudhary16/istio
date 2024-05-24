@@ -92,11 +92,11 @@ type Client struct {
 }
 
 type Option struct {
-	Revision         string
-	DomainSuffix     string
-	Identifier       string
-	NamespacesFilter func(obj interface{}) bool
-	FiltersByGVK     map[config.GroupVersionKind]kubetypes.Filter
+	Revision           string
+	DomainSuffix       string
+	Identifier         string
+	NamespacesFilter   func(obj interface{}) bool
+	FiltersByGVK       map[config.GroupVersionKind]kubetypes.Filter
 	DiscoveryRevisions sets.Set[string]
 }
 
@@ -118,19 +118,19 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		schemasByCRDName[name] = s
 	}
 	out := &Client{
-		domainSuffix:     opts.DomainSuffix,
-		schemas:          schemas,
-		schemasByCRDName: schemasByCRDName,
-		revision:         opts.Revision,
-		queue:            queue.NewQueue(1 * time.Second),
-		started:          atomic.NewBool(false),
-		kinds:            map[config.GroupVersionKind]kclient.Untyped{},
-		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
-		client:           client,
+		domainSuffix:       opts.DomainSuffix,
+		schemas:            schemas,
+		schemasByCRDName:   schemasByCRDName,
+		revision:           opts.Revision,
+		queue:              queue.NewQueue(1 * time.Second),
+		started:            atomic.NewBool(false),
+		kinds:              map[config.GroupVersionKind]kclient.Untyped{},
+		handlers:           map[config.GroupVersionKind][]model.EventHandler{},
+		client:             client,
 		discoveryRevisions: opts.DiscoveryRevisions,
-		logger:           scope.WithLabels("controller", opts.Identifier),
-		namespacesFilter: opts.NamespacesFilter,
-		filtersByGVK:     opts.FiltersByGVK,
+		logger:             scope.WithLabels("controller", opts.Identifier),
+		namespacesFilter:   opts.NamespacesFilter,
+		filtersByGVK:       opts.FiltersByGVK,
 	}
 
 	for _, s := range out.schemas.All() {

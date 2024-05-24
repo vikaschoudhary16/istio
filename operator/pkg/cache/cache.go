@@ -72,7 +72,7 @@ func RemoveObject(name, objHash string) {
 	}
 }
 
-// RemoveCache removes the object Cache with the give name.
+// RemoveCache removes the object Cache with the given name.
 func RemoveCache(name string) {
 	objectCachesMu.Lock()
 	defer objectCachesMu.Unlock()
