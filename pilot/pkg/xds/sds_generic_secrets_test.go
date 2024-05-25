@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xds_test
 
 import (
 	"errors"
@@ -27,6 +27,7 @@ import (
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	xdsfake "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/spiffe"
@@ -158,7 +159,7 @@ func TestGenericSecretsGenerate(t *testing.T) {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
 			tt.proxy.Metadata.ClusterID = "Kubernetes"
-			s := NewFakeDiscoveryServer(t, FakeOptions{
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 				KubernetesObjects: []runtime.Object{genericSecret, otherGenericSecret},
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
@@ -167,7 +168,7 @@ func TestGenericSecretsGenerate(t *testing.T) {
 			if tt.accessReviewResponse != nil {
 				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
 			} else {
-				disableAuthorizationForSecret(cc)
+				xdsfake.DisableAuthorizationForSecret(cc)
 			}
 			cc.Fake.Unlock()
 
