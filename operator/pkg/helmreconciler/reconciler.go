@@ -604,7 +604,7 @@ func DetectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) b
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	operatorManageWebhooks := operatorManageWebhooks(iop)
-	if !operatorManageWebhooks && !exists {
+	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
 		if !isDefaultInstallation {
 			// For any revision except `default`, we do not create default tag for istio injection.
 			// This change is done to not treat a revisioned istiod to be used for namespaces with
