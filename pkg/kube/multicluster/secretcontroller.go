@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -39,7 +40,8 @@ import (
 )
 
 const (
-	MultiClusterSecretLabel = "istio/multiCluster"
+	MultiClusterSecretLabel    = "istio/multiCluster"
+	MultiClusterSecretLabelEnv = "PILOT_XCP_MULTICLUSTER_SECRET_LABEL"
 )
 
 var (
@@ -83,6 +85,13 @@ type Controller struct {
 	handlers []ClusterHandler
 }
 
+func getMulticlusterSecretLabel(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
 // NewController returns a new secret controller
 func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID,
 	meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config),
@@ -111,7 +120,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 
 	secrets := kclient.NewFiltered[*corev1.Secret](informerClient, kclient.Filter{
 		Namespace:     namespace,
-		LabelSelector: MultiClusterSecretLabel + "=true",
+		LabelSelector: getMulticlusterSecretLabel(MultiClusterSecretLabelEnv, MultiClusterSecretLabel) + "=true",
 	})
 
 	// init gauges
