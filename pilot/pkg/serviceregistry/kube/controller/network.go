@@ -439,8 +439,10 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 		if c.isNodePortGatewayService(svc) && svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal {
 			endpoints := c.endpoints.buildIstioEndpointsWithService(
 				svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname, true)
-			fep := c.collectWorkloadInstanceEndpoints(svc)
-			endpoints = append(endpoints, fep...)
+			if features.EnableK8SServiceSelectWorkloadEntries {
+				fep := c.collectWorkloadInstanceEndpoints(svc)
+				endpoints = append(endpoints, fep...)
+			}
 			nodesWithEndpoints := getWorkloadNodeLocations(endpoints)
 			log.Debugf("---> svc:%s nodesWithEndpoints = %#v", svc.Hostname, nodesWithEndpoints)
 			c.Lock()
