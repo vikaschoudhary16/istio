@@ -408,10 +408,29 @@ func (p clusterPatcher) hasPatches() bool {
 func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.Proxy, req *model.PushRequest,
 	cp clusterPatcher,
 ) []*cluster.Cluster {
+	var services []*model.Service
 	clusters := make([]*cluster.Cluster, 0)
 	cb := NewClusterBuilder(proxy, req, nil)
 
-	for _, service := range proxy.SidecarScope.Services() {
+	enabled, ok := proxy.Metadata.ProxyConfig.ProxyMetadata["ISTIO_META_XCP_FILTER_EAST_WEST_GATEWAY_CLUSTER_CONFIG"]
+
+	/*
+		if PILOT_FILTER_EAST_WEST_GATEWAY_CLUSTER_CONFIG is enabled, we look at virtual services attached to
+		autopassthrough gateway, else we fallback to default behavior
+	*/
+
+	services = proxy.SidecarScope.Services()
+	if features.FilterEastWestGatewayClusterConfig && ok && enabled == "true" && proxy.Type == model.Router {
+		services = req.Push.GatewayServices(proxy)
+		// when there's no virtual service present, we throw an error and fallback to default behavior
+		if len(services) == 0 {
+			log.Errorf("no virtual service found for autopassthrough gateway proxy id: %s, when FilterEastWestGatewayClusterConfig is enabled"+
+				" and proxy metadata contains ISTIO_META_XCP_FILTER_EAST_WEST_GATEWAY_CLUSTER_CONFIG", proxy.ID)
+			services = proxy.SidecarScope.Services()
+		}
+	}
+
+	for _, service := range services {
 		if service.MeshExternal {
 			continue
 		}

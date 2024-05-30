@@ -25,6 +25,9 @@ import (
 )
 
 var (
+	FilterEastWestGatewayClusterConfig = env.RegisterBoolVar("PILOT_XCP_FILTER_EAST_WEST_GATEWAY_CLUSTER_CONFIG", false,
+		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to AUTO_PASSTHROUGH gateway").Get()
+
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	HTTP10 = env.Register(
 		"PILOT_HTTP10",
