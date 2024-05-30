@@ -604,7 +604,18 @@ func DetectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) b
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	operatorManageWebhooks := operatorManageWebhooks(iop)
-	return !operatorManageWebhooks && (!exists || isDefaultInstallation)
+	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
+		if !isDefaultInstallation {
+			// For any revision except `default`, we do not create default tag for istio injection.
+			// This change is done to not treat a revisioned istiod to be used for namespaces with
+			// istio-injection=enabled or istio.io/rev=default label in absence of `default` istio install.
+			// Ref: https://github.com/tetrateio/xcp/issues/2929
+			scope.Info("skip creating default revision tag for non `default` revision istiod")
+			return false
+		}
+		return true
+	}
+	return false
 }
 
 func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
