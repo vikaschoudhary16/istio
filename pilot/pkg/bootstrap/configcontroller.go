@@ -349,9 +349,10 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 	opts := crdclient.Option{
-		Revision:     args.Revision,
-		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
-		Identifier:   "crd-controller",
+		Revision:           args.Revision,
+		DomainSuffix:       args.RegistryOptions.KubeOptions.DomainSuffix,
+		DiscoveryRevisions: args.DiscoveryRevisions,
+		Identifier:         "crd-controller",
 	}
 	if args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter != nil {
 		opts.NamespacesFilter = args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter.Filter

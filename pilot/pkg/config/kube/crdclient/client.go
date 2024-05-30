@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages")
@@ -67,6 +68,9 @@ type Client struct {
 
 	// revision for this control plane instance. We will only read configs that match this revision.
 	revision string
+
+	// discoveryRevisions provides a set of revisions for which this control plane instance can read configs.
+	discoveryRevisions sets.Set[string]
 
 	// kinds keeps track of all cache handlers for known types
 	kinds   map[config.GroupVersionKind]kclient.Untyped
@@ -88,11 +92,12 @@ type Client struct {
 }
 
 type Option struct {
-	Revision         string
-	DomainSuffix     string
-	Identifier       string
-	NamespacesFilter func(obj interface{}) bool
-	FiltersByGVK     map[config.GroupVersionKind]kubetypes.Filter
+	Revision           string
+	DomainSuffix       string
+	Identifier         string
+	NamespacesFilter   func(obj interface{}) bool
+	FiltersByGVK       map[config.GroupVersionKind]kubetypes.Filter
+	DiscoveryRevisions sets.Set[string]
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -113,18 +118,19 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		schemasByCRDName[name] = s
 	}
 	out := &Client{
-		domainSuffix:     opts.DomainSuffix,
-		schemas:          schemas,
-		schemasByCRDName: schemasByCRDName,
-		revision:         opts.Revision,
-		queue:            queue.NewQueue(1 * time.Second),
-		started:          atomic.NewBool(false),
-		kinds:            map[config.GroupVersionKind]kclient.Untyped{},
-		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
-		client:           client,
-		logger:           scope.WithLabels("controller", opts.Identifier),
-		namespacesFilter: opts.NamespacesFilter,
-		filtersByGVK:     opts.FiltersByGVK,
+		domainSuffix:       opts.DomainSuffix,
+		schemas:            schemas,
+		schemasByCRDName:   schemasByCRDName,
+		revision:           opts.Revision,
+		queue:              queue.NewQueue(1 * time.Second),
+		started:            atomic.NewBool(false),
+		kinds:              map[config.GroupVersionKind]kclient.Untyped{},
+		handlers:           map[config.GroupVersionKind][]model.EventHandler{},
+		client:             client,
+		discoveryRevisions: opts.DiscoveryRevisions,
+		logger:             scope.WithLabels("controller", opts.Identifier),
+		namespacesFilter:   opts.NamespacesFilter,
+		filtersByGVK:       opts.FiltersByGVK,
 	}
 
 	for _, s := range out.schemas.All() {
@@ -353,7 +359,10 @@ func (cl *Client) addCRD(name string) {
 		if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
 			return false
 		}
-		return config.LabelsInRevision(t.(controllers.Object).GetLabels(), cl.revision)
+		if cl.discoveryRevisions == nil && cl.revision != "" {
+			cl.discoveryRevisions = sets.Set[string]{}.Insert(cl.revision)
+		}
+		return config.LabelsInRevisions(t.(controllers.Object).GetLabels(), cl.discoveryRevisions)
 	}
 	var kc kclient.Untyped
 	if s.IsBuiltin() {
