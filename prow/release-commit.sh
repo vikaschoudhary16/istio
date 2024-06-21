@@ -115,7 +115,9 @@ if [[ -z "${DRY_RUN:-}" ]]; then
 
   [[ "${PUBLISH_GCS:-}" != "0" && "${PUBLISH_GCS_ALIASES:-}" != "0" ]] && PUBLISH_OPTIONS+=(--gcsaliases "${NEXT_VERSION}-dev")
 
-  [[ "${PUBLISH_DOCKER:-}" != "0" ]] && PUBLISH_OPTIONS+=(--dockerhub "${DOCKER_HUB}" --dockertags "${VERSION},${NEXT_VERSION}-dev")
+  [[ "${PUBLISH_DOCKER:-}" != "0" ]] && PUBLISH_OPTIONS+=(--dockerhub "${DOCKER_HUB}" --dockertags "${VERSION}")
+
+  [[ "${PUBLISH_DOCKER:-}" != "0" && "${PUBLISH_GCS_ALIASES:-}" != "0" ]] && PUBLISH_OPTIONS+=(--dockertags "${NEXT_VERSION}-dev")
 
   release-builder publish --release "${WORK_DIR}/out" "${PUBLISH_OPTIONS[@]}"
 fi
