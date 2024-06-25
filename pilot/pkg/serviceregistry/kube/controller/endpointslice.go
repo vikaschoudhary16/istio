@@ -414,6 +414,25 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 }
 
 func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace string, event model.Event) {
+	// Handle external address update for NodePort services whose external
+	// traffic policy is set to Local.
+	// We need to call a separate for loop to prevent blocking due to locks
+	// called by nested functions.
+	for _, hostname := range hostnames {
+		svc := esc.c.GetService(hostname)
+		if svc != nil && len(svc.Attributes.ClusterExternalPorts) > 0 &&
+			svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal {
+			if esc.c.updateServiceNodePortAddresses(svc) {
+				esc.c.opts.XDSUpdater.SvcUpdate(
+					model.ShardKeyFromRegistry(esc.c),
+					string(svc.Hostname),
+					svc.Attributes.Namespace,
+					event,
+				)
+			}
+		}
+	}
+
 	shard := model.ShardKeyFromRegistry(esc.c)
 	// Even though we just read from the cache, we need the full lock to ensure pushEDS
 	// runs sequentially when `EnableK8SServiceSelectWorkloadEntries` is enabled. Otherwise,
@@ -432,20 +451,6 @@ func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace str
 			} else {
 				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/ has not been populated",
 					hostname)
-			}
-
-			// Handle external address update for NodePort services whose external
-			// traffic policy is set to Local.
-			if svc != nil && len(svc.Attributes.ClusterExternalPorts) > 0 &&
-				svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal {
-				if esc.c.updateServiceNodePortAddresses(svc) {
-					esc.c.opts.XDSUpdater.SvcUpdate(
-						model.ShardKeyFromRegistry(esc.c),
-						string(svc.Hostname),
-						svc.Attributes.Namespace,
-						event,
-					)
-				}
 			}
 		}
 
