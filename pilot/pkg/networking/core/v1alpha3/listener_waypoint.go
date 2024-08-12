@@ -177,6 +177,28 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 				continue
 			}
 			portString := fmt.Sprintf("%d", port.Port)
+			vss := getConfigsForHost(lb.node.ConfigNamespace, svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+
+			if len(vss) > 1 {
+				log.Warnf("multiple virtual services for one service: %v", svc.Hostname)
+			}
+			var vs config.Config
+			tcpClusterName := ""
+
+			if len(vss) != 0 {
+				vs = vss[0]
+
+				for _, tls := range vs.Spec.(*networking.VirtualService).GetTls() {
+					for _, dst := range tls.GetRoute() {
+						hostname := host.Name(dst.GetDestination().GetHost())
+						d := dst.GetDestination()
+						tcpClusterName = lb.GetDestinationCluster(d, lb.serviceForHostname(hostname), port.Port)
+						break
+					}
+					break
+				}
+			}
+
 			cc := inboundChainConfig{
 				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
 				port: model.ServiceInstancePort{
@@ -185,6 +207,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 				},
 				bind:  "0.0.0.0",
 				hbone: true,
+			}
+			log.Infof("tcpClusterName: %s", tcpClusterName)
+			if tcpClusterName != "" {
+				cc.clusterName = tcpClusterName
 			}
 			name := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "", svc.Hostname, port.Port)
 			tcpName := name + "-tcp"
@@ -647,6 +673,7 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	log.Infof("GetDestinationCluster: deest:%v, svc: %v, listenerpot: %v", destination, service, listenerPort)
 	dir, subset, port := model.TrafficDirectionInboundVIP, "http", listenerPort
 	if destination.Subset != "" {
 		subset += "/" + destination.Subset

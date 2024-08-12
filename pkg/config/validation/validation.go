@@ -2828,7 +2828,9 @@ func validateSniHost(sniHost string, context *networking.VirtualService) (errs V
 		if sniHostname.SubsetOf(host.Name(hostname)) {
 			return
 		}
+		return
 	}
+
 	return appendValidation(errs, fmt.Errorf("SNI host %q is not a compatible subset of any of the virtual service hosts: [%s]",
 		sniHost, strings.Join(context.Hosts, ", ")))
 }
